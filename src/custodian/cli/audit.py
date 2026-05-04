@@ -104,6 +104,13 @@ def main():
                         help="Disable ANSI color output")
     parser.add_argument("--skip-deprecated", action="store_true",
                         help="Skip detectors marked deprecated (delegated to Ruff/Semgrep/ty)")
+    parser.add_argument("--enable-coverage", action="store_true",
+                        help="Override config to enable the coverage adapter for this run. "
+                             "Used by orchestrators (e.g. OperationsCenter dispatch) that "
+                             "produce a coverage.json from a managed audit.")
+    parser.add_argument("--coverage-json", metavar="PATH",
+                        help="With --enable-coverage, point the adapter at this coverage.json "
+                             "instead of the configured default.")
     args = parser.parse_args()
 
     if args.no_color:
@@ -122,6 +129,8 @@ def main():
         only=only,
         min_severity=args.min_severity,
         skip_deprecated=getattr(args, "skip_deprecated", False),
+        enable_coverage=args.enable_coverage,
+        coverage_json_path=args.coverage_json,
     )
 
     if args.json:

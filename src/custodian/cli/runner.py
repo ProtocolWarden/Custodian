@@ -43,6 +43,8 @@ def run_repo_audit(
     only: set[str] | None = None,
     min_severity: str | None = None,
     skip_deprecated: bool = False,
+    enable_coverage: bool = False,
+    coverage_json_path: str | None = None,
 ) -> AuditResult:
     """Drive one repo through the audit pipeline.
 
@@ -54,11 +56,27 @@ def run_repo_audit(
                       Accepted values: ``"high"``, ``"medium"``, ``"low"``.
                       ``"high"`` runs only HIGH detectors; ``"medium"`` runs HIGH
                       and MEDIUM; ``"low"`` (the default) runs all.
+        enable_coverage: Override the config to enable the coverage adapter
+                      for this run only (default: respect config). Used by
+                      orchestrators (e.g. OperationsCenter dispatch) that
+                      want to opt in coverage analysis without modifying the
+                      repo's ``.custodian.yaml``.
+        coverage_json_path: When ``enable_coverage`` is True, override the
+                      adapter's ``json_path`` config to point at this file.
 
     Returns AuditResult so callers can decide on JSON, human, or aggregator
     output formatting.
     """
     config = load_config(repo_root)
+    if enable_coverage:
+        # Shallow-merge the coverage adapter override into the loaded config.
+        tools_cfg = dict(config.get("tools") or {})
+        cov_cfg = dict(tools_cfg.get("coverage") or {})
+        cov_cfg["enabled"] = True
+        if coverage_json_path is not None:
+            cov_cfg["json_path"] = coverage_json_path
+        tools_cfg["coverage"] = cov_cfg
+        config["tools"] = tools_cfg
     sys.path.insert(0, str(repo_root))
     # Flush any _custodian.* modules cached from a previous repo so this
     # repo's plugin package is imported fresh.

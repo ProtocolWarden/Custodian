@@ -146,6 +146,31 @@ class TestCoverageAdapterExclusions:
         assert "src/foo/bar.py" in cv1_paths
         assert not any("skipped" in p for p in cv1_paths)
 
+    def test_runner_enable_coverage_override(self, tmp_path: Path):
+        """run_repo_audit(..., enable_coverage=True) opts in the adapter
+        even when the repo's .custodian.yaml has no coverage block."""
+        from custodian.cli.runner import run_repo_audit
+
+        # Minimal repo: empty .custodian.yaml + a src/ with one module + coverage.json
+        (tmp_path / ".custodian.yaml").write_text("repo_key: x\nsrc_root: src\ntests_root: tests\n")
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "foo.py").write_text("def hello(): pass\n")
+        (tmp_path / "tests").mkdir()
+        cov_path = tmp_path / "coverage.json"
+        cov_path.write_text(json.dumps(_payload({
+            "src/foo.py": {
+                "summary": {"num_statements": 5, "covered_lines": 0, "percent_covered": 0.0},
+            },
+        })))
+        result = run_repo_audit(
+            tmp_path,
+            enable_coverage=True,
+            coverage_json_path=str(cov_path),
+        )
+        # Coverage findings appear under the "COVERAGE" pattern key with non-zero count.
+        assert "COVERAGE" in result.patterns
+        assert result.patterns["COVERAGE"]["count"] >= 1
+
     def test_empty_file_skipped(self, tmp_path: Path):
         _write_coverage_json(tmp_path, _payload({
             "src/foo/__init__.py": {
