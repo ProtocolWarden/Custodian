@@ -38,6 +38,26 @@ T5  ``@pytest.mark.parametrize`` with exactly one test case — when a
     the parametrize wrapper adds indirection with no benefit; the test
     should be a regular function with the value inlined.  Only flags
     literal lists; variable-length argument lists (``[*cases]``) are skipped.
+
+T6  Src module is never imported by any test file. Module-level companion
+    to T1 (which works at the symbol level). Builds the dotted name of
+    every src module (e.g. ``foo.bar``), collects every ``import X`` /
+    ``from X import y`` reference from tests with prefix expansion, flags
+    any module whose dotted path is never seen. Skips ``__init__.py`` and
+    dunder files. Excludes via ``audit.exclude_paths.T6``.
+
+T7  Src module has no parallel test file. For ``src/foo/bar.py``, accepts
+    ``tests/test_bar.py``, ``tests/foo/test_bar.py``, or any of the same
+    under ``tests/{unit,integration,contract,regression}/``. Skips
+    ``__init__.py`` and dunders. Custom test sub-dirs via
+    ``audit.t7_test_dirs``. Excludes via ``audit.exclude_paths.T7``.
+
+T8  Test file imports nothing from any src package. Derives src package
+    names from ``src_root`` direct children, then flags ``test_*.py`` files
+    whose imports never reach any of those packages — they're dangling
+    tests that don't exercise the codebase under audit. Skips
+    ``conftest.py`` and ``__init__.py``. Custom exempt files via
+    ``audit.t8_exempt``.
 """
 from __future__ import annotations
 
@@ -64,6 +84,12 @@ def build_test_shape_detectors() -> list[Detector]:
                  detect_t4, LOW),
         Detector("T5", "pytest.mark.parametrize with a single test case — should be a plain test", "open",
                  detect_t5, LOW),
+        Detector("T6", "src module is never imported by any test file", "open",
+                 detect_t6, LOW, _NEEDS_TF),
+        Detector("T7", "src module has no parallel test file under tests/", "open",
+                 detect_t7, LOW),
+        Detector("T8", "test file imports nothing from any src package", "open",
+                 detect_t8, LOW),
     ]
 
 
@@ -418,4 +444,249 @@ def detect_t5(context: AuditContext) -> DetectorResult:
                         f"{rel}:{dec.lineno}: {node.name} — parametrize with 1 case; inline the value"
                     )
 
+    return DetectorResult(count=count, samples=samples)
+
+
+# ── T6 ────────────────────────────────────────────────────────────────────────
+
+
+def _module_dotted_name(path: Path, src_root: Path) -> str | None:
+    """Convert ``src/foo/bar.py`` to ``foo.bar``. Returns None for __init__/dunder.
+
+    ``__init__.py`` is excluded from T6 because the package is implicitly
+    exercised whenever any submodule is imported by tests — flagging it
+    separately produces noisy duplicate findings alongside its submodules.
+    """
+    try:
+        rel = path.relative_to(src_root)
+    except ValueError:
+        return None
+    if rel.name == "__init__.py":
+        return None
+    if rel.name.startswith("__") and rel.name.endswith("__.py"):
+        return None
+    parts = list(rel.parts[:-1]) + [rel.stem]
+    return ".".join(parts)
+
+
+def _collect_test_imports(tests_forest) -> set[str]:
+    """Every dotted module name referenced via import/from-import in tests.
+
+    For ``import a.b.c`` → emits ``a``, ``a.b``, ``a.b.c``.
+    For ``from a.b import x`` → emits ``a``, ``a.b``, ``a.b.x``.
+    Relative imports are resolved best-effort (skipped — they can't reach src).
+    """
+    imported: set[str] = set()
+
+    def _add_with_prefixes(dotted: str) -> None:
+        parts = dotted.split(".")
+        for i in range(1, len(parts) + 1):
+            imported.add(".".join(parts[:i]))
+
+    for _path, tree, _src in tests_forest.items():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name:
+                        _add_with_prefixes(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                if node.level and node.level > 0:
+                    continue  # relative import — ignore for src reachability
+                if not node.module:
+                    continue
+                _add_with_prefixes(node.module)
+                for alias in node.names:
+                    if alias.name and alias.name != "*":
+                        _add_with_prefixes(f"{node.module}.{alias.name}")
+    return imported
+
+
+def detect_t6(context: AuditContext) -> DetectorResult:
+    """Flag src modules whose dotted name is never imported by any test file.
+
+    Complements T1 (per-symbol coverage) at the file level. A module with rich
+    re-exports may pass T1 (every symbol name appears somewhere) yet be an
+    import-time blind spot — T6 catches that.
+
+    Skips ``__init__.py``, dunder files, and paths matched by
+    ``audit.exclude_paths.T6`` globs.
+    """
+    if (context.graph is None
+            or context.graph.ast_forest is None
+            or context.graph.tests_forest is None):
+        return DetectorResult(count=0, samples=[])
+
+    import fnmatch as _fnmatch
+    audit_cfg = context.config.get("audit") or {}
+    excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("T6") or [])
+
+    imported = _collect_test_imports(context.graph.tests_forest)
+
+    samples: list[str] = []
+    count = 0
+    for path, _tree, _src in context.graph.ast_forest.items():
+        rel = path.relative_to(context.repo_root)
+        rel_posix = rel.as_posix()
+        if excludes and any(_fnmatch.fnmatch(rel_posix, g) for g in excludes):
+            continue
+        dotted = _module_dotted_name(path, context.src_root)
+        if dotted is None:
+            continue
+        if dotted in imported:
+            continue
+        count += 1
+        if len(samples) < _MAX_SAMPLES:
+            samples.append(f"{rel}: module {dotted!r} not imported by any test file")
+    return DetectorResult(count=count, samples=samples)
+
+
+# ── T7 ────────────────────────────────────────────────────────────────────────
+
+
+_DEFAULT_T7_TEST_DIR_HINTS = ("", "unit", "integration", "contract", "regression")
+
+
+def _t7_candidate_paths(rel_src: Path, tests_root: Path, hints: tuple[str, ...]) -> list[Path]:
+    """Build the list of acceptable parallel test file locations for one src file.
+
+    For ``foo/bar.py`` → ``tests/test_bar.py``, ``tests/foo/test_bar.py``,
+    ``tests/unit/test_bar.py``, ``tests/unit/foo/test_bar.py``, etc.
+    """
+    test_name = f"test_{rel_src.stem}.py"
+    sub_dirs = list(rel_src.parts[:-1])  # everything except the file itself
+    candidates: list[Path] = []
+    for hint in hints:
+        base = tests_root if not hint else tests_root / hint
+        # Flat: tests/[hint]/test_bar.py
+        candidates.append(base / test_name)
+        # Mirrored: tests/[hint]/foo/test_bar.py
+        if sub_dirs:
+            candidates.append(base.joinpath(*sub_dirs) / test_name)
+    return candidates
+
+
+def detect_t7(context: AuditContext) -> DetectorResult:
+    """Flag src modules with no parallel ``test_<name>.py`` under ``tests/``.
+
+    Convention check. For ``src/foo/bar.py``, accepts any of:
+        ``tests/test_bar.py``                ``tests/foo/test_bar.py``
+        ``tests/unit/test_bar.py``           ``tests/unit/foo/test_bar.py``
+        ``tests/integration/test_bar.py``    ``tests/integration/foo/test_bar.py``
+        (etc., per ``audit.t7_test_dirs``)
+
+    Skips ``__init__.py`` and dunder files. Excludes via
+    ``audit.exclude_paths.T7``. Custom test sub-dirs via ``audit.t7_test_dirs``
+    (defaults: unit, integration, contract, regression).
+    """
+    if not context.src_root.is_dir():
+        return DetectorResult(count=0, samples=[])
+
+    import fnmatch as _fnmatch
+    audit_cfg = context.config.get("audit") or {}
+    excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("T7") or [])
+    extra_dirs: list[str] = list(audit_cfg.get("t7_test_dirs") or [])
+    hints = _DEFAULT_T7_TEST_DIR_HINTS + tuple(extra_dirs)
+
+    samples: list[str] = []
+    count = 0
+    for path in sorted(context.src_root.rglob("*.py")):
+        if not path.is_file():
+            continue
+        if path.name == "__init__.py":
+            continue
+        if path.name.startswith("__") and path.name.endswith("__.py"):
+            continue
+        rel = path.relative_to(context.repo_root)
+        rel_posix = rel.as_posix()
+        if excludes and any(_fnmatch.fnmatch(rel_posix, g) for g in excludes):
+            continue
+        rel_src = path.relative_to(context.src_root)
+        candidates = _t7_candidate_paths(rel_src, context.tests_root, hints)
+        if any(c.is_file() for c in candidates):
+            continue
+        count += 1
+        if len(samples) < _MAX_SAMPLES:
+            expected = (context.tests_root / "unit" / rel_src.parent / f"test_{rel_src.stem}.py")
+            samples.append(
+                f"{rel}: no parallel test (expected e.g. {expected.relative_to(context.repo_root)})"
+            )
+    return DetectorResult(count=count, samples=samples)
+
+
+# ── T8 ────────────────────────────────────────────────────────────────────────
+
+
+def _src_top_level_packages(src_root: Path) -> set[str]:
+    """Names of directories directly under src_root that look like Python packages.
+
+    Either a dir with ``__init__.py`` or a single .py file at the top level
+    (treated as a flat module).
+    """
+    out: set[str] = set()
+    if not src_root.is_dir():
+        return out
+    for child in src_root.iterdir():
+        if child.is_dir() and (child / "__init__.py").is_file():
+            out.add(child.name)
+        elif child.is_file() and child.suffix == ".py" and child.stem != "__init__":
+            out.add(child.stem)
+    return out
+
+
+def detect_t8(context: AuditContext) -> DetectorResult:
+    """Flag test files whose imports never reach any src package.
+
+    A test that imports only stdlib + helpers and never touches a top-level
+    src package is dangling — it doesn't exercise the codebase under audit.
+    Excludes ``conftest.py`` (legitimately may have no src imports) and
+    ``__init__.py``. Configurable extra exempt files via ``audit.t8_exempt``.
+    """
+    if not context.tests_root.is_dir():
+        return DetectorResult(count=0, samples=[])
+
+    import fnmatch as _fnmatch
+    audit_cfg = context.config.get("audit") or {}
+    excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("T8") or [])
+    extra_exempt: list[str] = list(audit_cfg.get("t8_exempt") or [])
+
+    src_packages = _src_top_level_packages(context.src_root)
+    if not src_packages:
+        return DetectorResult(count=0, samples=[])
+
+    samples: list[str] = []
+    count = 0
+    for path, tree in _parse_test_files(context.tests_root):
+        if path.name == "conftest.py" or path.name == "__init__.py":
+            continue
+        rel = path.relative_to(context.repo_root)
+        rel_posix = rel.as_posix()
+        if excludes and any(_fnmatch.fnmatch(rel_posix, g) for g in excludes):
+            continue
+        if extra_exempt and any(_fnmatch.fnmatch(rel_posix, g) for g in extra_exempt):
+            continue
+
+        touches_src = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    head = (alias.name or "").split(".", 1)[0]
+                    if head in src_packages:
+                        touches_src = True
+                        break
+            elif isinstance(node, ast.ImportFrom):
+                if node.level and node.level > 0:
+                    continue
+                if not node.module:
+                    continue
+                head = node.module.split(".", 1)[0]
+                if head in src_packages or head == "src":
+                    touches_src = True
+            if touches_src:
+                break
+
+        if touches_src:
+            continue
+        count += 1
+        if len(samples) < _MAX_SAMPLES:
+            samples.append(f"{rel}: imports nothing from src packages {sorted(src_packages)}")
     return DetectorResult(count=count, samples=samples)

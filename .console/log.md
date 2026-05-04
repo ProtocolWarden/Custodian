@@ -3,9 +3,16 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+## Stop Points
+
+- T6/T7/T8 — test-presence detector trio (2026-05-04, on `main`): Three new T-class detectors complementing T1 (per-symbol coverage) at the file level. **T6** (untested module): walks src ast_forest, builds dotted module names (skipping `__init__.py` and dunders), collects every `import X` / `from X import y` reference from tests_forest with prefix expansion (`from foo.bar` → marks `foo`, `foo.bar`, `foo.bar.y` as imported), flags any src module whose dotted path is never imported. Excludes via `audit.exclude_paths.T6`. **T7** (parallel test file): for each `src/foo/bar.py`, accepts any of `tests/test_bar.py`, `tests/foo/test_bar.py`, `tests/{unit,integration,contract,regression}/[foo/]test_bar.py` (extensible via `audit.t7_test_dirs`). Skips `__init__.py` and dunders. Excludes via `audit.exclude_paths.T7`. **T8** (dangling test): derives src top-level package names from `src_root` children (dirs with `__init__.py` or top-level `.py` files), walks every `tests/test_*.py` AST, flags files whose imports include zero references to any src package. Skips `conftest.py` + `__init__.py`. Returns 0 if no src packages discoverable. Custom exempt globs via `audit.t8_exempt`. All three registered in `build_test_shape_detectors()`. 20 new tests; full Custodian suite 773 pass.
+
 ## Recent Decisions
 
 | Decision | Rationale | Date |
+| T6 skips `__init__.py` (no separate package finding) | A package's `__init__.py` is implicitly exercised whenever any submodule is imported; flagging it separately would always duplicate findings against the submodule. T7 already skips `__init__.py` for the same reason. | 2026-05-04 |
+| T7 default test-dir hints: unit, integration, contract, regression | Matches the dir layouts used in VF + OpsCenter (the two largest consumers). Custom dirs configurable via `audit.t7_test_dirs`. | 2026-05-04 |
+| T8 derives src packages from `src_root` rather than reading `pyproject.toml` | Repo-agnostic — works for any layout that follows the `src/<package>/__init__.py` convention without parsing per-repo packaging metadata. | 2026-05-04 |
 | C43 detector added: json.dump() without ensure_ascii=False | LOW severity; 9 tests; file-write sibling of C41 (json.dumps); VF runners/audio_enhance/pipeline.py fixed; 753 tests total | 2026-05-03 |
 | C42 detector added: warnings.warn() without stacklevel= | LOW severity; 10 tests; catches calls where the warning points to the helper rather than the real caller; 744 tests total | 2026-05-03 |
 | VF C15 tech debt cleared: 163 logger f-strings migrated | AST-based auto-fixer with byte-offset-aware handling for emoji; all 52 VF files fixed; blanket exclusion removed | 2026-05-03 |
