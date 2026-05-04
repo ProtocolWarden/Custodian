@@ -26,7 +26,7 @@ Supports two schemas:
       ruff: {enabled: true}
       semgrep: {enabled: true, configs: [...]}
       ty: {enabled: true}
-      vulture: {enabled: false, min_confidence: 60}
+      vulture: {enabled: true, min_confidence: 80}
     policy:
       min_severity: "medium"
       ignore_rules: [...]
@@ -101,7 +101,7 @@ def _normalize_v0(raw: dict) -> dict:
             "ruff":    {"enabled": True},
             "semgrep": {"enabled": True},
             "ty":      {"enabled": True},
-            "vulture": {"enabled": False},
+            "vulture": {"enabled": True, "min_confidence": 80},
         },
         "policy": {
             "min_severity": audit.get("min_severity"),
@@ -143,7 +143,7 @@ def migrate_v0_to_v1(raw: dict) -> dict:
                    if semgrep_cfg.get("configs") else {}),
             },
             "ty":      {"enabled": True},
-            "vulture": {"enabled": False, "min_confidence": 60},
+            "vulture": {"enabled": True, "min_confidence": 80},
         },
         "policy": {
             "min_severity": audit.get("min_severity", "low"),

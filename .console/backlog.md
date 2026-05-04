@@ -6,6 +6,8 @@ _(none)_
 
 ## Recent
 
+- [x] **Vulture soft-flip + coverage adapter (2026-05-04, on main)**: Vulture default flipped ON with `min_confidence=80` (high-confidence dead code only). New `coverage` adapter at `src/custodian/adapters/coverage.py` ingests externally-produced `coverage.json` and emits `CV1`/`CV2`/`CV3` findings (module unexecuted / function unexecuted / below min coverage). Default OFF in `custodian` CLI — opt-in via `tools.coverage` block. 12 new tests; full Custodian suite 785 pass.
+
 - [x] **T6/T7/T8 — test-presence detector trio (2026-05-04, on main)**: Three new T-class detectors. T6 = src module never imported by any test (file-level companion to T1's symbol-level coverage). T7 = src module has no parallel `test_<name>.py` (convention enforcement; accepts `tests/{unit,integration,contract,regression}/[mirror/]test_<name>.py`). T8 = test file imports nothing from any src package (dangling test detection). All three configurable via `audit.exclude_paths.T6/T7/T8`, `audit.t7_test_dirs`, `audit.t8_exempt`. 20 new tests; full Custodian suite 773 pass.
 
 ## Refactor — Master Phase List ✅ ALL 15 PHASES COMPLETE

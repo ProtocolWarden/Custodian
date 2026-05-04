@@ -68,7 +68,10 @@ class TestNormalizeV0:
     def test_tools_defaults(self):
         n = _normalize_v0({})
         assert n["tools"]["ruff"]["enabled"] is True
-        assert n["tools"]["vulture"]["enabled"] is False
+        # Vulture soft-flipped ON 2026-05-04 with min_confidence=80
+        # (high-confidence dead code only). Repos can opt out via .custodian.yaml.
+        assert n["tools"]["vulture"]["enabled"] is True
+        assert n["tools"]["vulture"]["min_confidence"] == 80
 
 
 class TestMigrateV0ToV1:

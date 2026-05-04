@@ -43,4 +43,16 @@ def get_enabled_adapters(config: dict) -> list[ToolAdapter]:
         from custodian.adapters.semgrep import SemgrepAdapter
         result.append(SemgrepAdapter())
 
+    # Coverage adapter — default OFF. Opt-in by repos that produce a
+    # coverage.json (typically via their own end-to-end audit pipeline).
+    coverage_cfg = tools_cfg.get("coverage")
+    if coverage_cfg:
+        cfg_dict = coverage_cfg if isinstance(coverage_cfg, dict) else {}
+        from custodian.adapters.coverage import CoverageAdapter
+        result.append(CoverageAdapter(
+            json_path=cfg_dict.get("json_path", "coverage.json"),
+            min_coverage=cfg_dict.get("min_coverage"),
+            exclude_paths=cfg_dict.get("exclude_paths") or [],
+        ))
+
     return result
