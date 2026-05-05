@@ -688,5 +688,9 @@ def detect_t8(context: AuditContext) -> DetectorResult:
             continue
         count += 1
         if len(samples) < _MAX_SAMPLES:
-            samples.append(f"{rel}: imports nothing from src packages {sorted(src_packages)}")
+            pkgs = sorted(src_packages)
+            preview = pkgs[:3]
+            extra = len(pkgs) - len(preview)
+            pkg_summary = ", ".join(preview) + (f" (+{extra} more)" if extra > 0 else "")
+            samples.append(f"{rel}: no imports from any src package ({pkg_summary})")
     return DetectorResult(count=count, samples=samples)
