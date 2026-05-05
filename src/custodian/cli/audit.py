@@ -102,8 +102,17 @@ def main():
                         help="Print all available detector IDs and descriptions, then exit")
     parser.add_argument("--no-color", action="store_true",
                         help="Disable ANSI color output")
+    # Deprecated detectors (those with a Ruff/Vulture/ty equivalent) are
+    # SKIPPED BY DEFAULT since 2026-05-05. Pass --include-deprecated to
+    # run them alongside their adapter equivalents — useful for parity
+    # audits during migration. The legacy --skip-deprecated flag is
+    # accepted as a no-op for backward compatibility.
+    parser.add_argument("--include-deprecated", action="store_true",
+                        help="Run deprecated detectors alongside their adapter "
+                             "equivalents (Ruff/Vulture/ty). Default: skip them.")
     parser.add_argument("--skip-deprecated", action="store_true",
-                        help="Skip detectors marked deprecated (delegated to Ruff/Semgrep/ty)")
+                        help="(Legacy, no-op since 2026-05-05; deprecated detectors "
+                             "are skipped by default — use --include-deprecated to override.)")
     parser.add_argument("--enable-coverage", action="store_true",
                         help="Override config to enable the coverage adapter for this run. "
                              "Used by orchestrators (e.g. OperationsCenter dispatch) that "
@@ -124,11 +133,12 @@ def main():
     if args.only:
         only = {c.strip() for c in args.only.split(",") if c.strip()}
 
+    # New default: skip deprecated. --include-deprecated flips it back on.
     result = run_repo_audit(
         args.repo,
         only=only,
         min_severity=args.min_severity,
-        skip_deprecated=getattr(args, "skip_deprecated", False),
+        skip_deprecated=not getattr(args, "include_deprecated", False),
         enable_coverage=args.enable_coverage,
         coverage_json_path=args.coverage_json,
     )

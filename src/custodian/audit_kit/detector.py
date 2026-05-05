@@ -65,9 +65,12 @@ class Detector:
     detect: Callable[["AuditContext"], "DetectorResult"]
     severity: str = field(default=MEDIUM)
     needs: frozenset[str] = field(default_factory=frozenset)
-    # Phase 3+: detectors delegated to an external tool are marked deprecated.
-    # They still run by default for backward compat; pass skip_deprecated=True
-    # to the runner (or --skip-deprecated on the CLI) to omit them.
+    # Detectors that have an equivalent in an external tool (Ruff, Vulture,
+    # ty, Semgrep) are marked deprecated. They are SKIPPED BY DEFAULT
+    # since 2026-05-05 — the principle is "use the tool first, don't
+    # reimplement successful packages." Pass ``skip_deprecated=False``
+    # (or ``--include-deprecated`` on the CLI) to run them alongside their
+    # adapter equivalents — useful for parity audits during migration.
     deprecated: bool = False
     # source tracks where this detector originates:
     #   "builtin"  — Custodian's own AST-based detectors (C, D, S, U, T, G, A, I-class)
@@ -103,7 +106,7 @@ def run_audit(
     detectors: list[Detector],
     *,
     min_severity: str | None = None,
-    skip_deprecated: bool = False,
+    skip_deprecated: bool = True,
 ) -> AuditResult:
     """Run all detectors consistently so repos can compare outputs across runs.
 

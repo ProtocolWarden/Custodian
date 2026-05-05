@@ -8,7 +8,7 @@ import textwrap
 from pathlib import Path
 
 from custodian.audit_kit.detector import AnalysisGraph, AuditContext
-from custodian.audit_kit.code_health import detect_c7, detect_c15, detect_c16, detect_c17, detect_c18
+from custodian.audit_kit.code_health import detect_c15, detect_c16, detect_c17, detect_c18
 from custodian.audit_kit.passes.ast_forest import AstForest
 
 
@@ -38,37 +38,7 @@ def _make_context(tmp_path: Path, src_files: dict[str, str], config: dict | None
     )
 
 
-# ── C7: assert True ───────────────────────────────────────────────────────────
-
-class TestC7:
-    def test_assert_true_flagged(self, tmp_path):
-        ctx = _make_context(tmp_path, {"m.py": """
-            def test_placeholder():
-                assert True
-        """})
-        result = detect_c7(ctx)
-        assert result.count == 1
-
-    def test_assert_false_not_flagged(self, tmp_path):
-        ctx = _make_context(tmp_path, {"m.py": """
-            assert False, "must not reach"
-        """})
-        result = detect_c7(ctx)
-        assert result.count == 0
-
-    def test_assert_expr_not_flagged(self, tmp_path):
-        ctx = _make_context(tmp_path, {"m.py": """
-            assert x == 1
-        """})
-        result = detect_c7(ctx)
-        assert result.count == 0
-
-    def test_exclude_path_suppresses(self, tmp_path):
-        ctx = _make_context(tmp_path, {"m.py": """
-            assert True
-        """}, config={"audit": {"exclude_paths": {"C7": ["src/m.py"]}}})
-        result = detect_c7(ctx)
-        assert result.count == 0
+# C7 (assert True) was retired 2026-05-05 — class TestC7 removed with it.
 
 
 # ── C15: f-string in logger ───────────────────────────────────────────────────

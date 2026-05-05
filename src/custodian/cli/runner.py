@@ -42,7 +42,7 @@ def run_repo_audit(
     *,
     only: set[str] | None = None,
     min_severity: str | None = None,
-    skip_deprecated: bool = False,
+    skip_deprecated: bool = True,
     enable_coverage: bool = False,
     coverage_json_path: str | None = None,
 ) -> AuditResult:

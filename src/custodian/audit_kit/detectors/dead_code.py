@@ -103,33 +103,46 @@ _NEEDS_CG_AND_AST = frozenset({"call_graph", "ast_forest"})
 
 
 def build_dead_code_detectors() -> list[Detector]:
+    """D-class + F-class dead-code detectors.
+
+    Detectors marked ``deprecated=True`` have an equivalent in Vulture
+    (the dead-code adapter, default-on at min_confidence=80) or in ty/mypy.
+    Per the boundary refinement, "use the tool first." Deprecated detectors
+    are skipped by default.
+
+    D2 (unnecessary else after terminal if-branch) and D7 (dead method
+    parameter) were retired entirely 2026-05-05 — high false-positive rate,
+    no canonical tool equivalent worth the maintenance overhead. See
+    docs/design/detector_disposition_matrix.md.
+    """
     return [
-        Detector("D1", "module-level function defined but never called in codebase", "open",
-                 detect_d1, LOW, _NEEDS_CG),
-        Detector("D2", "unnecessary else after terminal if-branch", "open",
-                 detect_d2, LOW, _NEEDS_AST),
-        Detector("D3", "function never returns normally — missing -> NoReturn", "open",
-                 detect_d3, LOW, _NEEDS_AST),
+        # ── KEEP — no tool equivalent ────────────────────────────────────
         Detector("D4", "unreachable code after return/raise/break/continue", "open",
                  detect_d4, MEDIUM, _NEEDS_AST),
-        Detector("D5", "module-level class never referenced in codebase", "open",
-                 detect_d5, LOW, _NEEDS_CG_AND_AST),
         Detector("D6", "class referenced but constructor never called — may be incomplete wiring, not dead code", "open",
                  detect_d6, LOW, _NEEDS_CG_AND_AST),
-        Detector("D7", "method parameter defined but never used in function body", "open",
-                 detect_d7, LOW, _NEEDS_AST),
-        Detector("F1", "dataclass field never accessed as attribute in codebase", "open",
-                 detect_f1, LOW, _NEEDS_CG),
         Detector("F3", "BaseModel field never accessed as attribute in codebase", "open",
                  detect_f3, LOW, _NEEDS_CG),
-        Detector("F2", "private module-level constant defined but never referenced", "open",
-                 detect_f2, LOW, _NEEDS_AST),
-        Detector("D8", "function returns value on some paths but falls through on others (implicit None)", "open",
-                 detect_d8, LOW, _NEEDS_AST),
         Detector("D9", "try/except handler unconditionally re-raises (no-op handler)", "open",
                  detect_d9, LOW, _NEEDS_AST),
         Detector("D10", "async def function that never awaits anything", "open",
                  detect_d10, LOW, _NEEDS_AST),
+        # D3 stays NON-deprecated until ty/mypy is enabled across the major
+        # consumers (currently disabled in OC + VF). When enabled, mark
+        # deprecated=True and let the type checker take over.
+        Detector("D3", "function never returns normally — missing -> NoReturn", "open",
+                 detect_d3, LOW, _NEEDS_AST),
+        # ── DEPRECATED — Vulture covers (default-on, min_confidence=80) ──
+        Detector("D1", "module-level function defined but never called in codebase", "open",
+                 detect_d1, LOW, _NEEDS_CG, deprecated=True),  # Vulture
+        Detector("D5", "module-level class never referenced in codebase", "open",
+                 detect_d5, LOW, _NEEDS_CG_AND_AST, deprecated=True),  # Vulture
+        Detector("D8", "function returns value on some paths but falls through on others (implicit None)", "open",
+                 detect_d8, LOW, _NEEDS_AST, deprecated=True),  # Ruff RET503
+        Detector("F1", "dataclass field never accessed as attribute in codebase", "open",
+                 detect_f1, LOW, _NEEDS_CG, deprecated=True),  # Vulture
+        Detector("F2", "private module-level constant defined but never referenced", "open",
+                 detect_f2, LOW, _NEEDS_AST, deprecated=True),  # Vulture
     ]
 
 
@@ -302,128 +315,6 @@ def detect_d6(context: AuditContext) -> DetectorResult:
 
     return DetectorResult(count=count, samples=samples)
 
-
-# ── D7 ────────────────────────────────────────────────────────────────────────
-
-def _is_stub_body(body: list[ast.stmt]) -> bool:
-    """True if the function body is a stub (pass, ellipsis, raise NotImplementedError, or docstring-only)."""
-    if not body:
-        return True
-    s = body[0]
-    # Pure ellipsis: ...
-    if isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant) and s.value.value is ...:
-        return True
-    # Docstring-only or docstring + ellipsis/pass
-    if isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant) and isinstance(s.value.value, str):
-        rest = body[1:]
-        if not rest:
-            return True
-        if len(rest) == 1:
-            r = rest[0]
-            if isinstance(r, ast.Expr) and isinstance(r.value, ast.Constant) and r.value.value is ...:
-                return True
-            if isinstance(r, ast.Pass):
-                return True
-            if _is_raise_not_implemented(r):
-                return True
-    if len(body) == 1 and isinstance(body[0], ast.Pass):
-        return True
-    # raise NotImplementedError(...) — unimplemented stub
-    if len(body) == 1 and _is_raise_not_implemented(body[0]):
-        return True
-    # return None / bare return — null-object stub
-    if len(body) == 1 and isinstance(body[0], ast.Return):
-        ret = body[0]
-        if ret.value is None or (isinstance(ret.value, ast.Constant) and ret.value.value is None):
-            return True
-    return False
-
-
-def _is_raise_not_implemented(stmt: ast.stmt) -> bool:
-    """True if *stmt* is ``raise NotImplementedError(...)`` or ``raise NotImplementedError``."""
-    if not isinstance(stmt, ast.Raise) or stmt.exc is None:
-        return False
-    exc = stmt.exc
-    # raise NotImplementedError
-    if isinstance(exc, ast.Name) and exc.id == "NotImplementedError":
-        return True
-    # raise NotImplementedError(...)
-    if (isinstance(exc, ast.Call)
-            and isinstance(exc.func, ast.Name)
-            and exc.func.id == "NotImplementedError"):
-        return True
-    return False
-
-
-def detect_d7(context: AuditContext) -> DetectorResult:
-    """Flag function/method parameters that are never referenced in the function body."""
-    if context.graph is None or context.graph.ast_forest is None:
-        return DetectorResult(count=0, samples=[])
-
-    from custodian.audit_kit.code_health import _glob_to_regex
-    audit_cfg: dict = context.config.get("audit") or {}
-    d7_globs: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("D7") or [])
-    d7_patterns = [_glob_to_regex(g) for g in d7_globs]
-
-    samples: list[str] = []
-    count = 0
-
-    for path, tree, _src in context.graph.ast_forest.items():
-        rel = path.relative_to(context.repo_root)
-        if d7_patterns and any(p.match(rel.as_posix()) for p in d7_patterns):
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            # Skip stubs: abstractmethod, overload, override decorators
-            if _has_decorator(node, "abstractmethod", "overload", "override"):
-                continue
-            # Skip stub bodies
-            if _is_stub_body(node.body):
-                continue
-            # Skip dunder methods — params are protocol-required (__exit__, __getitem__, etc.)
-            if node.name.startswith("__") and node.name.endswith("__"):
-                continue
-            # Skip functions with **kwargs (dynamic forwarding pattern)
-            if node.args.kwarg is not None:
-                continue
-            # Collect all regular params (not *args / **kwargs)
-            params = (
-                node.args.posonlyargs
-                + node.args.args
-                + node.args.kwonlyargs
-            )
-            # Filter out self, cls, and underscore-prefixed params
-            checkable = [
-                arg for arg in params
-                if arg.arg not in ("self", "cls") and not arg.arg.startswith("_")
-            ]
-            if not checkable:
-                continue
-            # Collect all Name Load/Del nodes in the function body
-            # del var counts as intentional acknowledgement of the param
-            used_names: set[str] = set()
-            for stmt in node.body:
-                for n in ast.walk(stmt):
-                    if isinstance(n, ast.Name) and isinstance(n.ctx, (ast.Load, ast.Del)):
-                        used_names.add(n.id)
-            src_lines = _src.splitlines()
-            # Flag params not appearing as Name Loads in the body
-            for arg in checkable:
-                if arg.arg not in used_names:
-                    lineno = getattr(arg, "lineno", node.lineno)
-                    # Respect # noqa: ARG002 / # noqa: D7 on the parameter line
-                    line = src_lines[lineno - 1] if 0 < lineno <= len(src_lines) else ""
-                    if "noqa" in line:
-                        continue
-                    count += 1
-                    if len(samples) < _MAX_SAMPLES:
-                        samples.append(
-                            f"{rel}:{lineno}: "
-                            f"{node.name}() — parameter '{arg.arg}' never used"
-                        )
-
-    return DetectorResult(count=count, samples=samples)
 
 
 # ── F1 ────────────────────────────────────────────────────────────────────────
@@ -871,51 +762,6 @@ def _has_return_in_scope(stmts: list[ast.stmt]) -> bool:
                 return True
     return False
 
-
-# ── D2 ────────────────────────────────────────────────────────────────────────
-
-def _dead_else_nodes(stmts: list[ast.stmt]) -> list[ast.If]:
-    """Recursively find ast.If nodes with a dead (redundant) else clause.
-
-    Only flag when the if-body terminates but the else-body does NOT — this
-    catches the guard-clause pattern where the else is pure indentation.
-    When BOTH branches terminate (symmetric if/else), the else is intentional
-    and is not flagged.
-    """
-    hits: list[ast.If] = []
-    for stmt in stmts:
-        if isinstance(stmt, ast.If):
-            if (stmt.orelse
-                    and not isinstance(stmt.orelse[0], ast.If)
-                    and _block_terminates(stmt.body)
-                    and not _block_terminates(stmt.orelse)):
-                hits.append(stmt)
-        for nested in _stmts_of(stmt):
-            hits.extend(_dead_else_nodes(nested))
-    return hits
-
-
-def detect_d2(context: AuditContext) -> DetectorResult:
-    """Flag else clauses that follow an if-body that always exits."""
-    if context.graph is None or context.graph.ast_forest is None:
-        return DetectorResult(count=0, samples=[])
-
-    samples: list[str] = []
-    count = 0
-
-    for path, tree, _src in context.graph.ast_forest.items():
-        rel = path.relative_to(context.repo_root)
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            for hit in _dead_else_nodes(node.body):
-                count += 1
-                if len(samples) < _MAX_SAMPLES:
-                    samples.append(
-                        f"{rel}:{hit.lineno}: {node.name}() — else after terminal if"
-                    )
-
-    return DetectorResult(count=count, samples=samples)
 
 
 # ── D3 ────────────────────────────────────────────────────────────────────────

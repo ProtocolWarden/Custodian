@@ -129,39 +129,55 @@ def _count_pattern(
 
 
 def build_code_health_detectors() -> list[Detector]:
+    """C-class detector inventory.
+
+    Detectors marked ``deprecated=True`` have an equivalent in an external
+    tool (Ruff, Vulture, ty, Semgrep) that Custodian wraps via an adapter.
+    Per the boundary refinement, the principle is "use the tool first,
+    don't reimplement." Deprecated detectors are skipped by default; pass
+    ``--include-deprecated`` (or ``skip_deprecated=False`` programmatically)
+    to run them alongside the adapter equivalents.
+
+    Detectors NOT marked deprecated either have no tool equivalent or
+    encode nuance the tool doesn't capture (e.g. C1's ``[deferred, reviewed]``
+    suppression). The "Replacement" column in
+    ``docs/design/detector_disposition_matrix.md`` is the source of truth.
+    """
     D = Detector
     return [
+        # ── KEEP — no tool equivalent or unique nuance ───────────────────
         D("C1",  "TODO markers in source",                                          "open",    detect_c1,   LOW),
-        D("C2",  "print() call in production code (use logging instead)",           "open",    detect_c2,   LOW),
-        D("C4",  "broad except with pass: bare/Exception/BaseException swallowed",  "open",    detect_c4,   MEDIUM),
         D("C6",  "FIXME markers",                                                   "open",    detect_c6,   LOW),
-        D("C7",  "assert True: meaningless assertion",                              "open",    detect_c7,   LOW),
         D("C8",  "stale handler references",                                        "partial", detect_c8,   MEDIUM),
-        D("C9",  "except … as e handler where e is never used",                     "open",    detect_c9,   MEDIUM),
-        D("C10", "naive datetime: datetime.now()/utcnow() without timezone",        "open",    detect_c10,  MEDIUM),
         D("C11", "subprocess call without timeout",                                 "open",    detect_c11,  MEDIUM),
-        D("C13", "raw os.environ/os.getenv access outside config layer",            "open",    detect_c13,  MEDIUM),
-        D("C15", "f-string passed to logger (use %-formatting instead)",            "open",    detect_c15,  LOW),
-        D("C16", "Path.read_text/write_text without encoding=",                     "open",    detect_c16,  LOW),
-        D("C17", "len(x) == 0 / len(x) > 0 comparison (use truthiness)",           "open",    detect_c17,  LOW),
-        D("C18", "f-string with no interpolation (redundant f-prefix)",             "open",    detect_c18,  LOW),
-        D("C20", "raise Exception/BaseException directly (use specific type)",      "open",    detect_c20,  LOW),
-        D("C23", "subprocess call with shell=True (injection risk)",                "open",    detect_c23,  HIGH),
         D("C28", "hardcoded IP address in string literal",                          "open",    detect_c28,  LOW),
         D("C29", "file exceeds line-count threshold",                               "open",    detect_c29,  LOW),
-        D("C31", "weak hash algorithm (md5/sha1) without usedforsecurity=False",    "open",    detect_c31,  MEDIUM),
+        D("C13", "raw os.environ/os.getenv access outside config layer",            "open",    detect_c13,  MEDIUM),
         D("C32", "hardcoded credential in assignment",                              "open",    detect_c32,  HIGH),
         D("C33", "file with high ghost-work comment density (TODO/FIXME/HACK/XXX)", "open",    detect_c33,  LOW),
         D("C34", "commented-out function, class, or decorator definition",          "open",    detect_c34,  LOW),
-        D("C35", "bare `# type: ignore` without specific error code in brackets",   "open",    detect_c35,  LOW),
-        D("C36", "built-in open() in text mode without encoding= argument",         "open",    detect_c36,  LOW),
         D("C37", "audit config key in .custodian.yaml not read by any source file", "open",    detect_c37,  LOW),
-        D("C38", "mutable default argument (list/dict/set literal as default)",      "open",    detect_c38,  MEDIUM),
-        D("C39", "logger.exception() called outside an exception handler",           "open",    detect_c39,  MEDIUM),
-        D("C40", "assert statement in non-test production code (disabled by -O)",    "open",    detect_c40,  LOW),
         D("C41", "json.dumps() without ensure_ascii=False (silently escapes Unicode)", "open", detect_c41, LOW),
         D("C42", "warnings.warn() without stacklevel= (warning points to wrong caller)", "open", detect_c42, LOW),
         D("C43", "json.dump() without ensure_ascii=False (silently escapes Unicode to file)", "open", detect_c43, LOW),
+        # ── DEPRECATED — Ruff covers; kept for opt-in audit comparisons ──
+        # See docs/design/detector_disposition_matrix.md for the mapping.
+        D("C2",  "print() call in production code (use logging instead)",           "open",    detect_c2,   LOW,    deprecated=True),  # Ruff T201
+        D("C4",  "broad except with pass: bare/Exception/BaseException swallowed",  "open",    detect_c4,   MEDIUM, deprecated=True),  # Ruff S110
+        D("C9",  "except … as e handler where e is never used",                     "open",    detect_c9,   MEDIUM, deprecated=True),  # Ruff BLE001 (drops "without logger" nuance)
+        D("C10", "naive datetime: datetime.now()/utcnow() without timezone",        "open",    detect_c10,  MEDIUM, deprecated=True),  # Ruff DTZ001/DTZ003/DTZ005
+        D("C15", "f-string passed to logger (use %-formatting instead)",            "open",    detect_c15,  LOW,    deprecated=True),  # Ruff G004
+        D("C16", "Path.read_text/write_text without encoding=",                     "open",    detect_c16,  LOW,    deprecated=True),  # Ruff PLW1514 (verify Path.* coverage)
+        D("C17", "len(x) == 0 / len(x) > 0 comparison (use truthiness)",           "open",    detect_c17,  LOW,    deprecated=True),  # Ruff PLC1802
+        D("C18", "f-string with no interpolation (redundant f-prefix)",             "open",    detect_c18,  LOW,    deprecated=True),  # Ruff F541
+        D("C20", "raise Exception/BaseException directly (use specific type)",      "open",    detect_c20,  LOW,    deprecated=True),  # Ruff TRY002
+        D("C23", "subprocess call with shell=True (injection risk)",                "open",    detect_c23,  HIGH,   deprecated=True),  # Ruff S602/S603
+        D("C31", "weak hash algorithm (md5/sha1) without usedforsecurity=False",    "open",    detect_c31,  MEDIUM, deprecated=True),  # Ruff S324
+        D("C35", "bare `# type: ignore` without specific error code in brackets",   "open",    detect_c35,  LOW,    deprecated=True),  # Ruff PGH003
+        D("C36", "built-in open() in text mode without encoding= argument",         "open",    detect_c36,  LOW,    deprecated=True),  # Ruff PLW1514
+        D("C38", "mutable default argument (list/dict/set literal as default)",      "open",    detect_c38,  MEDIUM, deprecated=True),  # Ruff B006
+        D("C39", "logger.exception() called outside an exception handler",           "open",    detect_c39,  MEDIUM, deprecated=True),  # Ruff LOG014
+        D("C40", "assert statement in non-test production code (disabled by -O)",    "open",    detect_c40,  LOW,    deprecated=True),  # Ruff S101
     ]
 
 
@@ -796,35 +812,9 @@ def detect_c13(context: AuditContext) -> DetectorResult:
     return DetectorResult(count=count, samples=samples)
 
 
-# ── C7: assert True (meaningless assertion) ───────────────────────────────────
-
-
-def detect_c7(context: AuditContext) -> DetectorResult:
-    """Flag ``assert True`` — an assertion that always passes and covers nothing.
-
-    ``assert True`` appears in test suites as a placeholder or copy-paste artifact.
-    It provides no coverage signal and masks missing assertions.  Replace with a
-    meaningful assertion or remove it entirely.
-    Exclude fixture files via ``audit.exclude_paths.C7``.
-    """
-    samples: list[str] = []
-    count = 0
-    for path in _py_files(context, "C7"):
-        try:
-            raw = path.read_text(encoding="utf-8")
-            tree = ast.parse(raw)
-        except (OSError, UnicodeDecodeError, SyntaxError):
-            continue
-        rel = path.relative_to(context.repo_root)
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Assert):
-                continue
-            test = node.test
-            if isinstance(test, ast.Constant) and test.value is True:
-                count += 1
-                if len(samples) < _MAX_SAMPLES:
-                    samples.append(f"{rel}:{node.lineno}: assert True")
-    return DetectorResult(count=count, samples=samples)
+# C7 (assert True) was retired 2026-05-05. Ruff B011 covers `assert False`;
+# `assert True` is low-value (always passes, never raises). Per the
+# disposition matrix, this detector adds no signal worth maintaining.
 
 
 # ── C15: f-string in logger call (use %-formatting instead) ──────────────────

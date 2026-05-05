@@ -60,8 +60,13 @@ def main():
                         help="After the table, print per-repo finding details for repos with findings")
     parser.add_argument("--no-color", action="store_true",
                         help="Disable ANSI color output")
+    # Deprecated detectors are skipped by default since 2026-05-05.
+    # --include-deprecated flips them back on (parity-audit mode).
+    parser.add_argument("--include-deprecated", action="store_true",
+                        help="Run deprecated detectors alongside their adapter "
+                             "equivalents (Ruff/Vulture/ty). Default: skip them.")
     parser.add_argument("--skip-deprecated", action="store_true",
-                        help="Skip detectors marked deprecated")
+                        help="(Legacy, no-op since 2026-05-05.)")
     parser.add_argument("--report-dir", type=Path, metavar="DIR",
                         help="Write per-repo JSON reports to this directory")
     args = parser.parse_args()
@@ -83,7 +88,7 @@ def main():
     if args.only:
         only = {c.strip() for c in args.only.split(",") if c.strip()}
 
-    skip_deprecated = getattr(args, "skip_deprecated", False)
+    skip_deprecated = not getattr(args, "include_deprecated", False)
 
     results = []
     errors = []

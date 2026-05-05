@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 from custodian.audit_kit.detector import AnalysisGraph, AuditContext
-from custodian.audit_kit.detectors.dead_code import detect_d1, detect_d2, detect_d4, detect_d5, detect_d6, detect_f2, detect_f3
+from custodian.audit_kit.detectors.dead_code import detect_d1, detect_d4, detect_d5, detect_d6, detect_f2, detect_f3
 from custodian.audit_kit.passes.ast_forest import AstForest
 from custodian.audit_kit.passes.call_graph import build_call_graph
 
@@ -39,106 +39,7 @@ def _make_context(tmp_path: Path, forest: AstForest) -> AuditContext:
     )
 
 
-# ── D2 tests ──────────────────────────────────────────────────────────────────
-
-class TestD2:
-    def test_no_forest_returns_zero(self, tmp_path):
-        ctx = _make_context(tmp_path, AstForest())
-        ctx.graph = AnalysisGraph(ast_forest=None)
-        assert detect_d2(ctx).count == 0
-
-    def test_guard_clause_else_flagged(self, tmp_path):
-        forest = _forest_from_source("""
-            def foo(x):
-                if x < 0:
-                    return -1
-                else:
-                    return x + 1
-        """, tmp_path)
-        # if-body terminates, else-body does NOT terminate → D2
-        # Wait — else returns too, so else terminates. Let's use a non-terminal else.
-        forest = _forest_from_source("""
-            def foo(x):
-                if x < 0:
-                    return -1
-                else:
-                    x = x + 1
-                return x
-        """, tmp_path)
-        result = detect_d2(_make_context(tmp_path, forest))
-        assert result.count == 1
-
-    def test_symmetric_if_else_not_flagged(self, tmp_path):
-        # Both branches terminate — intentional, not flagged
-        forest = _forest_from_source("""
-            def foo(x):
-                if x < 0:
-                    return -1
-                else:
-                    return 1
-        """, tmp_path)
-        result = detect_d2(_make_context(tmp_path, forest))
-        assert result.count == 0
-
-    def test_elif_not_flagged(self, tmp_path):
-        # elif is represented as orelse=[If(...)], excluded by isinstance check
-        forest = _forest_from_source("""
-            def foo(x):
-                if x < 0:
-                    return -1
-                elif x == 0:
-                    return 0
-                else:
-                    return 1
-        """, tmp_path)
-        result = detect_d2(_make_context(tmp_path, forest))
-        assert result.count == 0
-
-    def test_no_else_not_flagged(self, tmp_path):
-        forest = _forest_from_source("""
-            def foo(x):
-                if x < 0:
-                    return -1
-                return x
-        """, tmp_path)
-        result = detect_d2(_make_context(tmp_path, forest))
-        assert result.count == 0
-
-    def test_raise_in_if_body_flagged(self, tmp_path):
-        forest = _forest_from_source("""
-            def validate(x):
-                if x is None:
-                    raise ValueError("x must not be None")
-                else:
-                    x = x.strip()
-                return x
-        """, tmp_path)
-        result = detect_d2(_make_context(tmp_path, forest))
-        assert result.count == 1
-
-    def test_module_level_if_not_flagged(self, tmp_path):
-        # D2 only checks inside function bodies
-        forest = _forest_from_source("""
-            if True:
-                x = 1
-            else:
-                x = 2
-        """, tmp_path)
-        result = detect_d2(_make_context(tmp_path, forest))
-        assert result.count == 0
-
-    def test_sample_text_contains_function_name(self, tmp_path):
-        forest = _forest_from_source("""
-            def my_func(x):
-                if x < 0:
-                    return -1
-                else:
-                    x = 0
-                return x
-        """, tmp_path)
-        result = detect_d2(_make_context(tmp_path, forest))
-        assert result.count == 1
-        assert "my_func" in result.samples[0]
+# D2 (unnecessary else after terminal if-branch) was retired 2026-05-05.
 
 
 # ── D4 tests ──────────────────────────────────────────────────────────────────
