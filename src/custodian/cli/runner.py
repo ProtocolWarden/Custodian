@@ -127,7 +127,36 @@ def run_repo_audit(
 
     # Run enabled tool adapters and merge findings into result
     _run_adapters(result, repo_root=repo_root, config=config)
+
+    # Optional triage pass: when audit.triage: true is set, group findings
+    # into per-file action recommendations and emit them as TRIAGE_* patterns.
+    if (config.get("audit") or {}).get("triage"):
+        _run_triage(result)
+
     return result
+
+
+def _run_triage(result: AuditResult) -> None:
+    """Append TRIAGE_<verdict> patterns summarizing per-file recommendations."""
+    from custodian.triage import triage_result
+
+    verdicts = triage_result(result.patterns)
+    if not verdicts:
+        return
+    grouped: dict[str, list[str]] = {}
+    for fv in verdicts:
+        key = f"TRIAGE_{fv.primary().value}"
+        sources = ",".join(sorted(fv.evidence))
+        grouped.setdefault(key, []).append(f"{fv.path}: signals={sources}")
+    for key, samples in grouped.items():
+        result.patterns[key] = {
+            "description": f"triage recommendation: {key.split('_', 1)[1].lower()}",
+            "status": "open",
+            "severity": "low",
+            "source": "triage",
+            "count": len(samples),
+            "samples": samples[:8],
+        }
 
 
 def _run_adapters(result: AuditResult, *, repo_root: Path, config: dict) -> None:

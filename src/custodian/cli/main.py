@@ -15,12 +15,13 @@ import sys
 
 
 _COMMANDS = {
-    "audit":  "custodian.cli.audit:main",
-    "fix":    "custodian.cli.fix:main",
-    "report": "custodian.cli.report:main",
-    "config": "custodian.cli.config_migrate:main",
-    "doctor": "custodian.cli.doctor:main",
-    "multi":  "custodian.cli.multi:main",
+    "audit":   "custodian.cli.audit:main",
+    "fix":     "custodian.cli.fix:main",
+    "report":  "custodian.cli.report:main",
+    "config":  "custodian.cli.config_migrate:main",
+    "doctor":  "custodian.cli.doctor:main",
+    "multi":   "custodian.cli.multi:main",
+    "triage":  "custodian.cli.triage:main",
 }
 
 _HELP = """\
@@ -33,6 +34,7 @@ Commands:
   config    Inspect or migrate .custodian.yaml
   doctor    Check tool availability and versions
   multi     Run audit across multiple repositories
+  triage    Convert audit findings into per-file action recommendations
 
 Run `custodian <command> --help` for command-specific options.
 """
