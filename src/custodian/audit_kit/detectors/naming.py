@@ -45,10 +45,12 @@ _CONTROL_FLOW_SUFFIXES = ("Stop", "Abort", "Cancel", "Signal", "Interrupt")
 
 def build_naming_detectors() -> list[Detector]:
     return [
-        Detector("N1", "exception class name does not follow Error/Exception/Warning convention",
-                 "open", detect_n1, LOW),
+        # KEEP — no tool equivalent (pytest collection rules)
         Detector("N2", "test function in test file not named test_* (invisible to pytest)",
                  "open", detect_n2, LOW),
+        # DEPRECATED — Ruff N818 covers
+        Detector("N1", "exception class name does not follow Error/Exception/Warning convention",
+                 "open", detect_n1, LOW, deprecated=True),  # Ruff N818
     ]
 
 

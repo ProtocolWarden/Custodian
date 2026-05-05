@@ -138,5 +138,5 @@ tools:
   ruff: true
   vulture: true
   # mypy: true          # enable when stubs / type annotations are in place
-  # ty: true            # Astral's faster type-checker; enable when annotations land
+  ty: true              # Astral's type-checker (pre-1.0; pinned in pyproject.toml)
   # semgrep: true       # requires rules/semgrep/ directory with .yaml rule files

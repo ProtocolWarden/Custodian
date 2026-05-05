@@ -123,8 +123,6 @@ def build_dead_code_detectors() -> list[Detector]:
                  detect_d6, LOW, _NEEDS_CG_AND_AST),
         Detector("F3", "BaseModel field never accessed as attribute in codebase", "open",
                  detect_f3, LOW, _NEEDS_CG),
-        Detector("D9", "try/except handler unconditionally re-raises (no-op handler)", "open",
-                 detect_d9, LOW, _NEEDS_AST),
         Detector("D10", "async def function that never awaits anything", "open",
                  detect_d10, LOW, _NEEDS_AST),
         # D3 stays NON-deprecated until ty/mypy is enabled across the major
@@ -143,6 +141,8 @@ def build_dead_code_detectors() -> list[Detector]:
                  detect_f1, LOW, _NEEDS_CG, deprecated=True),  # Vulture
         Detector("F2", "private module-level constant defined but never referenced", "open",
                  detect_f2, LOW, _NEEDS_AST, deprecated=True),  # Vulture
+        Detector("D9", "try/except handler unconditionally re-raises (no-op handler)", "open",
+                 detect_d9, LOW, _NEEDS_AST, deprecated=True),  # Ruff TRY203
     ]
 
 

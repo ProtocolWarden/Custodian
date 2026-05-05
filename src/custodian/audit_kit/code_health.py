@@ -158,26 +158,30 @@ def build_code_health_detectors() -> list[Detector]:
         D("C34", "commented-out function, class, or decorator definition",          "open",    detect_c34,  LOW),
         D("C37", "audit config key in .custodian.yaml not read by any source file", "open",    detect_c37,  LOW),
         D("C41", "json.dumps() without ensure_ascii=False (silently escapes Unicode)", "open", detect_c41, LOW),
-        D("C42", "warnings.warn() without stacklevel= (warning points to wrong caller)", "open", detect_c42, LOW),
         D("C43", "json.dump() without ensure_ascii=False (silently escapes Unicode to file)", "open", detect_c43, LOW),
+        # PLW1514 (C16/C36) and LOG004 (C39) are preview-only in Ruff 0.15 —
+        # keep these native until they stabilize.
+        D("C16", "Path.read_text/write_text without encoding=",                     "open",    detect_c16,  LOW),
+        D("C36", "built-in open() in text mode without encoding= argument",         "open",    detect_c36,  LOW),
+        D("C39", "logger.exception() called outside an exception handler",          "open",    detect_c39,  MEDIUM),
         # ── DEPRECATED — Ruff covers; kept for opt-in audit comparisons ──
         # See docs/design/detector_disposition_matrix.md for the mapping.
+        # Each consumer's pyproject.toml [tool.ruff.lint] extend-select must
+        # include the listed Ruff rule for coverage to carry over.
         D("C2",  "print() call in production code (use logging instead)",           "open",    detect_c2,   LOW,    deprecated=True),  # Ruff T201
         D("C4",  "broad except with pass: bare/Exception/BaseException swallowed",  "open",    detect_c4,   MEDIUM, deprecated=True),  # Ruff S110
         D("C9",  "except … as e handler where e is never used",                     "open",    detect_c9,   MEDIUM, deprecated=True),  # Ruff BLE001 (drops "without logger" nuance)
         D("C10", "naive datetime: datetime.now()/utcnow() without timezone",        "open",    detect_c10,  MEDIUM, deprecated=True),  # Ruff DTZ001/DTZ003/DTZ005
         D("C15", "f-string passed to logger (use %-formatting instead)",            "open",    detect_c15,  LOW,    deprecated=True),  # Ruff G004
-        D("C16", "Path.read_text/write_text without encoding=",                     "open",    detect_c16,  LOW,    deprecated=True),  # Ruff PLW1514 (verify Path.* coverage)
         D("C17", "len(x) == 0 / len(x) > 0 comparison (use truthiness)",           "open",    detect_c17,  LOW,    deprecated=True),  # Ruff PLC1802
         D("C18", "f-string with no interpolation (redundant f-prefix)",             "open",    detect_c18,  LOW,    deprecated=True),  # Ruff F541
         D("C20", "raise Exception/BaseException directly (use specific type)",      "open",    detect_c20,  LOW,    deprecated=True),  # Ruff TRY002
         D("C23", "subprocess call with shell=True (injection risk)",                "open",    detect_c23,  HIGH,   deprecated=True),  # Ruff S602/S603
         D("C31", "weak hash algorithm (md5/sha1) without usedforsecurity=False",    "open",    detect_c31,  MEDIUM, deprecated=True),  # Ruff S324
         D("C35", "bare `# type: ignore` without specific error code in brackets",   "open",    detect_c35,  LOW,    deprecated=True),  # Ruff PGH003
-        D("C36", "built-in open() in text mode without encoding= argument",         "open",    detect_c36,  LOW,    deprecated=True),  # Ruff PLW1514
         D("C38", "mutable default argument (list/dict/set literal as default)",      "open",    detect_c38,  MEDIUM, deprecated=True),  # Ruff B006
-        D("C39", "logger.exception() called outside an exception handler",           "open",    detect_c39,  MEDIUM, deprecated=True),  # Ruff LOG014
         D("C40", "assert statement in non-test production code (disabled by -O)",    "open",    detect_c40,  LOW,    deprecated=True),  # Ruff S101
+        D("C42", "warnings.warn() without stacklevel= (warning points to wrong caller)", "open", detect_c42, LOW,   deprecated=True),  # Ruff B028
     ]
 
 
