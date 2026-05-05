@@ -44,14 +44,28 @@ class SemgrepAdapter(ToolAdapter):
         if not src_root.exists():
             src_root = repo_path
 
-        # Resolve config paths: prefer explicit adapter configs, then repo rules dir
+        # Resolve config paths: prefer explicit adapter configs, then repo
+        # rules-dir conventions. Newer convention is `.custodian/rules/
+        # semgrep/` (keeps all custodian-related files under .custodian/);
+        # `rules/semgrep/` is honored as a fallback.
         configs = list(self._configs)
-        rules_dir = repo_path / "rules" / "semgrep"
-        if not configs and rules_dir.is_dir():
-            configs = [str(rules_dir)]
+        if not configs:
+            for candidate in (
+                repo_path / ".custodian" / "rules" / "semgrep",
+                repo_path / "rules" / "semgrep",
+            ):
+                if candidate.is_dir():
+                    configs = [str(candidate)]
+                    break
         if not configs:
             # No rules — nothing to run
             return []
+        # Resolve relative configs against repo_path so .custodian.yaml can
+        # use repo-relative paths.
+        configs = [
+            str((repo_path / cfg).resolve()) if not Path(cfg).is_absolute() else cfg
+            for cfg in configs
+        ]
 
         cmd = [find_tool("semgrep") or "semgrep", "--json", "--quiet"]
         for cfg in configs:

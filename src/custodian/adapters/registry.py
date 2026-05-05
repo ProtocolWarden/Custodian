@@ -39,9 +39,19 @@ def get_enabled_adapters(config: dict) -> list[ToolAdapter]:
         min_conf = tools_cfg.get("vulture_min_confidence", 60)
         result.append(VultureAdapter(min_confidence=int(min_conf)))
 
-    if tools_cfg.get("semgrep"):
+    semgrep_cfg = tools_cfg.get("semgrep")
+    if semgrep_cfg:
         from custodian.adapters.semgrep import SemgrepAdapter
-        result.append(SemgrepAdapter())
+        # Accept either a bare truthy value (use adapter's default rules dir)
+        # or a dict with `configs: [paths...]` for explicit per-repo rule
+        # locations (e.g. `.custodian/rules/semgrep`).
+        if isinstance(semgrep_cfg, dict):
+            configs = semgrep_cfg.get("configs") or []
+            if not isinstance(configs, list):
+                configs = []
+            result.append(SemgrepAdapter(configs=configs))
+        else:
+            result.append(SemgrepAdapter())
 
     # Coverage adapter — default OFF. Opt-in by repos that produce a
     # coverage.json (typically via their own end-to-end audit pipeline).
