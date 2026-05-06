@@ -387,6 +387,90 @@ class TestA1:
         })
         assert detect_a1(ctx).count == 0
 
+    # ── public_api_only tests ────────────────────────────────────────────────
+
+    def _public_api_rule(self) -> dict:
+        return {
+            "name": "ER public API only",
+            "glob": "src/**/*.py",
+            "public_api_only": {
+                "package": "executor_runtime",
+                "allowed_paths": [
+                    "executor_runtime",
+                    "executor_runtime.runners",
+                    "executor_runtime.contracts",
+                ],
+            },
+        }
+
+    def test_public_api_only_top_level_import_allowed(self, tmp_path):
+        src = "from executor_runtime import ExecutorRuntime\n"
+        ctx = self._ctx(src, tmp_path, config={
+            "architecture": {"invariants": [self._public_api_rule()]}
+        })
+        assert detect_a1(ctx).count == 0
+
+    def test_public_api_only_runners_subpackage_allowed(self, tmp_path):
+        src = "from executor_runtime.runners import HttpRunner\n"
+        ctx = self._ctx(src, tmp_path, config={
+            "architecture": {"invariants": [self._public_api_rule()]}
+        })
+        assert detect_a1(ctx).count == 0
+
+    def test_public_api_only_contracts_subpackage_allowed(self, tmp_path):
+        src = "from executor_runtime.contracts import RuntimeInvocation\n"
+        ctx = self._ctx(src, tmp_path, config={
+            "architecture": {"invariants": [self._public_api_rule()]}
+        })
+        assert detect_a1(ctx).count == 0
+
+    def test_public_api_only_deep_module_import_flagged(self, tmp_path):
+        # Bypassing the runners __init__ — reaches into a private module
+        src = "from executor_runtime.runners.subprocess_runner import _run_with_process_group\n"
+        ctx = self._ctx(src, tmp_path, config={
+            "architecture": {"invariants": [self._public_api_rule()]}
+        })
+        result = detect_a1(ctx)
+        assert result.count == 1
+        assert "deep import" in result.samples[0]
+        assert "executor_runtime.runners.subprocess_runner" in result.samples[0]
+
+    def test_public_api_only_direct_module_import_flagged(self, tmp_path):
+        # `import executor_runtime.runtime` (the bare module path) bypasses the public API
+        src = "import executor_runtime.runtime\n"
+        ctx = self._ctx(src, tmp_path, config={
+            "architecture": {"invariants": [self._public_api_rule()]}
+        })
+        assert detect_a1(ctx).count == 1
+
+    def test_public_api_only_unrelated_package_not_flagged(self, tmp_path):
+        # Imports from a different package should be ignored
+        src = "from rxp.contracts import RuntimeInvocation\n"
+        ctx = self._ctx(src, tmp_path, config={
+            "architecture": {"invariants": [self._public_api_rule()]}
+        })
+        assert detect_a1(ctx).count == 0
+
+    def test_public_api_only_no_config_no_findings(self, tmp_path):
+        # If allowed_paths is empty/missing, the rule does nothing (safe default)
+        src = "from executor_runtime.runners.subprocess_runner import _x\n"
+        ctx = self._ctx(src, tmp_path, config={
+            "architecture": {"invariants": [{
+                "name": "broken rule",
+                "glob": "src/**/*.py",
+                "public_api_only": {"package": "executor_runtime"},
+            }]}
+        })
+        assert detect_a1(ctx).count == 0
+
+    def test_public_api_only_relative_import_not_flagged(self, tmp_path):
+        # Relative imports never match — they don't reach external packages
+        src = "from .executor_runtime import x\n"
+        ctx = self._ctx(src, tmp_path, config={
+            "architecture": {"invariants": [self._public_api_rule()]}
+        })
+        assert detect_a1(ctx).count == 0
+
 
 class TestDetectS4:
     def _ctx(self, tmp_path: Path, tests_root=None) -> AuditContext:

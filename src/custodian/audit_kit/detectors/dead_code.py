@@ -767,15 +767,28 @@ def _has_return_in_scope(stmts: list[ast.stmt]) -> bool:
 # ── D3 ────────────────────────────────────────────────────────────────────────
 
 def detect_d3(context: AuditContext) -> DetectorResult:
-    """Flag functions that never return normally but lack -> NoReturn."""
+    """Flag functions that never return normally but lack -> NoReturn.
+
+    Exclude paths via ``audit.exclude_paths.D3``. Useful for entry-point
+    modules where every handler ends in ``raise SystemExit(...)`` (e.g.
+    Typer commands, argparse main loops) — those are *supposed* to never
+    return.
+    """
     if context.graph is None or context.graph.ast_forest is None:
         return DetectorResult(count=0, samples=[])
+
+    import fnmatch as _fnmatch
+    audit_cfg: dict = context.config.get("audit") or {}
+    excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("D3") or [])
 
     samples: list[str] = []
     count = 0
 
     for path, tree, _src in context.graph.ast_forest.items():
         rel = path.relative_to(context.repo_root)
+        rel_posix = rel.as_posix()
+        if excludes and any(_fnmatch.fnmatch(rel_posix, excl) for excl in excludes):
+            continue
         protocol_names = _protocol_class_names(tree)
 
         for node in ast.walk(tree):
