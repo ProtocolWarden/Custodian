@@ -5,6 +5,8 @@ _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
 ## Stop Points
 
+- R-class README detectors landed (2026-05-06, on `main`): New `audit_kit/detectors/readme.py` adds R1-R5 enforcing README structural conventions: file present, H1 matches repo name (allowing "RepoName — tagline" form), `## What X is` H2, `## What X is not` H2, non-empty intro paragraph (badges don't count). All LOW severity, no analysis pass needed. 22 unit tests + wired into runner.py and doctor.py registries. Bumped Custodian's own README to add the R class to the detector model table. Used the new detector to drive standardization of the 6 older READMEs (OC, OperatorConsole, SwitchBoard, WorkStation, Custodian, VideoFoundry, RxP) — all 10 platform repos now pass R1-R5.
+
 - README detector-count refresh (2026-05-06, on `main`): Detector class counts in README's "Detector model" table had drifted since the tool-first deprecation pass (C/D/F/U/T were all wrong). Recomputed from `build_*_detectors()` output (active=46 across 12 classes; 21 deprecated). Added a one-line note pointing readers at `docs/design/detector_disposition_matrix.md`.
 
 - CI cleanup round 2 (2026-05-06, on `main`): re-added license headers (they got reverted) + per-file ruff ignores for `src/custodian/cli/**` (T201/BLE001/S603 OK in CLIs) and `src/custodian/adapters/**` (S603 — these adapters wrap external tools via subprocess by design). 790 tests pass; ruff src/ clean.

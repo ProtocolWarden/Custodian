@@ -17,6 +17,7 @@ from custodian.audit_kit.detectors.ghost import build_ghost_detectors
 from custodian.audit_kit.detectors.imports import build_import_detectors
 from custodian.audit_kit.detectors.naming import build_naming_detectors
 from custodian.audit_kit.detectors.directory import build_directory_detectors
+from custodian.audit_kit.detectors.readme import build_readme_detectors
 from custodian.audit_kit.detectors.structure import build_structure_detectors
 from custodian.audit_kit.detectors.stubs import build_stub_detectors
 from custodian.audit_kit.detectors.test_shape import build_test_shape_detectors
@@ -107,6 +108,7 @@ def run_repo_audit(
                   + build_import_detectors()
                   + build_docs_detectors()
                   + build_naming_detectors()
+                  + build_readme_detectors()
                   + extra)
 
     if only:

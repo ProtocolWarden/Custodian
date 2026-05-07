@@ -2,6 +2,21 @@
 
 Custodian is a pip-installable cross-repo audit and maintenance toolkit for Python repos. It centralizes reusable detector logic and maintenance helpers so teams can stop re-implementing the same operational checks in each consumer repository.
 
+## What this repo is
+
+- Detector framework with namespaced IDs (C / D / F / U / K / S / A / H / T / G / N / P / R)
+- Adapters that wrap external tools (ruff, vulture, ty, semgrep, coverage)
+- Plugin loader so consumer repos can add repo-specific detectors via `_custodian/`
+- CLI: `custodian-doctor` (config validation), `custodian-audit` (run audits), `custodian-triage` (synthesize verdicts)
+- Schema-stable JSON output (`AuditResult.schema_version`)
+
+## What this repo is not
+
+- A linter, formatter, or type checker — Custodian wraps those, it does not replace them
+- A test runner
+- A repo-specific tool — Custodian ships generic detectors; per-repo invariants live in consumer `_custodian/` overlays
+- A CI provider — Custodian runs anywhere Python runs; CI integration is up to the consumer
+
 ## Why it exists
 
 Large multi-repo organizations need consistent health checks and maintenance routines, but each repo has local conventions. Custodian provides shared infrastructure (detector execution, schema-stable result output, plugin loading) while letting each consumer supply repo-specific plugins and config.
@@ -38,6 +53,7 @@ Detectors are grouped by namespace. Each detector has an ID, a severity (LOW/MED
 | G | 1 | Ghost work: comment references to removed types |
 | N | 1 | Naming: exception class naming convention |
 | P | 1 | Partial implementations: hollow return bodies |
+| R | 5 | README structure: presence, H1 match, "What X is / is not" sections, intro paragraph |
 
 A further 21 detectors are kept as **deprecated** — third-party tools (ruff, vulture, ty) cover the same cases natively, so these no longer participate in audits but stay importable for backward compatibility. See `docs/design/detector_disposition_matrix.md`.
 
