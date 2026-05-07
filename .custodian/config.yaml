@@ -55,9 +55,8 @@ audit:
       - src/custodian/cli/fix.py
       - src/custodian/cli/report.py
       - src/custodian/cli/config_migrate.py
-    C7:
-      - tests/test_code_health_detectors.py
-      - tests/fixtures/**
+    # C7 (assert True) was retired during the tool-first deprecation pass —
+    # no longer a registered detector, so its exclude_paths entry is dead.
     C9:
       # CLI tools (doctor, multi) catch load/audit errors and surface them in
       # their human-readable output — the exception message IS captured;
