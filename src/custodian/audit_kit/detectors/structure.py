@@ -15,8 +15,8 @@ A1  Architecture invariants — declarative YAML rules enforcing structural
     constraints per file/glob.  Rules are expressed in ``.custodian.yaml``
     under ``architecture.invariants``.  Each rule may enforce one of:
     max_lines, max_classes, max_functions, forbidden_import,
-    forbidden_import_prefix, or class_field_count.  If no invariants are
-    declared the detector silently reports 0 findings.
+    forbidden_import_prefix, public_api_only, or class_field_count.
+    If no invariants are declared the detector silently reports 0 findings.
 
 S1  Layer boundary violations — files in a declared layer import from a
     layer they are forbidden to depend on.  Rules are expressed in
@@ -83,6 +83,27 @@ Config example for A1 class_field_count::
           class_field_count:
             class_name: "WorkflowContext"
             max_fields: 20
+
+Config example for A1 public_api_only — enforce that imports of an
+external package only go through its declared public surfaces. Use
+this when consuming an extracted library to prevent deep imports
+that bypass the public API contract::
+
+    architecture:
+      invariants:
+        - name: "ExecutorRuntime: public API only"
+          glob: "src/operations_center/**"
+          public_api_only:
+            package: "executor_runtime"
+            allowed_paths:
+              - "executor_runtime"
+              - "executor_runtime.runners"
+              - "executor_runtime.contracts"
+
+Any import of ``executor_runtime.*`` whose imported module path is
+not in ``allowed_paths`` (exact match) is flagged. This enforces
+boundary discipline that ``forbidden_import_prefix`` can't express
+(it's all-or-nothing).
 
 Globs are matched against file paths relative to repo_root.
 """
@@ -300,6 +321,39 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                                     f"(threshold {max_fields}) — forbidden by {name!r}"
                                 )
                         break  # report once per class per file
+
+            # public_api_only — imports of <package>.* are only allowed
+            # via the explicitly listed allowed_paths (exact module match).
+            # Used to enforce public-API discipline when consuming an
+            # extracted library — prevents deep imports that bypass the
+            # contract (e.g. `from foo.runners.subprocess_runner import _x`
+            # when only `from foo.runners import HttpRunner` is allowed).
+            if "public_api_only" in rule:
+                cfg = rule["public_api_only"]
+                pkg: str = cfg.get("package", "")
+                allowed: set[str] = set(cfg.get("allowed_paths") or [])
+                if pkg and allowed:
+                    pkg_dot = pkg + "."
+                    for node in ast.walk(tree):
+                        mod = None
+                        if isinstance(node, ast.Import):
+                            for alias in node.names:
+                                if alias.name == pkg or alias.name.startswith(pkg_dot):
+                                    if alias.name not in allowed:
+                                        mod = alias.name
+                                        break
+                        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+                            if node.module == pkg or node.module.startswith(pkg_dot):
+                                if node.module not in allowed:
+                                    mod = node.module
+                        if mod:
+                            count += 1
+                            if len(samples) < _MAX_SAMPLES:
+                                samples.append(
+                                    f"{rel}:{node.lineno}: deep import {mod!r} from {pkg!r} — "
+                                    f"only public API allowed: {sorted(allowed)}"
+                                )
+                            break
 
     return DetectorResult(count=count, samples=samples)
 
