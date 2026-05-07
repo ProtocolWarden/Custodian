@@ -17,6 +17,8 @@ R4  A "## What X is not" / "## What this repo is not" H2 appears
     after R3.
 R5  An intro paragraph between the H1 and the first H2 is non-empty
     and contains at least one descriptive sentence (not just badges).
+R6  If ``docs/`` exists at the repo root, ``docs/README.md`` must exist
+    as the index. Repos without ``docs/`` are silently skipped.
 
 Severity is LOW: README hygiene matters but never blocks work.
 """
@@ -46,6 +48,8 @@ def build_readme_detectors() -> list[Detector]:
                  detect_r4, LOW, frozenset()),
         Detector("R5", "README intro paragraph empty or badge-only", "open",
                  detect_r5, LOW, frozenset()),
+        Detector("R6", "docs/README.md missing (docs/ has no index)", "open",
+                 detect_r6, LOW, frozenset()),
     ]
 
 
@@ -203,3 +207,17 @@ def detect_r5(context: AuditContext) -> DetectorResult:
         )
     # At least one line of real prose
     return DetectorResult(count=0, samples=[])
+
+
+# ── R6 ─────────────────────────────────────────────────────────────────
+
+def detect_r6(context: AuditContext) -> DetectorResult:
+    docs_dir = context.repo_root / "docs"
+    if not docs_dir.is_dir():
+        return DetectorResult(count=0, samples=[])
+    if (docs_dir / "README.md").exists():
+        return DetectorResult(count=0, samples=[])
+    return DetectorResult(
+        count=1,
+        samples=["docs/README.md: missing — add an index for the docs/ tree"],
+    )

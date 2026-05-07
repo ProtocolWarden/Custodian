@@ -9,7 +9,7 @@ from pathlib import Path
 from custodian.audit_kit.detector import AuditContext
 from custodian.audit_kit.detectors.readme import (
     build_readme_detectors,
-    detect_r1, detect_r2, detect_r3, detect_r4, detect_r5,
+    detect_r1, detect_r2, detect_r3, detect_r4, detect_r5, detect_r6,
 )
 
 
@@ -47,9 +47,9 @@ stuff.
 
 
 class TestRegistration:
-    def test_build_returns_five(self):
+    def test_build_returns_six(self):
         ds = build_readme_detectors()
-        assert [d.id for d in ds] == ["R1", "R2", "R3", "R4", "R5"]
+        assert [d.id for d in ds] == ["R1", "R2", "R3", "R4", "R5", "R6"]
         for d in ds:
             assert d.severity == "low"
             assert d.needs == frozenset()
@@ -140,3 +140,18 @@ class TestR5:
     def test_intro_real_prose(self, tmp_path):
         c = "# X\n\n![badge](http://x)\n\nReal sentence here.\n\n## What this repo is\n\n- a\n"
         assert detect_r5(_ctx(tmp_path, c, repo_key="X")).count == 0
+
+
+class TestR6:
+    def test_no_docs_dir_silent(self, tmp_path):
+        assert detect_r6(_ctx(tmp_path, GOOD)).count == 0
+
+    def test_docs_dir_with_index(self, tmp_path):
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "README.md").write_text("# Docs\n", encoding="utf-8")
+        assert detect_r6(_ctx(tmp_path, GOOD)).count == 0
+
+    def test_docs_dir_without_index(self, tmp_path):
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "stray.md").write_text("# Stray\n", encoding="utf-8")
+        assert detect_r6(_ctx(tmp_path, GOOD)).count == 1

@@ -5,6 +5,8 @@ _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
 ## Stop Points
 
+- R6 — docs index detector (2026-05-07, on `main`): Added R6 to the readme detector class. R6 fires when `docs/` exists at repo root but `docs/README.md` does not — flagging unindexed doc trees. 3 new tests; full Custodian suite 815 ✓. Used to drive doc-index creation in 6 platform repos (OC, OperatorConsole, SwitchBoard, WorkStation, Custodian, CxRP) — VideoFoundry already had one; RxP/ER/SR have no docs/ and are skipped silently. README's R-class count bumped 5 → 6.
+
 - README opening standardized in own repo (2026-05-06, on `main`): Self-applied the new R3/R4 convention. Custodian's README now leads with `## What this repo is` (detector framework, adapters, plugin loader, CLI, schema-stable JSON) and `## What this repo is not` (not a linter, not a test runner, not repo-specific).
 
 - R-class README detectors landed (2026-05-06, on `main`): New `audit_kit/detectors/readme.py` adds R1-R5 enforcing README structural conventions: file present, H1 matches repo name (allowing "RepoName — tagline" form), `## What X is` H2, `## What X is not` H2, non-empty intro paragraph (badges don't count). All LOW severity, no analysis pass needed. 22 unit tests + wired into runner.py and doctor.py registries. Bumped Custodian's own README to add the R class to the detector model table. Used the new detector to drive standardization of the 6 older READMEs (OC, OperatorConsole, SwitchBoard, WorkStation, Custodian, VideoFoundry, RxP) — all 10 platform repos now pass R1-R5.
