@@ -17,7 +17,7 @@ from foo.bar.baz.qux import y  # caught (sub-module)
 
 ## Where to put it
 
-Inside `architecture.layers` in `.custodian/config.yaml` (or `.custodian/config.yaml`):
+Inside `architecture.layers` in `.custodian/config.yaml` (the preferred layout; legacy `.custodian.yaml` single-file form is also still loaded):
 
 ```yaml
 architecture:

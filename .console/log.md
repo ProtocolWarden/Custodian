@@ -5,6 +5,8 @@ _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
 ## Stop Points
 
+- Fix forbidden_import_prefix doubled config path (2026-05-07, on `main`): Earlier sed pass over usage docs accidentally rewrote `.custodian.yaml` → `.custodian/config.yaml` on both sides of the "preferred (or legacy fallback)" parenthetical, producing nonsensical `.custodian/config.yaml (or .custodian/config.yaml)`. Restored to single-line mentioning preferred form + legacy fallback.
+
 - Config-path docs refreshed for .custodian/config.yaml (2026-05-07, on `main`): User reported the README and GitHub description still referenced the legacy `.custodian.yaml` single-file path. Updated GitHub description, README, CONTRIBUTING, SECURITY, all 3 ISSUE/PR templates, design/detector_disposition_matrix, and usage/forbidden_import_prefix to the preferred `.custodian/config.yaml` layout. README now explicitly documents the legacy form as a backwards-compat fallback (loader supports both).
 
 - R6 — docs index detector (2026-05-07, on `main`): Added R6 to the readme detector class. R6 fires when `docs/` exists at repo root but `docs/README.md` does not — flagging unindexed doc trees. 3 new tests; full Custodian suite 815 ✓. Used to drive doc-index creation in 6 platform repos (OC, OperatorConsole, SwitchBoard, WorkStation, Custodian, CxRP) — VideoFoundry already had one; RxP/ER/SR have no docs/ and are skipped silently. README's R-class count bumped 5 → 6.
