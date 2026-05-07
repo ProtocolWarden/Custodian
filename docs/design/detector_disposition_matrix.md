@@ -57,7 +57,7 @@
 | C29 | File exceeds line-count threshold | LOW | code_health.py | `custodian_hygiene` | No | No tool equivalent | LOW | Keep; pair with A1 `max_lines` invariant. Non-blocking. |
 | C31 | Weak hash without `usedforsecurity=False` | HIGH | code_health.py | `ruff` | Yes (HIGH) | Ruff `S324` | LOW | Exact match |
 | C32 | Hardcoded credential in assignment | HIGH | code_health.py | `semgrep` | Yes (HIGH) | Semgrep `python.lang.security.audit.hardcoded-*` suite | MEDIUM | Semgrep's credential detection is more accurate than word-boundary regex; current FP rate in Custodian's C32 is moderate |
-| C33 | Ghost-work comment density | LOW | code_health.py | `custodian_hygiene` | No | No tool equivalent | LOW | Permanently Custodian-owned; threshold config stays in `.custodian.yaml` |
+| C33 | Ghost-work comment density | LOW | code_health.py | `custodian_hygiene` | No | No tool equivalent | LOW | Permanently Custodian-owned; threshold config stays in `.custodian/config.yaml` |
 
 **C-class summary:** 17 → `ruff`, 3 → `semgrep`, 6 → `custodian_hygiene`/`custodian_policy`, 4 → `retire`  
 **Not built (C30):** `random` outside tests — if implemented, destination would be `ruff` (Ruff `S311`) or `semgrep`.
@@ -179,8 +179,8 @@
 
 | Code | Description | Status | Destination | Blocking | Replacement | Migration Notes |
 |---|---|---|---|---|---|---|
-| AI1 | Managed-repo imports inside `src/operations_center/` | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.invariants[forbidden_import_prefix]` in `.custodian.yaml` | **DONE.** Python plugin detector removed; now enforced via A1 `forbidden_import_prefix` rule (3 rules: videofoundry, tools.audit, managed_repo). No semgrep needed. |
-| AI2 | Layer-direction violations (fast-feedback ladder) | fixed | `custodian_policy` (S1 declarative) | Yes | `architecture.layers` in `.custodian.yaml` | **DONE.** Python plugin detector removed; now enforced via S1 declarative layer rules (slice_replay, mini_regression, fixture_harvesting, audit_governance). |
+| AI1 | Managed-repo imports inside `src/operations_center/` | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.invariants[forbidden_import_prefix]` in `.custodian/config.yaml` | **DONE.** Python plugin detector removed; now enforced via A1 `forbidden_import_prefix` rule (3 rules: videofoundry, tools.audit, managed_repo). No semgrep needed. |
+| AI2 | Layer-direction violations (fast-feedback ladder) | fixed | `custodian_policy` (S1 declarative) | Yes | `architecture.layers` in `.custodian/config.yaml` | **DONE.** Python plugin detector removed; now enforced via S1 declarative layer rules (slice_replay, mini_regression, fixture_harvesting, audit_governance). |
 | AI3 | Directory-scanning in `artifact_index` | fixed | `semgrep` | Yes | Semgrep pattern: `glob`/`rglob`/`scandir`/`walk` in `artifact_index/**` | **DONE (2026-05-05).** Python plugin detector removed; enforced by `OC/.custodian/rules/semgrep/ai3_no_directory_scanning.yaml` with `multi_run.py` + `cli.py` exempted. |
 | AI4 | Anti-collapse guardrail structurally present | fixed | `custodian_policy` | Yes | None | Structural invariant that requires runtime knowledge of OC's architecture. Keep in Custodian permanently. |
 
@@ -190,11 +190,11 @@
 
 | Code | Description | Status | Destination | Blocking | Replacement | Migration Notes |
 |---|---|---|---|---|---|---|
-| VF1 | Capability DDD folder shape | fixed | `custodian_policy` (A2 declarative) | Yes | `architecture.directory_structure` in `.custodian.yaml` | **DONE.** Python detector replaced by A2 declarative directory-shape rule. |
-| VF2 | `SingletonMongoDB` direct import outside the canonical Mongo adapter | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.invariants[forbidden_import]` in `.custodian.yaml` | **DONE.** Migrated to A1 `forbidden_import` rule. |
+| VF1 | Capability DDD folder shape | fixed | `custodian_policy` (A2 declarative) | Yes | `architecture.directory_structure` in `.custodian/config.yaml` | **DONE.** Python detector replaced by A2 declarative directory-shape rule. |
+| VF2 | `SingletonMongoDB` direct import outside the canonical Mongo adapter | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.invariants[forbidden_import]` in `.custodian/config.yaml` | **DONE.** Migrated to A1 `forbidden_import` rule. |
 | VF3 | Raw `os.environ` / `os.getenv` outside config/setup paths | fixed | `semgrep` | Yes | `VF/.custodian/rules/semgrep/vf3_no_raw_os_environ.yaml` | **DONE (2026-05-05).** Path scope mirrors `audit.c13_allowed_paths`. C13 native detector kept as a generic baseline. |
-| VF4 | Runtime `src/**` imports `tools.audit` / `tools.reports` | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.layers[forbidden_import_prefix]` in `.custodian.yaml` | **DONE.** Two `forbidden_import_prefix` rules (tools.audit, tools.reports). |
-| VF5 | `WorkflowContext` field count god-object guard | fixed | `custodian_policy` (A1 declarative) | No (advisory) | `architecture.invariants[class_field_count]` in `.custodian.yaml` | **DONE.** Migrated to declarative class-field-count check. |
+| VF4 | Runtime `src/**` imports `tools.audit` / `tools.reports` | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.layers[forbidden_import_prefix]` in `.custodian/config.yaml` | **DONE.** Two `forbidden_import_prefix` rules (tools.audit, tools.reports). |
+| VF5 | `WorkflowContext` field count god-object guard | fixed | `custodian_policy` (A1 declarative) | No (advisory) | `architecture.invariants[class_field_count]` in `.custodian/config.yaml` | **DONE.** Migrated to declarative class-field-count check. |
 | VF6 | Stage class exists but is not wired into pipeline | open | `custodian_policy` | Yes | None | Cross-file wiring check — requires reading multiple wiring files and matching against stage class definitions. Custom Python remains the right home (no declarative or Semgrep equivalent). Permanently Custodian-owned. |
 
 ---
@@ -348,7 +348,7 @@ reports:
 2. **Auto-normalize old schema** — `repo_key` → `repo.name`, `audit.exclude_paths` → tool-specific `exclude` blocks, `architecture` → unchanged (same shape).
 3. **Warn on old keys, do not fail** — loading an old-schema file emits deprecation warnings to stderr; audit still runs. The `doctor` command surfaces these warnings.
 4. **New key `tools:` is additive** — old configs without `tools:` get Custodian's defaults (all tools disabled until explicitly enabled).
-5. **Future migration command** — `custodian config migrate` (Phase 9) rewrites `.custodian.yaml` in place to new schema with a backup.
+5. **Future migration command** — `custodian config migrate` (Phase 9) rewrites `.custodian/config.yaml` in place to new schema with a backup.
 
 ### Keys that survive unchanged
 
@@ -421,7 +421,7 @@ Every adapter must handle the case where the external tool is not installed:
 [x] Old config compatibility strategy recorded — warn-don't-fail, auto-normalize in Phase 9
 [x] Test migration strategy recorded — keep existing until Phase 12, add new first
 [x] No detector deletion performed
-[x] No existing .custodian.yaml broken
+[x] No existing .custodian/config.yaml broken
 ```
 
 **Phase 0 is complete. Phase 1 may begin.**

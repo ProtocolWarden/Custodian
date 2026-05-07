@@ -23,7 +23,7 @@ What should have happened.
 
 What actually happened. Include the stage where it failed:
 
-- [ ] `.custodian.yaml` parsing
+- [ ] `.custodian/config.yaml` parsing
 - [ ] Plugin loading
 - [ ] Detector execution
 - [ ] Result serialization
@@ -43,7 +43,7 @@ What actually happened. Include the stage where it failed:
 paste any error messages, logs, or audit output here
 ```
 
-## `.custodian.yaml`
+## `.custodian/config.yaml`
 
 If the bug is config-related, paste the relevant section here:
 

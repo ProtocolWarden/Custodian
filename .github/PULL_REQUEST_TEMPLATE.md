@@ -24,7 +24,7 @@
 
 ## Documentation
 
-- [ ] `README.md` updated if CLI surface or `.custodian.yaml` keys changed
+- [ ] `README.md` updated if CLI surface or `.custodian/config.yaml` keys changed
 - [ ] `CONTRIBUTING.md` updated if project structure changed
 
 ## Related Issues

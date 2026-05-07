@@ -15,7 +15,7 @@ What is currently difficult or impossible that this would fix?
 
 ## Proposed Solution
 
-How you imagine it working. Include API, CLI examples, or `.custodian.yaml` keys if relevant.
+How you imagine it working. Include API, CLI examples, or `.custodian/config.yaml` keys if relevant.
 
 ## Affected Layer
 
@@ -25,7 +25,7 @@ Which part of Custodian does this touch?
 - [ ] `maintenance_kit` — cross-cutting maintenance helpers
 - [ ] `plugins` — plugin loader / consumer protocols
 - [ ] `cli` — `custodian-audit` / `custodian-doctor`
-- [ ] Documentation / `.custodian.yaml` schema
+- [ ] Documentation / `.custodian/config.yaml` schema
 - [ ] CI / packaging
 
 ## Alternatives Considered

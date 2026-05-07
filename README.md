@@ -57,19 +57,20 @@ Detectors are grouped by namespace. Each detector has an ID, a severity (LOW/MED
 
 A further 21 detectors are kept as **deprecated** — third-party tools (ruff, vulture, ty) cover the same cases natively, so these no longer participate in audits but stay importable for backward compatibility. See `docs/design/detector_disposition_matrix.md`.
 
-Consumer repos can add plugin detectors by supplying Python modules via the `plugins` key in `.custodian.yaml`. See `tests/fixtures/sample_consumer/` for a concrete example.
+Consumer repos can add plugin detectors by supplying Python modules via the `plugins` key in `.custodian/config.yaml`. See `tests/fixtures/sample_consumer/` for a concrete example.
 
-## Consumer configuration (`.custodian.yaml`)
+## Consumer configuration (`.custodian/config.yaml`)
 
 Each consumer repo declares:
 
 - `repo_key`: stable identifier
 - `src_root` and `tests_root`: relative paths for scanning
-- `audit` settings (for example stale handler names and common words)
+- `audit` settings (for example exclude_paths, stale handler names, and common words)
 - `plugins`: module import targets used by Custodian
+- `tools`: external-tool adapter toggles (ruff, vulture, ty, semgrep, coverage)
 - `maintenance` thresholds
 
-See `tests/fixtures/sample_consumer/.custodian.yaml` for a concrete example.
+The preferred layout is `.custodian/config.yaml` at repo root (used by every Velascat platform repo). A legacy single-file `.custodian.yaml` form is still loaded as a fallback for backwards compatibility — see `tests/fixtures/sample_consumer/.custodian.yaml` for a minimal example of that form.
 
 ## Versioning and schema stability
 

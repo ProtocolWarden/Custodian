@@ -5,6 +5,8 @@ _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
 ## Stop Points
 
+- Config-path docs refreshed for .custodian/config.yaml (2026-05-07, on `main`): User reported the README and GitHub description still referenced the legacy `.custodian.yaml` single-file path. Updated GitHub description, README, CONTRIBUTING, SECURITY, all 3 ISSUE/PR templates, design/detector_disposition_matrix, and usage/forbidden_import_prefix to the preferred `.custodian/config.yaml` layout. README now explicitly documents the legacy form as a backwards-compat fallback (loader supports both).
+
 - R6 — docs index detector (2026-05-07, on `main`): Added R6 to the readme detector class. R6 fires when `docs/` exists at repo root but `docs/README.md` does not — flagging unindexed doc trees. 3 new tests; full Custodian suite 815 ✓. Used to drive doc-index creation in 6 platform repos (OC, OperatorConsole, SwitchBoard, WorkStation, Custodian, CxRP) — VideoFoundry already had one; RxP/ER/SR have no docs/ and are skipped silently. README's R-class count bumped 5 → 6.
 
 - README opening standardized in own repo (2026-05-06, on `main`): Self-applied the new R3/R4 convention. Custodian's README now leads with `## What this repo is` (detector framework, adapters, plugin loader, CLI, schema-stable JSON) and `## What this repo is not` (not a linter, not a test runner, not repo-specific).
