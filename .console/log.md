@@ -5,6 +5,8 @@ _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
 ## Stop Points
 
+
+- CI cleanup round 2 (2026-05-06, on `main`): re-added license headers (they got reverted) + per-file ruff ignores for `src/custodian/cli/**` (T201/BLE001/S603 OK in CLIs) and `src/custodian/adapters/**` (S603 — these adapters wrap external tools via subprocess by design). 790 tests pass; ruff src/ clean.
 - CI cleanup: license headers + dead C7 exclude_paths (2026-05-06, on `main`): Custodian's CI was failing on (a) missing SPDX headers in 3 newly-added `__init__.py` files (`.vulture_whitelist.py`, `audit_kit/detectors/__init__.py`, `audit_kit/passes/__init__.py`) and (b) `custodian-doctor --strict` warning that `exclude_paths` referenced retired detector C7. Added the headers; removed the dead C7 block. CI now green.
 
 - A1 `public_api_only` invariant (2026-05-06, on `feat/boundary-public-api-invariant`): New invariant for enforcing public-API discipline when a repo consumes an extracted library. Config: `public_api_only: {package, allowed_paths}`. Flags imports of `<package>.*` whose module path isn't in `allowed_paths` exactly. Driven by the runtime extraction (ER / RxP / SR are now independent repos consumed by OC; boundary discipline was relying on PR review only). 8 new tests pin allowed top-level + subpackage paths, deep-module rejection, unrelated-package ignore, empty-allowlist safe default, relative imports never flagged. 790 tests pass (+8).

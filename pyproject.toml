@@ -69,3 +69,9 @@ extend-select = [
     "RET503",                                            # D8  — implicit return
     "N818",                                              # N1  — exception class naming
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# CLI scripts and tools legitimately print and broad-except
+"src/custodian/cli/**/*.py" = ["T201", "BLE001", "S603"]
+"src/custodian/adapters/**/*.py" = ["S603"]
+"tools/**/*.py" = ["T201", "BLE001", "S603"]

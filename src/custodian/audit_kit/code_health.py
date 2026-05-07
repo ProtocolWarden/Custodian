@@ -1238,7 +1238,7 @@ def detect_c37(context: AuditContext) -> DetectorResult:
     try:
         import yaml  # type: ignore[import-not-found]
         raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception:  # noqa: BLE001  -- yaml load can raise many things
         return DetectorResult(count=0, samples=[])
 
     if not isinstance(raw, dict):
