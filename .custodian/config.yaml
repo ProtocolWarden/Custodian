@@ -121,6 +121,7 @@ audit:
       - src/custodian/audit_kit/detectors/test_shape.py
       - src/custodian/audit_kit/detectors/docs.py
       - src/custodian/audit_kit/detectors/naming.py
+      - src/custodian/audit_kit/detectors/cross_repo.py
       # CLI runner and report modules are tested through end-to-end CLI tests.
       - src/custodian/cli/runner.py
       - src/custodian/cli/report.py
@@ -183,6 +184,7 @@ audit:
       - src/custodian/audit_kit/detectors/readme.py
       - src/custodian/audit_kit/detectors/boundary.py
       - src/custodian/audit_kit/detectors/doc_conventions.py
+      - src/custodian/audit_kit/detectors/cross_repo.py
       - src/custodian/audit_kit/code_health.py
       - src/custodian/triage/matrix.py
       - src/custodian/reports/sarif_report.py
