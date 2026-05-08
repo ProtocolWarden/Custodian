@@ -35,6 +35,16 @@ For local development against this repo:
 pip install -e .[dev]
 ```
 
+## Architecture
+
+Custodian runs three layers, in order, against any consumer repo:
+
+1. **Native detectors** — code-health classes (C/D/F/K/N/U/T), structural classes (A/H/R/S), boundary (B), and doc conventions (DC). Listed in the Detector model table below.
+2. **Adapter pass** — wraps Ruff, Vulture, ty, mypy, Semgrep, and Coverage. Toggled per-consumer via the `tools:` block in `.custodian/config.yaml`.
+3. **Plugin detectors** — repo-specific rules a consumer drops under `_custodian/` and registers via the `plugins:` and `detectors:` keys.
+
+The runner emits a single `AuditResult` carrying every finding from every layer, keyed by detector ID. CLIs (`custodian audit`, `custodian-doctor`, `custodian-triage`) consume that one shape.
+
 ## Detector model
 
 Detectors are grouped by namespace. Each detector has an ID, a severity (LOW/MEDIUM/HIGH), and a set of analysis passes it requires (none, `ast_forest`, `call_graph`).
