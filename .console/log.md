@@ -293,3 +293,5 @@ Also:
 - SyntaxWarning in doc_conventions.py:388 fixed (raw docstring).
 
 Cross-repo impact: total findings 1382 → 826 (-556, ~40%). OC 855 → 364.
+
+## 2026-05-08 — M1: CHANGELOG.md stub
