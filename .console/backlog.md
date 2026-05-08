@@ -4,6 +4,16 @@
 
 _(none)_
 
+## Up Next
+
+- [ ] **X-series: wire cross_repo config into managed repos (2026-05-08)**: Added `audit.cross_repo.platform_manifest_repo: ../PlatformManifest` to OC, VF, and SB configs. X1 live-run confirmed 0 findings across all three — platform is clean of legacy aliases (`ControlPlane`, `FOB`, `ExecutionContractProtocol`). Config additions not yet committed.
+
+- [ ] **X1 improvement — scan `.yaml` files**: X1 currently scans `.py` and `.md` only. A stale legacy name in a `.custodian/config.yaml` or any other tracked YAML is equally broken. Extend `_scan_paths` to include `.yaml`/`.yml`; add a `skip_parts` guard for `.venv`/`node_modules` YAML noise. Low effort, low risk.
+
+- [ ] **X2: undeclared cross-repo import**: Use the manifest's `edges` block as enforced architectural law. If a `.py` file imports a package that maps to a manifest repo (e.g. `import executor_runtime`, `import rxp`) but no edge is declared from the current repo to that target, flag it as an undeclared dependency. Requires building `{entry_key: canonical_name}` → Python package name mapping from the manifest (entry key is already snake_case of canonical). Silent skip when no edges in manifest.
+
+- [ ] **X3: stale github_url in docs**: Scan `.md` files for GitHub URLs pointing to platform repos via old names (e.g. `github.com/Velascat/ControlPlane`). Complements X1's string-name drift check with URL-level drift detection. Build URL→canonical map from `github_url` fields + legacy names.
+
 ## Recent
 
 - [x] **Vulture soft-flip + coverage adapter (2026-05-04, on main)**: Vulture default flipped ON with `min_confidence=80` (high-confidence dead code only). New `coverage` adapter at `src/custodian/adapters/coverage.py` ingests externally-produced `coverage.json` and emits `CV1`/`CV2`/`CV3` findings (module unexecuted / function unexecuted / below min coverage). Default OFF in `custodian` CLI — opt-in via `tools.coverage` block. 12 new tests; full Custodian suite 785 pass.
