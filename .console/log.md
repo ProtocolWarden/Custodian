@@ -345,3 +345,14 @@ truth; pre-push catches regressions before they hit GitHub.
 
 ## 2026-05-08 — CI fix: Direct URL pip install syntax
 
+
+## 2026-05-08 — K4: docstring/signature type drift
+
+New detector K4 catches Args type drift: when docstring says
+`param (X): ...` and signature says `param: Y`, flag if X != Y after
+normalisation. Recognises Optional/Union/List/Dict aliases and
+str/int/bool synonyms.
+
+
+## 2026-05-08 — Drop stale exclude_paths entries (doctor --strict)
+

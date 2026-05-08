@@ -24,6 +24,17 @@ K3  Docstring parameter drift — a function has a Google-style ``Args:``
     actual function signature.  Catches docstrings that were not updated
     after a parameter was renamed or removed.  ``self``, ``cls``,
     ``*args``, and ``**kwargs`` are excluded from checking.
+
+K4  Docstring parameter type drift — a Google-style ``Args:`` entry
+    declares a type (e.g. ``count (int): ...``) that does not match
+    the parameter's signature annotation. Flags only when *both* sides
+    declare a type and they disagree after whitespace/whitespace-around-
+    operators normalization. A docstring without a type or a parameter
+    without an annotation is not flagged here (E1/missing-type detectors
+    cover those).  Common aliases are recognised: ``Optional[X]`` ↔
+    ``X | None``, ``List[X]`` ↔ ``list[X]``, etc.
+
+    Configure ``audit.exclude_paths.K4`` to skip files.
 """
 from __future__ import annotations
 
@@ -47,6 +58,8 @@ def build_docs_detectors() -> list[Detector]:
                  detect_k2, LOW),
         Detector("K3", "docstring Args section names parameter not in function signature (param drift)", "open",
                  detect_k3, LOW),
+        Detector("K4", "docstring Args type does not match signature annotation (type drift)", "open",
+                 detect_k4, LOW),
     ]
 
 
@@ -233,6 +246,8 @@ def detect_k2(context: AuditContext) -> DetectorResult:
 
 # Matches a Google-style Args: section header (indented or not)
 _ARGS_HEADER_RE = re.compile(r"^\s*Args:\s*$")
+# `name (type): description` — captures both the name and the type when present.
+_ARGS_PARAM_TYPED_RE = re.compile(r"^\s{4,}(\w+)\s*\(([^)]+)\)\s*:")
 # Matches a documented parameter name in a Google-style Args section.
 # Allows optional type annotation in parens: `param_name (type): description`
 _ARGS_PARAM_RE = re.compile(r"^\s{4,}(\w+)(?:\s*\(.*?\))?\s*:")
@@ -360,6 +375,191 @@ def detect_k3(context: AuditContext) -> DetectorResult:
                     if len(samples) < _MAX_SAMPLES:
                         samples.append(
                             f"{rel}:{node.lineno}: {node.name}() — docstring Args `{pname}` not in signature"
+                        )
+
+    return DetectorResult(count=count, samples=samples)
+
+
+# ── K4: docstring type drift ─────────────────────────────────────────────────
+
+
+# Recognised aliases — both directions. Stored as a frozenset of frozensets;
+# lookup normalises to canonical form (lowercase) before comparing.
+_TYPE_ALIASES: tuple[frozenset[str], ...] = (
+    frozenset({"list", "List"}),
+    frozenset({"dict", "Dict"}),
+    frozenset({"tuple", "Tuple"}),
+    frozenset({"set", "Set"}),
+    frozenset({"frozenset", "FrozenSet"}),
+    frozenset({"type", "Type"}),
+    frozenset({"none", "None", "NoneType"}),
+    frozenset({"bool", "boolean", "Bool"}),
+    frozenset({"str", "string", "String"}),
+    frozenset({"int", "integer", "Int"}),
+    frozenset({"float", "Float", "double", "Double"}),
+    frozenset({"bytes", "Bytes"}),
+    frozenset({"any", "Any", "object", "Object"}),
+)
+
+
+def _normalise_type(s: str) -> str:
+    """Normalise a type string for K4 comparison.
+
+    Strip whitespace, normalise spaces around ``|`` / ``,``, rewrite
+    ``Optional[X]`` as ``X | None``, and rewrite generic-bracket aliases
+    (``List[X]`` → ``list[X]``, ``Dict[K, V]`` → ``dict[K, V]``, ...).
+    """
+    if s is None:
+        return ""
+    out = s.strip()
+    # Capitalised generics → lowercase builtins (List[X] → list[X]) FIRST
+    # so Optional[List[str]] → Optional[list[str]] → list[str] | None
+    # works without bracket-matching gymnastics.
+    for word in ("List", "Dict", "Tuple", "Set", "FrozenSet", "Type"):
+        out = re.sub(rf"\b{word}\[", f"{word.lower()}[", out)
+    # Optional[X] → X | None — bracket-balanced match for X.
+    out = _rewrite_optional(out)
+    # Tighten spaces around `|` and `,`
+    out = re.sub(r"\s*\|\s*", " | ", out)
+    out = re.sub(r"\s*,\s*", ", ", out)
+    out = re.sub(r"\s+", " ", out).strip()
+    return out
+
+
+def _rewrite_optional(s: str) -> str:
+    """Rewrite ``Optional[X]`` → ``X | None`` with proper bracket balancing
+    so nested generics survive (``Optional[List[str]]`` → ``list[str] | None``).
+    """
+    out = s
+    while True:
+        idx = out.find("Optional[")
+        if idx == -1:
+            return out
+        depth = 0
+        for j in range(idx + len("Optional["), len(out)):
+            if out[j] == "[":
+                depth += 1
+            elif out[j] == "]":
+                if depth == 0:
+                    inner = out[idx + len("Optional[") : j].strip()
+                    out = out[:idx] + f"{inner} | None" + out[j + 1 :]
+                    break
+                depth -= 1
+        else:
+            return out  # unmatched `[` — give up rewriting
+
+
+def _types_equivalent(a: str, b: str) -> bool:
+    """True when two type strings are equivalent under K4's aliases."""
+    if not a or not b:
+        return True  # don't flag — one side is missing, K4 only catches drift
+    na = _normalise_type(a)
+    nb = _normalise_type(b)
+    if na == nb:
+        return True
+    # Atomic-name aliases (``str`` vs ``string``)
+    for cluster in _TYPE_ALIASES:
+        if na in cluster and nb in cluster:
+            return True
+    return False
+
+
+def _parse_google_args_typed(docstring: str) -> dict[str, str]:
+    """Return ``{param_name: type_string}`` from a Google-style Args section.
+
+    Only includes entries that explicitly declare a type ``param (type):``.
+    Untyped entries (``param: ...``) are skipped — they're K3 territory,
+    not K4. Returns ``{}`` when no Args section is present.
+    """
+    out: dict[str, str] = {}
+    in_args = False
+    for line in docstring.splitlines():
+        if _ARGS_HEADER_RE.match(line):
+            in_args = True
+            continue
+        if not in_args:
+            continue
+        if not line.strip():
+            continue
+        sm = _SECTION_HEADER_RE.match(line)
+        if sm and sm.group(2).rstrip() in _GOOGLE_SECTION_HEADERS:
+            in_args = False
+            continue
+        if line and not line[0].isspace():
+            in_args = False
+            continue
+        m = _ARGS_PARAM_TYPED_RE.match(line)
+        if m:
+            name, typ = m.group(1), m.group(2).strip()
+            if name not in _GOOGLE_SECTION_HEADERS and not name.isupper():
+                out[name] = typ
+    return out
+
+
+def _signature_param_types(
+    func: _ast.FunctionDef | _ast.AsyncFunctionDef,
+) -> dict[str, str]:
+    """Return ``{param_name: annotation_string}`` for parameters that have
+    a type annotation. Parameters without an annotation are omitted.
+    """
+    out: dict[str, str] = {}
+    args = func.args
+    for arg in args.args + args.posonlyargs + args.kwonlyargs:
+        if arg.annotation is not None:
+            out[arg.arg] = _ast.unparse(arg.annotation)
+    return out
+
+
+def detect_k4(context: AuditContext) -> DetectorResult:
+    """Flag functions where docstring Args type doesn't match signature.
+
+    Only flags when *both* sides declare a type and they disagree after
+    normalisation. Either side missing = silent (K3/E1 territory).
+
+    Exclude files via ``audit.exclude_paths.K4``.
+    """
+    audit_cfg = context.config.get("audit") or {}
+    globs: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("K4") or [])
+
+    samples: list[str] = []
+    count = 0
+
+    for path in _py_files(context, "K4"):
+        if globs:
+            from custodian.audit_kit.code_health import _glob_to_regex
+            rel_str = str(path.relative_to(context.repo_root))
+            if any(_glob_to_regex(g).match(rel_str) for g in globs):
+                continue
+        try:
+            raw = path.read_text(encoding="utf-8")
+            tree = _ast.parse(raw)
+        except (OSError, UnicodeDecodeError, SyntaxError):
+            continue
+        rel = path.relative_to(context.repo_root)
+
+        for node in _ast.walk(tree):
+            if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                continue
+            doc = _get_docstring(node)
+            if doc is None:
+                continue
+            doc_types = _parse_google_args_typed(doc)
+            if not doc_types:
+                continue
+            sig_types = _signature_param_types(node)
+            for pname, doc_type in doc_types.items():
+                if pname in _SKIP_PARAMS:
+                    continue
+                sig_type = sig_types.get(pname)
+                if sig_type is None:
+                    continue  # E1 territory
+                if not _types_equivalent(doc_type, sig_type):
+                    count += 1
+                    if len(samples) < _MAX_SAMPLES:
+                        samples.append(
+                            f"{rel}:{node.lineno}: {node.name}() — "
+                            f"docstring `{pname}` typed `{doc_type}` "
+                            f"but signature says `{sig_type}`"
                         )
 
     return DetectorResult(count=count, samples=samples)
