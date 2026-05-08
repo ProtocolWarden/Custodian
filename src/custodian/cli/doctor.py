@@ -28,7 +28,7 @@ from custodian.plugins.loader import load_detectors, load_plugins
 _KNOWN_TOP_LEVEL_KEYS = frozenset({
     "repo_key", "src_root", "tests_root", "plugins", "detectors", "audit", "architecture",
     "maintenance",
-    "tools",     # ruff/vulture/mypy/ty/semgrep adapter toggles
+    "tools",     # ruff/vulture/mypy/ty/semgrep/markdownlint/coverage adapter toggles
     "privacy",   # private-repo-name leakage detector (B-class)
     "doc_conventions",  # markdown convention detectors (DC-class)
     "repo_meta",        # repo-meta file presence detectors (M-class)

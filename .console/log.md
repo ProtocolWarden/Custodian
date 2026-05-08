@@ -3,6 +3,8 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+- Markdownlint adapter (2026-05-08, on feat/markdownlint-adapter): Last of the four doc/convention enhancements. Wraps markdownlint-cli2 (preferred) or legacy markdownlint, normalizing both output shapes into Custodian Findings. Default scope: README.md + docs/**/*.md; configurable via tools.markdownlint.{globs, config, timeout}. Severity heuristic — MD025 (multiple H1) + MD040 (no fence language) HIGH; MD001/003/024/029/050/051 MEDIUM; rest LOW. Returns TOOL_UNAVAILABLE finding when neither binary is on PATH so consumers without npm see a clear hint instead of a hard fail. 12 new tests; full suite 902 passing.
+
 - DC1 per-dir front matter schemas (2026-05-08, on feat/dc1-per-dir-front-matter-schemas): DC1 used to enforce only status: in docs/design/. Extended with doc_conventions.front_matter_schemas — operators map glob patterns to required-field lists, e.g. docs/architecture/adr/*.md: [date, status, deciders]. Files with no front matter at all report once (missing block) rather than once-per-field; template.md/README.md/index.md exempt. Default-design-dir status check still runs alongside. 6 new tests; full suite 890 passing.
 
 - DC6/DC7 + M-class — taxonomy, orphans, repo-meta (2026-05-08, on feat/dc6-dc7-and-m-class): DC6 flags docs/ subdirs outside a configured allowlist (opt-in). DC7 flags markdown files under docs/ that no other tracked .md links to. M1-M4 check for CHANGELOG/CONTRIBUTING/SECURITY/LICENSE at repo root, each opt-out via repo_meta.skip. 29 new tests; full suite 884 passing. Baseline: DC6=0, DC7=10 (most OC), M1=10 (universal CHANGELOG gap), M2-M4=0.
