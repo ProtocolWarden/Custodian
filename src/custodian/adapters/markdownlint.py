@@ -145,14 +145,18 @@ class MarkdownlintAdapter(ToolAdapter):
     def _items_to_findings(
         self, items: object, *, is_cli2: bool,
     ) -> list[Finding]:
+        # JSON-shaped input — ty narrows isinstance(x, dict) to dict[Never,Never]
+        # so each .get() flags. Cast to typing.Any once at the boundary.
+        from typing import Any, cast
         out: list[Finding] = []
         if is_cli2:
             # cli2 shape: list of {fileName, lineNumber, ruleNames, ruleDescription, ...}
             if not isinstance(items, list):
                 return out
-            for item in items:
-                if not isinstance(item, dict):
+            for raw in items:
+                if not isinstance(raw, dict):
                     continue
+                item = cast(dict[str, Any], raw)
                 rule_names = item.get("ruleNames") or []
                 rule = rule_names[0] if rule_names else "MD000"
                 out.append(Finding(
@@ -167,12 +171,14 @@ class MarkdownlintAdapter(ToolAdapter):
             # legacy markdownlint shape: {file: [issue, ...], ...}
             if not isinstance(items, dict):
                 return out
-            for file_path, issues in items.items():
+            items_map = cast(dict[str, Any], items)
+            for file_path, issues in items_map.items():
                 if not isinstance(issues, list):
                     continue
-                for issue in issues:
-                    if not isinstance(issue, dict):
+                for raw_issue in issues:
+                    if not isinstance(raw_issue, dict):
                         continue
+                    issue = cast(dict[str, Any], raw_issue)
                     rule_names = issue.get("ruleNames") or []
                     rule = rule_names[0] if rule_names else "MD000"
                     out.append(Finding(
