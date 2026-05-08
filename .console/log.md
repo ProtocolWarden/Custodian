@@ -3,6 +3,8 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+- B-class detector — private-repo-name leakage (2026-05-08, on `feat/p-class-private-repo-name-detector`): Public repos describe stable, reusable platform capabilities; private manifests bind those to specific private repos. Public-repo-shipped artifacts that name a private repo by string leak the boundary. Added `B1` (Boundary class — initial detector for the class) that scans tracked files (via `git ls-files`, with a recursive-walk fallback when git isn't available) for configured private-repo names. Configurable via a new `privacy:` top-level key in `.custodian/config.yaml` with `private_repo_names` (case-sensitive substring) and `exclude_paths` (additive over a sensible default set: `.console/**`, `config/managed_repos/local/**`, `docs/history/**`, `tools/audit/report/**`). Skips binary files via suffix list. MEDIUM severity. 14 new tests; full Custodian suite 829 passing. Doc page at `docs/usage/private_repo_names.md`. README class table bumped 12 → 13.
+
 ## Stop Points
 
 - Fix forbidden_import_prefix doubled config path (2026-05-07, on `main`): Earlier sed pass over usage docs accidentally rewrote `.custodian.yaml` → `.custodian/config.yaml` on both sides of the "preferred (or legacy fallback)" parenthetical, producing nonsensical `.custodian/config.yaml (or .custodian/config.yaml)`. Restored to single-line mentioning preferred form + legacy fallback.
