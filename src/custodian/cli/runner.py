@@ -18,6 +18,7 @@ from custodian.audit_kit.detectors.imports import build_import_detectors
 from custodian.audit_kit.detectors.naming import build_naming_detectors
 from custodian.audit_kit.detectors.boundary import build_boundary_detectors
 from custodian.audit_kit.detectors.doc_conventions import build_doc_convention_detectors
+from custodian.audit_kit.detectors.repo_meta import build_repo_meta_detectors
 from custodian.audit_kit.detectors.directory import build_directory_detectors
 from custodian.audit_kit.detectors.readme import build_readme_detectors
 from custodian.audit_kit.detectors.structure import build_structure_detectors
@@ -113,6 +114,7 @@ def run_repo_audit(
                   + build_boundary_detectors()
                   + build_readme_detectors()
                   + build_doc_convention_detectors()
+                  + build_repo_meta_detectors()
                   + extra)
 
     if only:

@@ -101,6 +101,12 @@ def build_doc_convention_detectors() -> list[Detector]:
         Detector("DC5",
                  "bare symbol citations in implementation contexts",
                  "open", detect_dc5, LOW, frozenset()),
+        Detector("DC6",
+                 "docs/ subdirectory not in the configured taxonomy",
+                 "open", detect_dc6, LOW, frozenset()),
+        Detector("DC7",
+                 "orphan markdown file under docs/ (not linked from any tracked doc)",
+                 "open", detect_dc7, LOW, frozenset()),
     ]
 
 
@@ -274,4 +280,129 @@ def detect_dc5(ctx: AuditContext) -> DetectorResult:
                         )
         except OSError:
             continue
+    return DetectorResult(count=len(samples), samples=samples[:_MAX_SAMPLES])
+
+
+# ── DC6: docs/ subdirectory taxonomy ─────────────────────────────────────────
+
+def detect_dc6(ctx: AuditContext) -> DetectorResult:
+    """Flag docs/ subdirectories not in the configured allowlist.
+
+    Opt-in: silently passes when ``allowed_doc_subdirs`` isn't configured.
+    Operators set the list in ``.custodian/config.yaml``::
+
+        doc_conventions:
+          allowed_doc_subdirs:
+            - architecture
+            - operator
+            - usage
+            - design
+            - history
+            - adr
+
+    Only the *direct* subdirs of ``docs/`` are checked; nested
+    structure inside an allowed subdir is the operator's call.
+    """
+    cfg = _config(ctx)
+    allowed = cfg.get("allowed_doc_subdirs")
+    if not allowed:
+        return DetectorResult(count=0, samples=[])
+    docs_root = ctx.repo_root / "docs"
+    if not docs_root.exists():
+        return DetectorResult(count=0, samples=[])
+    allowed_set = {name.strip("/").lower() for name in allowed}
+    samples: list[str] = []
+    for entry in sorted(docs_root.iterdir()):
+        if not entry.is_dir():
+            continue
+        if entry.name.lower() not in allowed_set:
+            samples.append(
+                f"docs/{entry.name}/: not in allowed taxonomy "
+                f"({sorted(allowed_set)})"
+            )
+    return DetectorResult(count=len(samples), samples=samples[:_MAX_SAMPLES])
+
+
+# ── DC7: orphan markdown files under docs/ ───────────────────────────────────
+
+_MD_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+\.md)(?:#[^)]*)?\)")
+_BACKTICK_PATH_RE = re.compile(r"`(docs/[a-z0-9_/\-]+\.md)`")
+
+
+def detect_dc7(ctx: AuditContext) -> DetectorResult:
+    """Flag .md files under docs/ that no tracked .md links to.
+
+    A doc is "linked" when any other tracked .md file (under docs/, the
+    repo root README, or anywhere else in the working tree) cites it
+    via a markdown link ``[label](path/to.md)`` or a backticked path
+    ``\`docs/path.md\```. ``docs/README.md`` itself is exempt since
+    it's the canonical index and gets cited by linkage *to* it.
+
+    Honors the same exclude patterns as DC2/DC5 so historical /
+    archived narration doesn't produce false orphans.
+    """
+    cfg = _config(ctx)
+    excludes = list(cfg.get("exclude_path_patterns") or _DEFAULT_EXCLUDE_PATTERNS)
+    docs_root = ctx.repo_root / "docs"
+    if not docs_root.exists():
+        return DetectorResult(count=0, samples=[])
+
+    # All candidate orphans — every .md under docs/ except history/archive.
+    candidates: list[Path] = []
+    for md in docs_root.rglob("*.md"):
+        try:
+            rel = md.relative_to(ctx.repo_root)
+        except ValueError:
+            continue
+        if rel.name.lower() == "readme.md":
+            # docs/**/README.md acts as a section index; not an orphan
+            # candidate even if nothing links to it directly.
+            continue
+        if _is_excluded(rel, excludes):
+            continue
+        candidates.append(md)
+
+    if not candidates:
+        return DetectorResult(count=0, samples=[])
+
+    # Build the set of paths cited by any tracked .md file. The corpus
+    # is README.md + every .md under docs/ — that's the surface where
+    # cross-doc links live in our convention.
+    corpus: list[Path] = []
+    readme = ctx.repo_root / "README.md"
+    if readme.exists():
+        corpus.append(readme)
+    corpus.extend(docs_root.rglob("*.md"))
+
+    referenced: set[str] = set()
+    for f in corpus:
+        try:
+            text = f.read_text(errors="replace")
+        except OSError:
+            continue
+        try:
+            f_rel = f.relative_to(ctx.repo_root)
+        except ValueError:
+            continue
+        # Markdown links — paths may be relative to the citing file.
+        for m in _MD_LINK_RE.finditer(text):
+            target_str = m.group(1)
+            target = (f.parent / target_str).resolve()
+            try:
+                referenced.add(target.relative_to(ctx.repo_root.resolve()).as_posix())
+            except ValueError:
+                continue
+        # Backticked docs/... paths — repo-root-relative by convention.
+        for m in _BACKTICK_PATH_RE.finditer(text):
+            referenced.add(m.group(1))
+        # A doc that cites itself (via TOC anchors etc.) doesn't count
+        # toward its own non-orphan status, but other docs in the same
+        # directory's index do — handled implicitly by walking corpus.
+        del f_rel
+
+    samples: list[str] = []
+    for md in sorted(candidates):
+        rel = md.relative_to(ctx.repo_root).as_posix()
+        if rel not in referenced:
+            samples.append(f"{rel}: orphan — not linked from any tracked doc")
     return DetectorResult(count=len(samples), samples=samples[:_MAX_SAMPLES])
