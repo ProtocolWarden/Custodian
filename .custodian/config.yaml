@@ -92,6 +92,7 @@ audit:
       - src/custodian/audit_kit/detectors/structure.py
       - src/custodian/audit_kit/detectors/test_shape.py
       - src/custodian/audit_kit/detectors/doc_conventions.py
+      - src/custodian/audit_kit/detectors/docs.py
     C13:
       # CLI tools set os.environ["NO_COLOR"] to disable terminal colour in
       # subprocess output — this is terminal-formatting control, not config
