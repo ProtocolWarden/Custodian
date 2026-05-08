@@ -378,11 +378,11 @@ class TestA1:
         assert detect_a1(ctx).count == 0
 
     def test_forbidden_import_prefix_relative_import_not_flagged(self, tmp_path):
-        # "from .videofoundry import X" is a relative import — must NOT match prefix "videofoundry"
-        src = "from .videofoundry import VideoFoundryProfile\n"
+        # "from .example_repo import X" is a relative import — must NOT match prefix "example_repo"
+        src = "from .example_repo import ExampleRepoProfile\n"
         ctx = self._ctx(src, tmp_path, config={
             "architecture": {"invariants": [
-                {"name": "no videofoundry", "glob": "src/**/*.py", "forbidden_import_prefix": "videofoundry"}
+                {"name": "no example_repo", "glob": "src/**/*.py", "forbidden_import_prefix": "example_repo"}
             ]}
         })
         assert detect_a1(ctx).count == 0

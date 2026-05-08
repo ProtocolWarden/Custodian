@@ -179,23 +179,28 @@
 
 | Code | Description | Status | Destination | Blocking | Replacement | Migration Notes |
 |---|---|---|---|---|---|---|
-| AI1 | Managed-repo imports inside `src/operations_center/` | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.invariants[forbidden_import_prefix]` in `.custodian/config.yaml` | **DONE.** Python plugin detector removed; now enforced via A1 `forbidden_import_prefix` rule (3 rules: videofoundry, tools.audit, managed_repo). No semgrep needed. |
+| AI1 | Managed-repo imports inside `src/operations_center/` | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.invariants[forbidden_import_prefix]` in `.custodian/config.yaml` | **DONE.** Python plugin detector removed; now enforced via A1 `forbidden_import_prefix` rule (one rule per managed-repo binding plus `tools.audit` / `managed_repo`). No semgrep needed. |
 | AI2 | Layer-direction violations (fast-feedback ladder) | fixed | `custodian_policy` (S1 declarative) | Yes | `architecture.layers` in `.custodian/config.yaml` | **DONE.** Python plugin detector removed; now enforced via S1 declarative layer rules (slice_replay, mini_regression, fixture_harvesting, audit_governance). |
 | AI3 | Directory-scanning in `artifact_index` | fixed | `semgrep` | Yes | Semgrep pattern: `glob`/`rglob`/`scandir`/`walk` in `artifact_index/**` | **DONE (2026-05-05).** Python plugin detector removed; enforced by `OC/.custodian/rules/semgrep/ai3_no_directory_scanning.yaml` with `multi_run.py` + `cli.py` exempted. |
 | AI4 | Anti-collapse guardrail structurally present | fixed | `custodian_policy` | Yes | None | Structural invariant that requires runtime knowledge of OC's architecture. Keep in Custodian permanently. |
 
 ---
 
-## VF Plugin Detectors — VideoFoundry/.custodian/detectors.py (6 detectors)
+## Managed-Repo Plugin Detectors — example migration (6 detectors)
+
+A worked example of how a managed repo's `.custodian/detectors.py` plugin
+gets rewritten as declarative `custodian_policy` config + Semgrep rules.
+The IDs `M1`–`M6` are placeholders for the managed repo's own detector
+class; real bindings live in that repo's private config, not here.
 
 | Code | Description | Status | Destination | Blocking | Replacement | Migration Notes |
 |---|---|---|---|---|---|---|
-| VF1 | Capability DDD folder shape | fixed | `custodian_policy` (A2 declarative) | Yes | `architecture.directory_structure` in `.custodian/config.yaml` | **DONE.** Python detector replaced by A2 declarative directory-shape rule. |
-| VF2 | `SingletonMongoDB` direct import outside the canonical Mongo adapter | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.invariants[forbidden_import]` in `.custodian/config.yaml` | **DONE.** Migrated to A1 `forbidden_import` rule. |
-| VF3 | Raw `os.environ` / `os.getenv` outside config/setup paths | fixed | `semgrep` | Yes | `VF/.custodian/rules/semgrep/vf3_no_raw_os_environ.yaml` | **DONE (2026-05-05).** Path scope mirrors `audit.c13_allowed_paths`. C13 native detector kept as a generic baseline. |
-| VF4 | Runtime `src/**` imports `tools.audit` / `tools.reports` | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.layers[forbidden_import_prefix]` in `.custodian/config.yaml` | **DONE.** Two `forbidden_import_prefix` rules (tools.audit, tools.reports). |
-| VF5 | `WorkflowContext` field count god-object guard | fixed | `custodian_policy` (A1 declarative) | No (advisory) | `architecture.invariants[class_field_count]` in `.custodian/config.yaml` | **DONE.** Migrated to declarative class-field-count check. |
-| VF6 | Stage class exists but is not wired into pipeline | open | `custodian_policy` | Yes | None | Cross-file wiring check — requires reading multiple wiring files and matching against stage class definitions. Custom Python remains the right home (no declarative or Semgrep equivalent). Permanently Custodian-owned. |
+| M1 | Capability DDD folder shape | fixed | `custodian_policy` (A2 declarative) | Yes | `architecture.directory_structure` in `.custodian/config.yaml` | **DONE.** Python detector replaced by A2 declarative directory-shape rule. |
+| M2 | Singleton-DB direct import outside the canonical adapter | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.invariants[forbidden_import]` in `.custodian/config.yaml` | **DONE.** Migrated to A1 `forbidden_import` rule. |
+| M3 | Raw `os.environ` / `os.getenv` outside config/setup paths | fixed | `semgrep` | Yes | `<managed-repo>/.custodian/rules/semgrep/m3_no_raw_os_environ.yaml` | **DONE (2026-05-05).** Path scope mirrors `audit.c13_allowed_paths`. C13 native detector kept as a generic baseline. |
+| M4 | Runtime `src/**` imports `tools.audit` / `tools.reports` | fixed | `custodian_policy` (A1 declarative) | Yes | `architecture.layers[forbidden_import_prefix]` in `.custodian/config.yaml` | **DONE.** Two `forbidden_import_prefix` rules (tools.audit, tools.reports). |
+| M5 | God-object field-count guard for a context dataclass | fixed | `custodian_policy` (A1 declarative) | No (advisory) | `architecture.invariants[class_field_count]` in `.custodian/config.yaml` | **DONE.** Migrated to declarative class-field-count check. |
+| M6 | Stage class exists but is not wired into pipeline | open | `custodian_policy` | Yes | None | Cross-file wiring check — requires reading multiple wiring files and matching against stage class definitions. Custom Python remains the right home (no declarative or Semgrep equivalent). Permanently a managed-repo concern. |
 
 ---
 
