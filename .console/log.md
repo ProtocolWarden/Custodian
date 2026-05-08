@@ -336,13 +336,26 @@ must use `**` (no trailing pattern). Documented inline in config.
 All 10 platform repos now report 0 findings.
 
 
-## 2026-05-08 — Recursive glob match (feat/recursive-glob-match)
+## 2026-05-08 — CI regression guard
 
-Replaced fnmatch.fnmatch with a custom glob_match that handles ** as
-"zero or more path segments" — matches operator expectation. Closes
-the footgun where src/foo/**/*.py silently didn't recurse.
+Added .github/workflows/custodian-audit.yml + .hooks/pre-push.
+Both run `custodian-multi --fail-on-findings`. CI is the source of
+truth; pre-push catches regressions before they hit GitHub.
 
-- New module: src/custodian/audit_kit/glob_match.py
-- Tests: tests/test_glob_match.py (23 cases)
-- Wired into: boundary, code_health, doc_conventions, dead_code,
-  test_shape, structure, adapters/coverage
+
+## 2026-05-08 — CI fix: Direct URL pip install syntax
+
+
+## 2026-05-08 — D11: duplicate function bodies
+
+New detector D11 hashes normalised function bodies (AST shape + literal
+types + operator kinds, identifiers stripped) and flags clone groups.
+Configurable thresholds (d11_min_statements, d11_min_lines).
+Tests: tests/test_d11_duplicate_functions.py (6 cases).
+
+Custodian self exempts audit_kit/detectors/** + code_health.py — the
+detector class typology is by-design pattern-similar.
+
+
+## 2026-05-08 — D11 rebased on glob_match
+

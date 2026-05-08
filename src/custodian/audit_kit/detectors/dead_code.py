@@ -126,6 +126,8 @@ def build_dead_code_detectors() -> list[Detector]:
                  detect_f3, LOW, _NEEDS_CG),
         Detector("D10", "async def function that never awaits anything", "open",
                  detect_d10, LOW, _NEEDS_AST),
+        Detector("D11", "duplicate function bodies (clone candidates)", "open",
+                 detect_d11, LOW, _NEEDS_AST),
         # D3 stays NON-deprecated until ty/mypy is enabled across the major
         # consumers (currently disabled in OC + VF). When enabled, mark
         # deprecated=True and let the type checker take over.
@@ -1219,4 +1221,154 @@ def detect_d10(context: AuditContext) -> DetectorResult:
                     f"{rel}:{node.lineno}: async def {node.name}() — no await expression"
                 )
 
+    return DetectorResult(count=count, samples=samples)
+
+
+# ── D11: duplicate function bodies (clone detection) ─────────────────────────
+
+
+# Names whose normalised body might trivially collide across files (small
+# helpers, tiny dunders, etc.). Skipped from D11 entirely.
+_D11_SKIP_NAMES = frozenset({
+    "__init__", "__repr__", "__str__", "__eq__", "__hash__",
+    "__enter__", "__exit__", "__aenter__", "__aexit__",
+    "__post_init__",
+})
+
+
+def _normalise_function_for_d11(func: ast.AST) -> str:
+    """Produce a comparison signature for a function body.
+
+    Strips identifier names (parameters, locals, attribute accesses) so that
+    two functions with the same logic but different variable names hash
+    identically. Keeps the AST shape, literal types, and operator kinds —
+    enough to recognise a copy/paste clone but not sensitive to renames.
+    """
+    parts: list[str] = []
+    for node in ast.walk(func):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node is func:
+                # Don't include the outer def — its name varies by case.
+                continue
+            parts.append(f"FN{len(node.args.args)}")
+        elif isinstance(node, ast.Lambda):
+            parts.append("LAMBDA")
+        elif isinstance(node, ast.ClassDef):
+            parts.append("CLASS")
+        elif isinstance(node, ast.Constant):
+            parts.append(f"K:{type(node.value).__name__}")
+        elif isinstance(node, ast.BinOp):
+            parts.append(f"BINOP:{type(node.op).__name__}")
+        elif isinstance(node, ast.UnaryOp):
+            parts.append(f"UNARY:{type(node.op).__name__}")
+        elif isinstance(node, ast.Compare):
+            parts.append("CMP:" + ",".join(type(op).__name__ for op in node.ops))
+        elif isinstance(node, ast.BoolOp):
+            parts.append(f"BOOL:{type(node.op).__name__}")
+        elif isinstance(node, ast.Call):
+            parts.append("CALL")
+        elif isinstance(node, ast.Attribute):
+            parts.append("ATTR")
+        elif isinstance(node, ast.Subscript):
+            parts.append("SUB")
+        elif isinstance(node, ast.Name):
+            parts.append("N")
+        elif isinstance(node, ast.Return):
+            parts.append("RET")
+        elif isinstance(node, ast.Raise):
+            parts.append("RAISE")
+        elif isinstance(node, ast.If):
+            parts.append("IF")
+        elif isinstance(node, ast.For):
+            parts.append("FOR")
+        elif isinstance(node, ast.While):
+            parts.append("WHILE")
+        elif isinstance(node, ast.Try):
+            parts.append("TRY")
+        elif isinstance(node, ast.With):
+            parts.append("WITH")
+        elif isinstance(node, ast.Assign):
+            parts.append("ASSIGN")
+        elif isinstance(node, ast.AugAssign):
+            parts.append(f"AUG:{type(node.op).__name__}")
+        elif isinstance(node, ast.AnnAssign):
+            parts.append("ANN")
+        elif isinstance(node, ast.List):
+            parts.append("LIST")
+        elif isinstance(node, ast.Tuple):
+            parts.append("TUPLE")
+        elif isinstance(node, ast.Dict):
+            parts.append("DICT")
+        elif isinstance(node, ast.Set):
+            parts.append("SET")
+    return "|".join(parts)
+
+
+def _function_line_count(func: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
+    end = func.end_lineno or func.lineno
+    return end - func.lineno + 1
+
+
+def detect_d11(context: AuditContext) -> DetectorResult:
+    """Flag function bodies whose normalised AST is a clone of another's.
+
+    A clone is detected when two or more functions, after stripping
+    identifier names but preserving AST shape + literal types + operator
+    kinds, produce the same normalised signature. Trivial bodies (≤
+    ``d11_min_statements`` AST nodes) and short functions (≤
+    ``d11_min_lines`` lines) are skipped to avoid noise from small
+    helpers. Standard dunders are excluded.
+
+    Configurable knobs (under ``audit:``):
+        d11_min_statements (default: 25 — corresponds to ~5 lines of real logic)
+        d11_min_lines      (default: 5)
+    Skip files via ``audit.exclude_paths.D11``.
+    """
+    if context.graph is None or context.graph.ast_forest is None:
+        return DetectorResult(count=0, samples=[])
+
+    from custodian.audit_kit.glob_match import glob_match
+    audit_cfg = context.config.get("audit") or {}
+    excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("D11") or [])
+    min_stmts = int(audit_cfg.get("d11_min_statements", 25))
+    min_lines = int(audit_cfg.get("d11_min_lines", 5))
+
+    # Map: normalised body hash → list of (rel_path, lineno, function_name)
+    groups: dict[str, list[tuple[str, int, str]]] = {}
+
+    for path, tree, _src in context.graph.ast_forest.items():
+        rel = path.relative_to(context.repo_root)
+        rel_posix = rel.as_posix()
+        if excludes and any(glob_match(rel_posix, g) for g in excludes):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if node.name in _D11_SKIP_NAMES:
+                continue
+            if node.name.startswith("test_"):
+                # parametrised tests intentionally share shape
+                continue
+            if _function_line_count(node) < min_lines:
+                continue
+            sig = _normalise_function_for_d11(node)
+            # Cheap proxy for "non-trivial body": count tokens in signature.
+            if len(sig.split("|")) < min_stmts:
+                continue
+            groups.setdefault(sig, []).append((str(rel), node.lineno, node.name))
+
+    samples: list[str] = []
+    count = 0
+    for sites in groups.values():
+        if len(sites) < 2:
+            continue
+        # One finding per clone group; sample lists the locations.
+        count += 1
+        if len(samples) < _MAX_SAMPLES:
+            head = sites[0]
+            others = ", ".join(f"{p}:{ln} {n}()" for p, ln, n in sites[1:])
+            samples.append(
+                f"{head[0]}:{head[1]}: {head[2]}() — duplicate body "
+                f"({len(sites)} sites: {others})"
+            )
     return DetectorResult(count=count, samples=samples)
