@@ -119,31 +119,83 @@ def _is_excluded(rel: Path, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatch(rel_posix, pat) for pat in patterns)
 
 
-# ── DC1: design-spec front matter ────────────────────────────────────────────
+# ── DC1: design-spec + per-dir front matter ────────────────────────────────
+
+def _check_front_matter(
+    md: Path, required_fields: list[str], rel: Path,
+) -> list[str]:
+    """Return one message per failing condition for a single file.
+
+    A file with no ``---`` front matter is reported once with an explicit
+    "missing block" message (rather than one message per missing field) —
+    the operator's first action is to add the block, not to enumerate the
+    fields it should carry.
+    """
+    try:
+        text = md.read_text(errors="replace")
+    except OSError:
+        return []
+    if not text.startswith("---"):
+        return [f"{rel}:1: missing YAML front matter (`---` block at top)"]
+    try:
+        end = text.index("---", 3)
+    except ValueError:
+        return [f"{rel}:1: front matter has no closing `---`"]
+    front = text[3:end]
+    missing: list[str] = []
+    for field in required_fields:
+        # Match `field:` at the start of any line, allowing leading
+        # whitespace (operators sometimes indent for readability).
+        rx = re.compile(rf"^\s*{re.escape(field)}\s*:", re.MULTILINE)
+        if not rx.search(front):
+            missing.append(f"{rel}:1: front matter missing `{field}:` field")
+    return missing
+
 
 def detect_dc1(ctx: AuditContext) -> DetectorResult:
+    """Two checks on YAML front matter, both fold into DC1's count.
+
+    1. Default check — files in ``design_dir`` (default ``docs/design``)
+       must declare ``status:``. Skipped silently when the dir is absent.
+    2. Per-dir schemas — when ``doc_conventions.front_matter_schemas``
+       is configured, every tracked .md matching one of its glob patterns
+       must declare every listed field.
+
+    Example::
+
+        doc_conventions:
+          front_matter_schemas:
+            docs/architecture/adr/*.md: [date, status, deciders]
+            docs/operator/runbook-*.md: [status, owner, last_reviewed]
+    """
     cfg = _config(ctx)
-    design_dir = ctx.repo_root / cfg.get("design_dir", _DEFAULT_DESIGN_DIR)
-    if not design_dir.exists():
-        return DetectorResult(count=0, samples=[])
     samples: list[str] = []
-    for md in sorted(design_dir.glob("*.md")):
-        rel = md.relative_to(ctx.repo_root)
-        try:
-            text = md.read_text(errors="replace")
-        except OSError:
+
+    # ── (1) default design_dir status check ──
+    design_dir = ctx.repo_root / cfg.get("design_dir", _DEFAULT_DESIGN_DIR)
+    if design_dir.exists():
+        for md in sorted(design_dir.glob("*.md")):
+            rel = md.relative_to(ctx.repo_root)
+            samples.extend(_check_front_matter(md, ["status"], rel))
+
+    # ── (2) per-dir schemas from config ──
+    schemas = cfg.get("front_matter_schemas") or {}
+    for pattern, required in schemas.items():
+        if not isinstance(required, list) or not required:
             continue
-        if not text.startswith("---"):
-            samples.append(f"{rel}:1: missing YAML front matter (`---` block at top)")
-            continue
-        try:
-            end = text.index("---", 3)
-        except ValueError:
-            samples.append(f"{rel}:1: front matter has no closing `---`")
-            continue
-        front = text[3:end]
-        if not re.search(r"^\s*status\s*:", front, re.MULTILINE):
-            samples.append(f"{rel}:1: front matter present but `status:` field missing")
+        for md in sorted(ctx.repo_root.glob(pattern)):
+            if not md.is_file() or md.suffix.lower() != ".md":
+                continue
+            try:
+                rel = md.relative_to(ctx.repo_root)
+            except ValueError:
+                continue
+            # ADR template / index files are exempt from schema checks
+            # the way DC3 already exempts them from the naming check.
+            if md.name.lower() in {"readme.md", "template.md", "index.md"}:
+                continue
+            samples.extend(_check_front_matter(md, list(required), rel))
+
     return DetectorResult(count=len(samples), samples=samples[:_MAX_SAMPLES])
 
 

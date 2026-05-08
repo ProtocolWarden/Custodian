@@ -49,7 +49,7 @@ class TestDC1DesignFrontMatter:
         (d / "spec.md").write_text("---\ntitle: spec\n---\n\nbody\n")
         result = detect_dc1(_ctx(tmp_path))
         assert result.count == 1
-        assert "`status:` field missing" in result.samples[0]
+        assert "missing `status:` field" in result.samples[0]
 
     def test_compliant_spec_passes(self, tmp_path: Path):
         d = tmp_path / "docs" / "design"
@@ -325,3 +325,90 @@ class TestDC7OrphanDocs:
             "[ops page](ops/page.md)",
         )
         assert detect_dc7(_ctx(tmp_path)).count == 0
+
+
+# ── DC1 per-dir front matter schemas ─────────────────────────────────────────
+
+
+class TestDC1FrontMatterSchemas:
+    def test_no_schema_means_no_findings_outside_design_dir(self, tmp_path: Path):
+        # Files outside docs/design/ are unchecked unless a schema covers them.
+        (tmp_path / "docs" / "architecture" / "adr").mkdir(parents=True)
+        (tmp_path / "docs" / "architecture" / "adr" / "0001-foo.md").write_text(
+            "# ADR\n\nNo front matter.\n",
+        )
+        assert detect_dc1(_ctx(tmp_path)).count == 0
+
+    def test_schema_requires_listed_fields(self, tmp_path: Path):
+        (tmp_path / "docs" / "architecture" / "adr").mkdir(parents=True)
+        (tmp_path / "docs" / "architecture" / "adr" / "0001-foo.md").write_text(
+            "---\nstatus: accepted\n---\n\nADR body\n",
+        )
+        ctx = _ctx(tmp_path, {"doc_conventions": {
+            "front_matter_schemas": {
+                "docs/architecture/adr/*.md": ["date", "status", "deciders"],
+            },
+        }})
+        result = detect_dc1(ctx)
+        # status is present; date and deciders are missing.
+        assert result.count == 2
+        assert any("date" in s for s in result.samples)
+        assert any("deciders" in s for s in result.samples)
+
+    def test_schema_compliant_doc_passes(self, tmp_path: Path):
+        (tmp_path / "docs" / "architecture" / "adr").mkdir(parents=True)
+        (tmp_path / "docs" / "architecture" / "adr" / "0001-foo.md").write_text(
+            "---\ndate: 2026-01-01\nstatus: accepted\ndeciders: [a, b]\n---\nbody\n",
+        )
+        ctx = _ctx(tmp_path, {"doc_conventions": {
+            "front_matter_schemas": {
+                "docs/architecture/adr/*.md": ["date", "status", "deciders"],
+            },
+        }})
+        assert detect_dc1(ctx).count == 0
+
+    def test_schema_skips_template_and_readme(self, tmp_path: Path):
+        adr = tmp_path / "docs" / "architecture" / "adr"
+        adr.mkdir(parents=True)
+        (adr / "template.md").write_text("# template\n")
+        (adr / "README.md").write_text("# index\n")
+        (adr / "index.md").write_text("# also index\n")
+        ctx = _ctx(tmp_path, {"doc_conventions": {
+            "front_matter_schemas": {
+                "docs/architecture/adr/*.md": ["status"],
+            },
+        }})
+        assert detect_dc1(ctx).count == 0
+
+    def test_missing_block_reports_once_not_per_field(self, tmp_path: Path):
+        (tmp_path / "docs" / "ops").mkdir(parents=True)
+        (tmp_path / "docs" / "ops" / "runbook.md").write_text(
+            "# Runbook\n\nNo front matter at all.\n",
+        )
+        ctx = _ctx(tmp_path, {"doc_conventions": {
+            "front_matter_schemas": {
+                "docs/ops/*.md": ["status", "owner", "last_reviewed"],
+            },
+        }})
+        result = detect_dc1(ctx)
+        assert result.count == 1
+        assert "missing YAML front matter" in result.samples[0]
+
+    def test_schema_runs_alongside_default_design_dir_check(self, tmp_path: Path):
+        # Both checks contribute to the count.
+        (tmp_path / "docs" / "design").mkdir(parents=True)
+        (tmp_path / "docs" / "design" / "spec.md").write_text(
+            "# spec without front matter\n",
+        )
+        (tmp_path / "docs" / "ops").mkdir(parents=True)
+        (tmp_path / "docs" / "ops" / "runbook.md").write_text(
+            "---\nstatus: ready\n---\nbody\n",
+        )
+        ctx = _ctx(tmp_path, {"doc_conventions": {
+            "front_matter_schemas": {
+                "docs/ops/*.md": ["status", "owner"],
+            },
+        }})
+        result = detect_dc1(ctx)
+        # design/spec.md missing block (1) + ops/runbook.md missing owner (1)
+        assert result.count == 2
