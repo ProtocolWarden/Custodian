@@ -199,11 +199,129 @@ class TestDC5BareSymbolCitations:
 
 
 class TestBuild:
-    def test_returns_five_detectors(self):
+    def test_returns_all_detectors(self):
         ds = build_doc_convention_detectors()
         ids = {d.id for d in ds}
-        assert ids == {"DC1", "DC2", "DC3", "DC4", "DC5"}
+        assert ids == {"DC1", "DC2", "DC3", "DC4", "DC5", "DC6", "DC7"}
 
     def test_all_low_severity(self):
         for d in build_doc_convention_detectors():
             assert d.severity == "low"
+
+
+# ── DC6 ──────────────────────────────────────────────────────────────────────
+
+
+class TestDC6DocsTaxonomy:
+    def test_silent_when_allowlist_unset(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc6
+        (tmp_path / "docs" / "weird").mkdir(parents=True)
+        assert detect_dc6(_ctx(tmp_path)).count == 0
+
+    def test_silent_when_no_docs_dir(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc6
+        ctx = _ctx(tmp_path, {"doc_conventions": {
+            "allowed_doc_subdirs": ["architecture"],
+        }})
+        assert detect_dc6(ctx).count == 0
+
+    def test_allowed_subdir_passes(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc6
+        (tmp_path / "docs" / "architecture").mkdir(parents=True)
+        ctx = _ctx(tmp_path, {"doc_conventions": {
+            "allowed_doc_subdirs": ["architecture", "operator"],
+        }})
+        assert detect_dc6(ctx).count == 0
+
+    def test_disallowed_subdir_flagged(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc6
+        (tmp_path / "docs" / "architecture").mkdir(parents=True)
+        (tmp_path / "docs" / "stowaway").mkdir()
+        ctx = _ctx(tmp_path, {"doc_conventions": {
+            "allowed_doc_subdirs": ["architecture"],
+        }})
+        result = detect_dc6(ctx)
+        assert result.count == 1
+        assert "stowaway" in result.samples[0]
+
+    def test_case_insensitive(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc6
+        (tmp_path / "docs" / "Architecture").mkdir(parents=True)
+        ctx = _ctx(tmp_path, {"doc_conventions": {
+            "allowed_doc_subdirs": ["architecture"],
+        }})
+        assert detect_dc6(ctx).count == 0
+
+    def test_files_in_docs_root_not_flagged(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc6
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "README.md").write_text("index")
+        ctx = _ctx(tmp_path, {"doc_conventions": {
+            "allowed_doc_subdirs": ["architecture"],
+        }})
+        assert detect_dc6(ctx).count == 0
+
+
+# ── DC7 ──────────────────────────────────────────────────────────────────────
+
+
+class TestDC7OrphanDocs:
+    def test_silent_when_no_docs_dir(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc7
+        assert detect_dc7(_ctx(tmp_path)).count == 0
+
+    def test_doc_linked_from_readme_passes(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc7
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "guide.md").write_text("body")
+        (tmp_path / "README.md").write_text("see [guide](docs/guide.md)")
+        assert detect_dc7(_ctx(tmp_path)).count == 0
+
+    def test_doc_linked_via_backticked_path_passes(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc7
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "guide.md").write_text("body")
+        (tmp_path / "docs" / "README.md").write_text("see `docs/guide.md`")
+        assert detect_dc7(_ctx(tmp_path)).count == 0
+
+    def test_orphan_doc_flagged(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc7
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "orphan.md").write_text("body")
+        (tmp_path / "docs" / "linked.md").write_text("body")
+        (tmp_path / "README.md").write_text("see [linked](docs/linked.md)")
+        result = detect_dc7(_ctx(tmp_path))
+        assert result.count == 1
+        assert "docs/orphan.md" in result.samples[0]
+
+    def test_history_dir_excluded_by_default(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc7
+        (tmp_path / "docs" / "history").mkdir(parents=True)
+        (tmp_path / "docs" / "history" / "old.md").write_text("body")
+        # No tracked doc references it; default excludes history/
+        # so it doesn't get flagged.
+        assert detect_dc7(_ctx(tmp_path)).count == 0
+
+    def test_section_readme_not_an_orphan_candidate(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc7
+        # Section indices (docs/**/README.md) are exempt — they're the
+        # navigation surface, not consumable content.
+        (tmp_path / "docs" / "ops").mkdir(parents=True)
+        (tmp_path / "docs" / "ops" / "README.md").write_text("ops index")
+        (tmp_path / "docs" / "README.md").write_text("docs index")
+        assert detect_dc7(_ctx(tmp_path)).count == 0
+
+    def test_relative_link_from_sibling_doc_resolves(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc7
+        (tmp_path / "docs" / "ops").mkdir(parents=True)
+        (tmp_path / "docs" / "ops" / "page.md").write_text(
+            "[other](other.md)\n",
+        )
+        (tmp_path / "docs" / "ops" / "other.md").write_text("body")
+        # ops/page.md links other.md as a sibling — resolves to docs/ops/other.md.
+        # docs/ops/page.md itself needs a citation though, so we add one
+        # in a top-level doc.
+        (tmp_path / "docs" / "README.md").write_text(
+            "[ops page](ops/page.md)",
+        )
+        assert detect_dc7(_ctx(tmp_path)).count == 0
