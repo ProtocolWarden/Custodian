@@ -67,6 +67,7 @@ from pathlib import Path
 from custodian.audit_kit.detector import (
     AuditContext, Detector, DetectorResult, LOW,
 )
+from custodian.audit_kit.glob_match import glob_match
 
 _MAX_SAMPLES = 8
 _NEEDS_TF = frozenset({"ast_forest", "tests_forest"})
@@ -230,7 +231,6 @@ def detect_t1(context: AuditContext) -> DetectorResult:
 
 def detect_t2(context: AuditContext) -> DetectorResult:
     """Flag test_ functions whose body contains no assert statement."""
-    import fnmatch as _fnmatch
     audit_cfg: dict = context.config.get("audit") or {}
     t2_excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("T2") or [])
 
@@ -240,7 +240,7 @@ def detect_t2(context: AuditContext) -> DetectorResult:
     for path, tree in _parse_test_files(context.tests_root):
         rel = path.relative_to(context.repo_root)
         rel_posix = rel.as_posix()
-        if t2_excludes and any(_fnmatch.fnmatch(rel_posix, excl) for excl in t2_excludes):
+        if t2_excludes and any(glob_match(rel_posix, excl) for excl in t2_excludes):
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -527,7 +527,6 @@ def detect_t6(context: AuditContext) -> DetectorResult:
             or context.graph.tests_forest is None):
         return DetectorResult(count=0, samples=[])
 
-    import fnmatch as _fnmatch
     audit_cfg = context.config.get("audit") or {}
     excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("T6") or [])
 
@@ -538,7 +537,7 @@ def detect_t6(context: AuditContext) -> DetectorResult:
     for path, _tree, _src in context.graph.ast_forest.items():
         rel = path.relative_to(context.repo_root)
         rel_posix = rel.as_posix()
-        if excludes and any(_fnmatch.fnmatch(rel_posix, g) for g in excludes):
+        if excludes and any(glob_match(rel_posix, g) for g in excludes):
             continue
         dotted = _module_dotted_name(path, context.src_root)
         if dotted is None:
@@ -592,7 +591,6 @@ def detect_t7(context: AuditContext) -> DetectorResult:
     if not context.src_root.is_dir():
         return DetectorResult(count=0, samples=[])
 
-    import fnmatch as _fnmatch
     audit_cfg = context.config.get("audit") or {}
     excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("T7") or [])
     extra_dirs: list[str] = list(audit_cfg.get("t7_test_dirs") or [])
@@ -609,7 +607,7 @@ def detect_t7(context: AuditContext) -> DetectorResult:
             continue
         rel = path.relative_to(context.repo_root)
         rel_posix = rel.as_posix()
-        if excludes and any(_fnmatch.fnmatch(rel_posix, g) for g in excludes):
+        if excludes and any(glob_match(rel_posix, g) for g in excludes):
             continue
         rel_src = path.relative_to(context.src_root)
         candidates = _t7_candidate_paths(rel_src, context.tests_root, hints)
@@ -723,7 +721,6 @@ def detect_t8(context: AuditContext) -> DetectorResult:
     if not context.tests_root.is_dir():
         return DetectorResult(count=0, samples=[])
 
-    import fnmatch as _fnmatch
     audit_cfg = context.config.get("audit") or {}
     excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("T8") or [])
     extra_exempt: list[str] = list(audit_cfg.get("t8_exempt") or [])
@@ -743,9 +740,9 @@ def detect_t8(context: AuditContext) -> DetectorResult:
             continue
         rel = path.relative_to(context.repo_root)
         rel_posix = rel.as_posix()
-        if excludes and any(_fnmatch.fnmatch(rel_posix, g) for g in excludes):
+        if excludes and any(glob_match(rel_posix, g) for g in excludes):
             continue
-        if extra_exempt and any(_fnmatch.fnmatch(rel_posix, g) for g in extra_exempt):
+        if extra_exempt and any(glob_match(rel_posix, g) for g in extra_exempt):
             continue
 
         # Direct import?

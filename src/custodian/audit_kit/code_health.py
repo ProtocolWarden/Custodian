@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 
 from custodian.audit_kit.detector import AuditContext, Detector, DetectorResult, HIGH, MEDIUM, LOW
+from custodian.audit_kit.glob_match import glob_match
 
 
 def _glob_to_regex(glob: str) -> re.Pattern[str]:
@@ -1315,7 +1316,6 @@ def detect_c38(context: AuditContext) -> DetectorResult:
     ``None`` defaults used as sentinels are not flagged.
     Excludes paths via ``audit.exclude_paths.C38``.
     """
-    import fnmatch as _fnmatch
     audit_cfg: dict = context.config.get("audit") or {}
     excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("C38") or [])
 
@@ -1330,7 +1330,7 @@ def detect_c38(context: AuditContext) -> DetectorResult:
             continue
         rel = path.relative_to(context.repo_root)
         rel_posix = rel.as_posix()
-        if excludes and any(_fnmatch.fnmatch(rel_posix, excl) for excl in excludes):
+        if excludes and any(glob_match(rel_posix, excl) for excl in excludes):
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
