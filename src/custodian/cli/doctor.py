@@ -80,7 +80,10 @@ def _check_config(config: dict, repo: Path, warnings: list[str]) -> list:
         if key not in _KNOWN_AUDIT_KEYS and key not in plugin_audit_keys:
             warnings.append(f"unknown audit key {key!r} (typo?)")
 
-    # exclude_paths must be a mapping of lists
+    # exclude_paths must be a mapping of lists. Each entry's globs
+    # should also still match at least one tracked path — globs that
+    # match nothing are stale and signal that an exclusion is no
+    # longer needed (e.g. a path was renamed without updating config).
     exclude_paths = audit_cfg.get("exclude_paths") or {}
     if not isinstance(exclude_paths, dict):
         warnings.append("audit.exclude_paths must be a mapping")
@@ -90,6 +93,21 @@ def _check_config(config: dict, repo: Path, warnings: list[str]) -> list:
                 warnings.append(
                     f"audit.exclude_paths.{det_id} must be a list, got {type(val).__name__}"
                 )
+                continue
+            for glob in val:
+                if not isinstance(glob, str):
+                    continue
+                # rglob/glob both work here; rglob handles patterns
+                # without `**` and is more forgiving on edge cases.
+                try:
+                    matches = list(repo.glob(glob))
+                except (ValueError, OSError):
+                    continue
+                if not matches:
+                    warnings.append(
+                        f"audit.exclude_paths.{det_id}: glob {glob!r} "
+                        "matches no files (stale exclusion?)"
+                    )
 
     # stale_handlers must be a list
     stale = audit_cfg.get("stale_handlers")

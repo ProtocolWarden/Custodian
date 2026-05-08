@@ -202,7 +202,7 @@ class TestBuild:
     def test_returns_all_detectors(self):
         ds = build_doc_convention_detectors()
         ids = {d.id for d in ds}
-        assert ids == {"DC1", "DC2", "DC3", "DC4", "DC5", "DC6", "DC7"}
+        assert ids == {"DC1", "DC2", "DC3", "DC4", "DC5", "DC6", "DC7", "DC8"}
 
     def test_all_low_severity(self):
         for d in build_doc_convention_detectors():
@@ -412,3 +412,86 @@ class TestDC1FrontMatterSchemas:
         result = detect_dc1(ctx)
         # design/spec.md missing block (1) + ops/runbook.md missing owner (1)
         assert result.count == 2
+
+
+# ── DC8 ──────────────────────────────────────────────────────────────────────
+
+
+class TestDC8SectionOrdering:
+    def test_silent_when_readme_missing(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc8
+        assert detect_dc8(_ctx(tmp_path)).count == 0
+
+    def test_default_order_passes(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc8
+        (tmp_path / "README.md").write_text(
+            "# Repo\n\n"
+            "## What this repo is\nA thing.\n\n"
+            "## What this repo is not\nNot another thing.\n\n"
+            "## Quick start\n```\npip install\n```\n\n"
+            "## Architecture\nLayered.\n\n"
+            "## License\nMIT\n",
+        )
+        assert detect_dc8(_ctx(tmp_path)).count == 0
+
+    def test_quick_start_after_architecture_flagged(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc8
+        (tmp_path / "README.md").write_text(
+            "# Repo\n\n"
+            "## Architecture\nfirst\n\n"
+            "## Quick start\nsecond\n\n"
+            "## License\n\n",
+        )
+        result = detect_dc8(_ctx(tmp_path))
+        assert result.count >= 1
+        assert any("Architecture" in s and "Quick start" in s for s in result.samples)
+
+    def test_license_before_quick_start_flagged(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc8
+        (tmp_path / "README.md").write_text(
+            "# Repo\n\n"
+            "## License\nMIT\n\n"
+            "## Quick start\n```\npip install\n```\n\n"
+            "## Architecture\nLayered\n\n",
+        )
+        result = detect_dc8(_ctx(tmp_path))
+        assert result.count >= 1
+
+    def test_unknown_sections_in_middle_ignored(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc8
+        (tmp_path / "README.md").write_text(
+            "# Repo\n\n"
+            "## What this repo is\nA thing.\n\n"
+            "## Quick start\n```\npip install\n```\n\n"
+            "## My Custom Section\nrandom\n\n"
+            "## Another Custom Section\nrandom\n\n"
+            "## License\n\n",
+        )
+        # Custom sections are in the middle but aren't in the order
+        # list — they should be silently ignored.
+        assert detect_dc8(_ctx(tmp_path)).count == 0
+
+    def test_missing_sections_skipped(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc8
+        # README only has Quick start + License — DC4 covers the missing
+        # ones; DC8 only enforces ordering of present sections.
+        (tmp_path / "README.md").write_text(
+            "# Repo\n\n## Quick start\nfoo\n\n## License\n\n",
+        )
+        assert detect_dc8(_ctx(tmp_path)).count == 0
+
+    def test_custom_order_via_config(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc8
+        (tmp_path / "README.md").write_text(
+            "# Repo\n\n## Public API\nfirst\n\n## Examples\nsecond\n\n",
+        )
+        # Custom order: Examples should come before Public API
+        ctx = _ctx(tmp_path, {"doc_conventions": {
+            "required_section_order": [
+                ["Examples",   r"^##\s+Examples\b"],
+                ["Public API", r"^##\s+Public\s+API\b"],
+            ],
+        }})
+        result = detect_dc8(ctx)
+        assert result.count == 1
+        assert "Examples" in result.samples[0]
