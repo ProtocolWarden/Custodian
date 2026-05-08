@@ -371,3 +371,12 @@ when the canonical name should be used. Silent skip when PM not found.
 - Wired into runner + doctor; cross_repo is a known audit sub-key.
 - Loads YAML directly — no hard dep on platform_manifest package.
 
+
+## 2026-05-08 — DC2/DC5/DC7 default excludes use ** (recursive)
+
+The defaults were '*/archive/*' and '*/history/*', which only matched
+exactly three-segment paths under the new glob_match semantics
+(`*` doesn't cross slashes). Updated to '**/archive/**' / '**/history/**'
+so historical/archived narration is excluded at any depth — matching
+the original intent.
+
