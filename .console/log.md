@@ -3,6 +3,8 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+- W6 + E1 detectors (2026-05-08, on main): W6 flags managed repos (.console/ present) that have no .hooks/pre-commit — catches repos wired for session tracking but unprotected by hook (Warehouse, RxP, ExecutorRuntime, SourceRegistry). E1 (envvar.py) AST-scans src for os.environ.get/os.getenv/os.environ[...] key literals and diffs against .env.example documented keys; skips system vars + configurable envvar.skip_keys; silently skips repos with no .env.example (W5 already flags that). 16 new tests; 1078 total passing.
+
 - W3/W4/W5 + U5 ID fix (2026-05-08, on main): Closed five enforcement gaps found during cross-repo hygiene audit. W3 checks `.hooks/pre-commit` content contains a `.console/log.md` guard (an unwired or empty hook silently fails its purpose). W4 checks every submodule in `.gitmodules` has a `branch =` line (without it, `git submodule update --remote` tracks remote HEAD, not the intended branch). W5 checks that if `.gitignore` excludes bare `.env`, a `.env.example` exists at root (env-var contracts must be documented). Also fixed ID collision: stubs.py `P1` ("hollow return body") renamed to `U5` — conflicted with plumbing.py `P1` ("writer key absent"). All 1062 tests pass.
 
 - W-class workspace detectors (2026-05-08, on feat/workspace-detectors): W1 checks

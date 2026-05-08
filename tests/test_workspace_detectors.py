@@ -44,6 +44,10 @@ def _w5(tmp_path):
     return build_workspace_detectors()[4]
 
 
+def _w6(tmp_path):
+    return build_workspace_detectors()[5]
+
+
 # ── W1: .console/ required files ─────────────────────────────────────────────
 
 class TestW1ConsoleStructure:
@@ -256,3 +260,34 @@ class TestW5EnvExample:
 
     def test_detector_id(self, tmp_path):
         assert _w5(tmp_path).id == "W5"
+
+
+# ── W6: hook required when .console/ present ─────────────────────────────────
+
+class TestW6HookRequired:
+    def test_no_console_passes(self, tmp_path):
+        result = _w6(tmp_path).detect(_ctx(tmp_path))
+        assert result.count == 0
+
+    def test_console_with_hook_passes(self, tmp_path):
+        (tmp_path / ".console").mkdir()
+        (tmp_path / ".hooks").mkdir()
+        (tmp_path / ".hooks" / "pre-commit").write_text("#!/bin/bash\n")
+        result = _w6(tmp_path).detect(_ctx(tmp_path))
+        assert result.count == 0
+
+    def test_console_without_hook_flagged(self, tmp_path):
+        (tmp_path / ".console").mkdir()
+        result = _w6(tmp_path).detect(_ctx(tmp_path))
+        assert result.count == 1
+        assert ".hooks/pre-commit is missing" in result.samples[0]
+
+    def test_console_with_hooks_dir_but_no_pre_commit_flagged(self, tmp_path):
+        (tmp_path / ".console").mkdir()
+        (tmp_path / ".hooks").mkdir()
+        (tmp_path / ".hooks" / "pre-push").write_text("#!/bin/bash\n")
+        result = _w6(tmp_path).detect(_ctx(tmp_path))
+        assert result.count == 1
+
+    def test_detector_id(self, tmp_path):
+        assert _w6(tmp_path).id == "W6"

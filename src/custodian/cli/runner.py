@@ -20,6 +20,7 @@ from custodian.audit_kit.detectors.boundary import build_boundary_detectors
 from custodian.audit_kit.detectors.cross_repo import build_cross_repo_detectors
 from custodian.audit_kit.detectors.plumbing import build_plumbing_detectors
 from custodian.audit_kit.detectors.workspace import build_workspace_detectors
+from custodian.audit_kit.detectors.envvar import build_envvar_detectors
 from custodian.audit_kit.detectors.doc_conventions import build_doc_convention_detectors
 from custodian.audit_kit.detectors.repo_meta import build_repo_meta_detectors
 from custodian.audit_kit.detectors.directory import build_directory_detectors
@@ -121,6 +122,7 @@ def run_repo_audit(
                   + build_cross_repo_detectors()
                   + build_plumbing_detectors()
                   + build_workspace_detectors()
+                  + build_envvar_detectors()
                   + extra)
 
     if only:

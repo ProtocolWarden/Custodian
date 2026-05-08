@@ -18,6 +18,9 @@
   W5  .env.example present       — if .gitignore excludes .env, an
                                    .env.example must exist at the repo root so
                                    env-var contracts are documented.
+  W6  .hooks/pre-commit required — if .console/ is present the repo is a
+                                   managed session workspace; it must have a
+                                   .hooks/pre-commit to protect it.
 """
 from __future__ import annotations
 
@@ -136,6 +139,22 @@ def _detect_w5_env_example(ctx: AuditContext) -> DetectorResult:
     )
 
 
+def _detect_w6_hook_required(ctx: AuditContext) -> DetectorResult:
+    console = ctx.repo_root / ".console"
+    if not console.is_dir():
+        return DetectorResult(count=0, samples=[])
+    pre_commit = ctx.repo_root / ".hooks" / "pre-commit"
+    if pre_commit.exists():
+        return DetectorResult(count=0, samples=[])
+    return DetectorResult(
+        count=1,
+        samples=[
+            ".console/ is present (managed workspace) but .hooks/pre-commit is missing — "
+            "add a pre-commit hook and run: git config core.hooksPath .hooks"
+        ],
+    )
+
+
 def build_workspace_detectors() -> list[Detector]:
     return [
         Detector("W1", ".console/ required files present", "open", _detect_w1_console_structure, LOW),
@@ -143,4 +162,5 @@ def build_workspace_detectors() -> list[Detector]:
         Detector("W3", ".hooks/pre-commit contains log.md enforcement", "open", _detect_w3_hook_content, MEDIUM),
         Detector("W4", ".gitmodules submodules have branch = set", "open", _detect_w4_gitmodules_branch, MEDIUM),
         Detector("W5", ".env.example present when .gitignore excludes .env", "open", _detect_w5_env_example, LOW),
+        Detector("W6", ".hooks/pre-commit required when .console/ is present", "open", _detect_w6_hook_required, MEDIUM),
     ]
