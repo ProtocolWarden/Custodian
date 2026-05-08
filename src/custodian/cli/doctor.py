@@ -12,6 +12,7 @@ from custodian.audit_kit.detectors.complexity import build_complexity_detectors
 from custodian.audit_kit.detectors.dead_code import build_dead_code_detectors
 from custodian.audit_kit.detectors.docs import build_docs_detectors
 from custodian.audit_kit.detectors.naming import build_naming_detectors
+from custodian.audit_kit.detectors.boundary import build_boundary_detectors
 from custodian.audit_kit.detectors.ghost import build_ghost_detectors
 from custodian.audit_kit.detectors.imports import build_import_detectors
 from custodian.audit_kit.detectors.readme import build_readme_detectors
@@ -25,7 +26,8 @@ from custodian.plugins.loader import load_detectors, load_plugins
 _KNOWN_TOP_LEVEL_KEYS = frozenset({
     "repo_key", "src_root", "tests_root", "plugins", "detectors", "audit", "architecture",
     "maintenance",
-    "tools",  # ruff/vulture/mypy/ty/semgrep adapter toggles
+    "tools",     # ruff/vulture/mypy/ty/semgrep adapter toggles
+    "privacy",   # private-repo-name leakage detector (B-class)
 })
 _KNOWN_AUDIT_KEYS = frozenset({
     "exclude_paths", "stale_handlers", "common_words",
@@ -168,6 +170,7 @@ def main():
                                 + build_import_detectors()
                                 + build_docs_detectors()
                                 + build_naming_detectors()
+                                + build_boundary_detectors()
                                 + build_readme_detectors()
                                 + extra)}
     exclude_paths = (config.get("audit") or {}).get("exclude_paths") or {}

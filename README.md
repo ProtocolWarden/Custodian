@@ -54,6 +54,7 @@ Detectors are grouped by namespace. Each detector has an ID, a severity (LOW/MED
 | N | 1 | Naming: exception class naming convention |
 | P | 1 | Partial implementations: hollow return bodies |
 | R | 6 | README structure: presence, H1 match, "What X is / is not" sections, intro paragraph, docs/ index |
+| B | 1 | Boundary: private-repo-name leakage in tracked files (configurable via `privacy:` block) |
 
 A further 21 detectors are kept as **deprecated** — third-party tools (ruff, vulture, ty) cover the same cases natively, so these no longer participate in audits but stay importable for backward compatibility. See `docs/design/detector_disposition_matrix.md`.
 
