@@ -353,3 +353,6 @@ New detector K4 catches Args type drift: when docstring says
 normalisation. Recognises Optional/Union/List/Dict aliases and
 str/int/bool synonyms.
 
+
+## 2026-05-08 — Drop stale exclude_paths entries (doctor --strict)
+

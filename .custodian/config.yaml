@@ -148,7 +148,6 @@ audit:
       - "src/custodian/plugins/**"
       - src/custodian/reports/sarif_report.py
       - src/custodian/triage/matrix.py
-      - src/custodian/triage/render.py
       - src/custodian/triage/joiner.py
     T7:
       # Same rationale as T6: parallel test files for CLI/adapters/plugins
@@ -185,9 +184,7 @@ audit:
       - src/custodian/audit_kit/detectors/boundary.py
       - src/custodian/audit_kit/detectors/doc_conventions.py
       - src/custodian/audit_kit/code_health.py
-      - src/custodian/audit_kit/code_health_runner.py
       - src/custodian/triage/matrix.py
-      - src/custodian/triage/render.py
       - src/custodian/reports/sarif_report.py
     T8:
       # Sample-consumer fixtures are deliberately minimal repos used to
