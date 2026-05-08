@@ -87,12 +87,66 @@ class TestM4License:
         assert detect_m4(ctx).count == 0
 
 
-class TestBuilder:
-    def test_returns_all_four(self):
+class TestBuilderLegacy:
+    def test_returns_all_legacy_four(self):
         ds = build_repo_meta_detectors()
         ids = {d.id for d in ds}
-        assert ids == {"M1", "M2", "M3", "M4"}
+        assert {"M1", "M2", "M3", "M4"}.issubset(ids)
 
     def test_all_low_severity(self):
         for d in build_repo_meta_detectors():
             assert d.severity == "low"
+
+
+class TestM5ChangelogFormat:
+    def test_silent_when_changelog_absent(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.repo_meta import detect_m5
+        assert detect_m5(_ctx(tmp_path)).count == 0
+
+    def test_compliant_changelog_passes(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.repo_meta import detect_m5
+        (tmp_path / "CHANGELOG.md").write_text(
+            "# Changelog\n\n"
+            "## [Unreleased]\n- foo\n\n"
+            "## [1.0.0] - 2026-05-08\n- initial\n",
+        )
+        assert detect_m5(_ctx(tmp_path)).count == 0
+
+    def test_missing_h1_flagged(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.repo_meta import detect_m5
+        (tmp_path / "CHANGELOG.md").write_text(
+            "## [1.0.0]\n- thing\n",
+        )
+        result = detect_m5(_ctx(tmp_path))
+        assert result.count == 1
+        assert "missing `# Changelog` H1" in result.samples[0]
+
+    def test_no_release_sections_flagged(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.repo_meta import detect_m5
+        (tmp_path / "CHANGELOG.md").write_text(
+            "# Changelog\n\nFreeform notes with no release headings.\n",
+        )
+        result = detect_m5(_ctx(tmp_path))
+        assert result.count == 1
+        assert "no release sections" in result.samples[0]
+
+    def test_unreleased_alone_passes(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.repo_meta import detect_m5
+        (tmp_path / "CHANGELOG.md").write_text(
+            "# Changelog\n\n## [Unreleased]\n- pending\n",
+        )
+        assert detect_m5(_ctx(tmp_path)).count == 0
+
+    def test_skip_via_config(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.repo_meta import detect_m5
+        (tmp_path / "CHANGELOG.md").write_text("garbage\n")
+        ctx = _ctx(tmp_path, {"repo_meta": {"skip": ["M5"]}})
+        assert detect_m5(ctx).count == 0
+
+
+class TestBuilderM5:
+    def test_returns_all_five(self):
+        from custodian.audit_kit.detectors.repo_meta import build_repo_meta_detectors
+        ds = build_repo_meta_detectors()
+        ids = {d.id for d in ds}
+        assert ids == {"M1", "M2", "M3", "M4", "M5"}

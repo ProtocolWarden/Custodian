@@ -26,10 +26,21 @@ elsewhere)::
 """
 from __future__ import annotations
 
+import re
+
 from custodian.audit_kit.detector import (
     AuditContext, Detector, DetectorResult, LOW,
 )
 
+
+_CHANGELOG_H1_RE = re.compile(
+    r"^#\s+changelog\b", re.IGNORECASE | re.MULTILINE,
+)
+# Matches `## [1.2.3]`, `## [1.2.3] - 2026-05-08`, `## [Unreleased]`.
+_CHANGELOG_RELEASE_RE = re.compile(
+    r"^##\s+\[(?:unreleased|\d+\.\d+\.\d+(?:[-+][\w\.]+)?)\]",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 _LICENSE_CANDIDATES: tuple[str, ...] = (
     "LICENSE", "LICENSE.md", "LICENSE.txt",
@@ -47,6 +58,8 @@ def build_repo_meta_detectors() -> list[Detector]:
                  "open", detect_m3, LOW, frozenset()),
         Detector("M4", "LICENSE missing at repo root",
                  "open", detect_m4, LOW, frozenset()),
+        Detector("M5", "CHANGELOG.md not in Keep-a-Changelog format",
+                 "open", detect_m5, LOW, frozenset()),
     ]
 
 
@@ -92,3 +105,37 @@ def detect_m4(ctx: AuditContext) -> DetectorResult:
         if (ctx.repo_root / candidate).exists():
             return DetectorResult(count=0, samples=[])
     return _flag(f"LICENSE (any of: {', '.join(_LICENSE_CANDIDATES)})")
+
+
+# ── M5: CHANGELOG format ─────────────────────────────────────────────────────
+
+
+def detect_m5(ctx: AuditContext) -> DetectorResult:
+    """When CHANGELOG.md exists, validate Keep-a-Changelog shape.
+
+    Two checks fold into one count:
+      1. First line / early heading is ``# Changelog``
+      2. At least one release section ``## [X.Y.Z]`` or ``## [Unreleased]``
+         appears in the file.
+
+    Silent when CHANGELOG.md is absent (M1 covers absence). Skip via
+    ``repo_meta.skip: [M5]``.
+    """
+    if _skipped(ctx, "M5"):
+        return DetectorResult(count=0, samples=[])
+    changelog = ctx.repo_root / "CHANGELOG.md"
+    if not changelog.exists():
+        return DetectorResult(count=0, samples=[])
+    try:
+        text = changelog.read_text(errors="replace")
+    except OSError:
+        return DetectorResult(count=0, samples=[])
+    samples: list[str] = []
+    if not _CHANGELOG_H1_RE.search(text):
+        samples.append("CHANGELOG.md:1: missing `# Changelog` H1 heading")
+    if not _CHANGELOG_RELEASE_RE.search(text):
+        samples.append(
+            "CHANGELOG.md: no release sections "
+            "(expected `## [Unreleased]` or `## [X.Y.Z]` headings)"
+        )
+    return DetectorResult(count=len(samples), samples=samples)

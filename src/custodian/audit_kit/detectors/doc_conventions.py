@@ -107,6 +107,9 @@ def build_doc_convention_detectors() -> list[Detector]:
         Detector("DC7",
                  "orphan markdown file under docs/ (not linked from any tracked doc)",
                  "open", detect_dc7, LOW, frozenset()),
+        Detector("DC8",
+                 "README sections out of conventional order",
+                 "open", detect_dc8, LOW, frozenset()),
     ]
 
 
@@ -457,4 +460,94 @@ def detect_dc7(ctx: AuditContext) -> DetectorResult:
         rel = md.relative_to(ctx.repo_root).as_posix()
         if rel not in referenced:
             samples.append(f"{rel}: orphan — not linked from any tracked doc")
+    return DetectorResult(count=len(samples), samples=samples[:_MAX_SAMPLES])
+
+
+# ── DC8: README section ordering ─────────────────────────────────────────────
+
+# Default expected order. Each entry is a (label, regex) pair — labels
+# are surfaced in samples, regexes match the H2 line. Sections that
+# don't match any entry are ignored (operators may have any number of
+# repo-specific sections in the middle).
+_DEFAULT_SECTION_ORDER: tuple[tuple[str, str], ...] = (
+    ("What X is",        r"^##\s+What\s+.+?\bis\b(?!\s+not\b)"),
+    ("What X is not",    r"^##\s+What\s+.+?\bis\s+not\b"),
+    ("Quick start",      r"^##\s+(?:Quick\s+start|Quickstart|Getting\s+started)\b"),
+    ("Architecture",     r"^##\s+(?:Architecture|Overview|How\s+it\s+works)\b"),
+    ("License",          r"^##\s+License\b"),
+)
+
+
+def detect_dc8(ctx: AuditContext) -> DetectorResult:
+    """Flag README sections that appear out of the conventional order.
+
+    The convention reads top-to-bottom: ``What X is`` → ``What X is
+    not`` → ``Quick start`` → ``Architecture`` → (anything else) →
+    ``License``. Sections that don't match any entry in the order are
+    ignored — operators may have any number of repo-specific H2s
+    sandwiched between the framework sections.
+
+    Override the order via config::
+
+        doc_conventions:
+          required_section_order:
+            - ["What X is",     "^##\\s+What\\s+.+?\\bis\\b(?!\\s+not\\b)"]
+            - ["Public API",    "^##\\s+Public\\s+API\\b"]
+            - ["License",       "^##\\s+License\\b"]
+
+    Each entry is ``[label, regex]``. Labels appear in samples; regexes
+    are matched (case-insensitive, multiline) against the README text.
+    """
+    readme = ctx.repo_root / "README.md"
+    if not readme.exists():
+        return DetectorResult(count=0, samples=[])
+    try:
+        text = readme.read_text(errors="replace")
+    except OSError:
+        return DetectorResult(count=0, samples=[])
+
+    cfg = _config(ctx)
+    raw_order = cfg.get("required_section_order")
+    if raw_order:
+        order: list[tuple[str, str]] = []
+        for entry in raw_order:
+            if isinstance(entry, list) and len(entry) >= 2:
+                order.append((str(entry[0]), str(entry[1])))
+            elif isinstance(entry, dict):
+                lbl = entry.get("label")
+                rx = entry.get("regex")
+                if isinstance(lbl, str) and isinstance(rx, str):
+                    order.append((lbl, rx))
+    else:
+        order = list(_DEFAULT_SECTION_ORDER)
+
+    # Find the line number where each ordered section first appears.
+    # Sections not present are skipped — DC4 covers required-section
+    # presence, DC8 only enforces ordering between the ones that exist.
+    positions: list[tuple[str, int]] = []
+    for label, pattern in order:
+        try:
+            rx = re.compile(pattern, re.IGNORECASE | re.MULTILINE)
+        except re.error:
+            continue
+        m = rx.search(text)
+        if m is None:
+            continue
+        # Convert character offset to line number.
+        lineno = text[:m.start()].count("\n") + 1
+        positions.append((label, lineno))
+
+    samples: list[str] = []
+    # Detect order violations: any later-in-config section that appears
+    # at an earlier line than a section configured to come before it.
+    for i in range(1, len(positions)):
+        for j in range(i):
+            label_i, line_i = positions[i]
+            label_j, line_j = positions[j]
+            if line_i < line_j:
+                samples.append(
+                    f"README.md:{line_i}: '{label_i}' should come after "
+                    f"'{label_j}' (line {line_j})"
+                )
+                break  # one finding per out-of-order section is enough
     return DetectorResult(count=len(samples), samples=samples[:_MAX_SAMPLES])
