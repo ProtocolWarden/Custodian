@@ -186,6 +186,13 @@ audit:
       - src/custodian/audit_kit/code_health.py
       - src/custodian/triage/matrix.py
       - src/custodian/reports/sarif_report.py
+    D11:
+      # Custodian's own detectors are by-design pattern-similar within a class:
+      # R3/R4 are README structural checks; M1/M2/M3 are presence-of-meta-file
+      # checks; U1/U2 are stub-shape checks. Detector classes are *meant* to
+      # share shape — they're a typology. Exclude detector modules from D11.
+      - "src/custodian/audit_kit/detectors/**"
+      - src/custodian/audit_kit/code_health.py
     T8:
       # Sample-consumer fixtures are deliberately minimal repos used to
       # test the audit pipeline end-to-end; they don't import custodian.
