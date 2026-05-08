@@ -125,10 +125,12 @@ def _check_config(config: dict, repo: Path, warnings: list[str]) -> list:
                 if not isinstance(layers, list):
                     warnings.append("architecture.layers must be a list")
                 else:
-                    for i, layer in enumerate(layers):
-                        if not isinstance(layer, dict):
+                    for i, raw_layer in enumerate(layers):
+                        if not isinstance(raw_layer, dict):
                             warnings.append(f"architecture.layers[{i}] must be a mapping")
                             continue
+                        from typing import Any, cast
+                        layer = cast(dict[str, Any], raw_layer)
                         for req in ("name", "glob"):
                             if req not in layer:
                                 warnings.append(

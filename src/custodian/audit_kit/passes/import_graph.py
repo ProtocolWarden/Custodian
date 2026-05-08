@@ -108,6 +108,8 @@ def _collect_imports(
     target = type_check if under_type_check else runtime
     for stmt in stmts:
         if _is_type_checking_guard(stmt):
+            # _is_type_checking_guard() returns True only for `if TYPE_CHECKING:` blocks.
+            assert isinstance(stmt, ast.If)  # noqa: S101
             _collect_imports(
                 stmt.body, runtime, type_check, current_pkg,
                 under_type_check=True,

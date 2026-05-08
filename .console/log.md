@@ -315,3 +315,23 @@ Custodian self: 97 → 14 findings (only TY AST-type narrowing remaining).
 
 **Glob behavior gotcha**: fnmatch doesn't recurse through `**/*.py` —
 must use `**` (no trailing pattern). Documented inline in config.
+
+## 2026-05-08 — Custodian self clean (14 → 0)
+
+- Extracted _describe_exc_type() helper for C4/C9 sample rendering — replaces
+  the inline ternary that ty couldn't narrow across ast.Name/ast.Attribute branches.
+- structure.py: capture lineno into a local var when narrowed inside
+  isinstance(Import)/isinstance(ImportFrom) branches — ty doesn't propagate
+  the narrowing outside the branch.
+- test_shape.py: assert isinstance(dec, ast.Call) before _parametrize_case_count
+  (caller invariant from _is_parametrize_decorator).
+- import_graph.py: assert isinstance(stmt, ast.If) under _is_type_checking_guard.
+- code_health.py: assert isinstance(func, ast.Attribute/Name) at sample-emit
+  sites where is_subprocess / is_generic narrowed the type.
+- code_health.py: _flatten_yaml_keys casts dict keys to str (yaml gives object).
+- doc_conventions.py: cast required-fields list elements to str.
+- doctor.py: cast layer dicts to dict[str, Any] at the boundary.
+- config/loader.py: declare yaml: Any via aliased import.
+
+All 10 platform repos now report 0 findings.
+
