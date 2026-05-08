@@ -24,7 +24,7 @@ architecture:
   layers:
     - name: "no managed-repo imports in OC src"
       glob: "src/operations_center/**/*.py"
-      forbidden_import_prefix: "videofoundry"
+      forbidden_import_prefix: "example_managed_repo"
 
     - name: "no tools.audit in runtime code"
       glob: "src/**/*.py"
@@ -51,11 +51,22 @@ all import-direction policy in declarative config:
 If you find yourself writing `for node in ast.walk(tree): if isinstance(node, ast.ImportFrom)…`,
 stop and use this instead.
 
-## Real consumers
+## Worked examples
 
-- **OperationsCenter / AI1** — bans `videofoundry`, `tools.audit`, `managed_repo` from `src/operations_center/**`. See `OperationsCenter/.custodian/config.yaml`.
-- **VideoFoundry / VF2** — bans direct `SingletonMongoDB` import outside the canonical Mongo adapter. See `VideoFoundry/.custodian/config.yaml`.
-- **VideoFoundry / VF4** — bans `tools.audit` and `tools.reports` from runtime `src/**`. See `VideoFoundry/.custodian/config.yaml`.
+The patterns below are the typical shapes the rule expresses. Real
+bindings (which prefix is banned where) live in each consumer's own
+`.custodian/config.yaml`, not in this public doc.
+
+- **Orchestration repo / managed-repo isolation** — bans an external
+  managed-repo's package prefix from the orchestration repo's runtime
+  `src/**`. Used to keep an audit-target's vocabulary out of the
+  orchestrator's call paths.
+- **Managed repo / canonical-adapter rule** — bans direct `SingletonDB`
+  import everywhere except the canonical adapter module, forcing all
+  callers through one chokepoint.
+- **Managed repo / runtime-vs-tooling split** — bans `tools.audit` and
+  `tools.reports` from runtime `src/**` so audit/reporting helpers
+  can't leak into production paths.
 
 ## Tests
 
