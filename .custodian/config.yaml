@@ -139,3 +139,15 @@ tools:
   # mypy: true          # enable when stubs / type annotations are in place
   ty: true              # Astral's type-checker (pre-1.0; pinned in pyproject.toml)
   # semgrep: true       # requires rules/semgrep/ directory with .yaml rule files
+
+# ---------------------------------------------------------------------------
+# Privacy / boundary enforcement (Custodian B-class — self)
+# ---------------------------------------------------------------------------
+# Custodian dogfoods its own B1 detector. Names here cause B1 to fail
+# any tracked file that mentions them, with the default excludes
+# (.console/**, .custodian/config.yaml itself, docs/history/**, etc.)
+# applied automatically.
+privacy:
+  private_repo_names:
+    - VideoFoundry
+    - videofoundry
