@@ -66,7 +66,7 @@ def build_stub_detectors() -> list[Detector]:
                  detect_u2, LOW, _NEEDS),
         Detector("U3", "docstring-only function body (no implementation)", "open",
                  detect_u3, LOW, _NEEDS),
-        Detector("P1", "hollow return body (returns only empty collection/None)", "open",
+        Detector("U5", "hollow return body (returns only empty collection/None)", "open",
                  detect_p1, LOW, _NEEDS),
         Detector("U4", "concrete class inherits Protocol but is missing Protocol methods", "open",
                  detect_u4, LOW, _NEEDS),
@@ -335,7 +335,7 @@ def detect_p1(context: AuditContext) -> DetectorResult:
         if _in_null_named_class(container):
             return False
         return True
-    return _scan_functions(context, predicate, detector_id="P1")
+    return _scan_functions(context, predicate, detector_id="U5")
 
 
 # ── U4 ────────────────────────────────────────────────────────────────────────

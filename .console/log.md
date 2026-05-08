@@ -3,6 +3,8 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+- W3/W4/W5 + U5 ID fix (2026-05-08, on main): Closed five enforcement gaps found during cross-repo hygiene audit. W3 checks `.hooks/pre-commit` content contains a `.console/log.md` guard (an unwired or empty hook silently fails its purpose). W4 checks every submodule in `.gitmodules` has a `branch =` line (without it, `git submodule update --remote` tracks remote HEAD, not the intended branch). W5 checks that if `.gitignore` excludes bare `.env`, a `.env.example` exists at root (env-var contracts must be documented). Also fixed ID collision: stubs.py `P1` ("hollow return body") renamed to `U5` — conflicted with plumbing.py `P1` ("writer key absent"). All 1062 tests pass.
+
 - W-class workspace detectors (2026-05-08, on feat/workspace-detectors): W1 checks
   `.console/` has all four required files (task.md, guidelines.md, backlog.md, log.md);
   W2 checks that if `.hooks/pre-commit` exists, `core.hooksPath = .hooks` is set in
