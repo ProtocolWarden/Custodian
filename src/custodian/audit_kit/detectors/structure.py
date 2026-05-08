@@ -110,13 +110,13 @@ Globs are matched against file paths relative to repo_root.
 from __future__ import annotations
 
 import ast
-import fnmatch
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from custodian.audit_kit.detector import (
     AuditContext, Detector, DetectorResult, LOW, MEDIUM,
 )
+from custodian.audit_kit.glob_match import glob_match
 
 if TYPE_CHECKING:
     pass
@@ -152,7 +152,7 @@ def _glob_match(rel_path: Path, glob: str) -> bool:
     (including those with ``/`` separators), which pathlib.match() does not
     handle correctly for nested directories in Python 3.12.
     """
-    return fnmatch.fnmatch(rel_path.as_posix(), glob)
+    return glob_match(rel_path.as_posix(), glob)
 
 
 def _any_glob(rel_path: Path, globs: list[str]) -> bool:
@@ -198,7 +198,7 @@ def detect_a1(context: AuditContext) -> DetectorResult:
         rel = path.relative_to(context.repo_root)
         rel_posix = rel.as_posix()
 
-        if a1_excludes and any(fnmatch.fnmatch(rel_posix, excl) for excl in a1_excludes):
+        if a1_excludes and any(glob_match(rel_posix, excl) for excl in a1_excludes):
             continue
 
         for rule in invariants:

@@ -27,7 +27,7 @@ opt in via .custodian.yaml or by enabling at invocation time.
 """
 from __future__ import annotations
 
-import fnmatch
+from custodian.audit_kit.glob_match import glob_match
 import json
 from pathlib import Path
 from typing import Any, ClassVar
@@ -161,7 +161,7 @@ class CoverageAdapter(ToolAdapter):
             return file_path
 
     def _is_excluded(self, rel_path: str) -> bool:
-        return any(fnmatch.fnmatch(rel_path, p) for p in self._exclude_paths)
+        return any(glob_match(rel_path, p) for p in self._exclude_paths)
 
 
 __all__ = ["CoverageAdapter"]

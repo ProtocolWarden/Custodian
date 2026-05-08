@@ -35,13 +35,13 @@ B1  Tracked file under the repo root contains a configured private-repo
 """
 from __future__ import annotations
 
-import fnmatch
 import subprocess
 from pathlib import Path
 
 from custodian.audit_kit.detector import (
     AuditContext, Detector, DetectorResult, MEDIUM,
 )
+from custodian.audit_kit.glob_match import glob_match
 
 
 _MAX_SAMPLES = 8
@@ -127,7 +127,7 @@ def _tracked_files(repo_root: Path) -> list[Path]:
 
 def _is_excluded(rel: Path, excludes: list[str]) -> bool:
     rel_posix = rel.as_posix()
-    return any(fnmatch.fnmatch(rel_posix, pat) for pat in excludes)
+    return any(glob_match(rel_posix, pat) for pat in excludes)
 
 
 def _is_binary(path: Path) -> bool:

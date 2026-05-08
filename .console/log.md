@@ -336,23 +336,13 @@ must use `**` (no trailing pattern). Documented inline in config.
 All 10 platform repos now report 0 findings.
 
 
-## 2026-05-08 — CI regression guard
+## 2026-05-08 — Recursive glob match (feat/recursive-glob-match)
 
-Added .github/workflows/custodian-audit.yml + .hooks/pre-push.
-Both run `custodian-multi --fail-on-findings`. CI is the source of
-truth; pre-push catches regressions before they hit GitHub.
+Replaced fnmatch.fnmatch with a custom glob_match that handles ** as
+"zero or more path segments" — matches operator expectation. Closes
+the footgun where src/foo/**/*.py silently didn't recurse.
 
-
-## 2026-05-08 — CI fix: Direct URL pip install syntax
-
-
-## 2026-05-08 — K4: docstring/signature type drift
-
-New detector K4 catches Args type drift: when docstring says
-`param (X): ...` and signature says `param: Y`, flag if X != Y after
-normalisation. Recognises Optional/Union/List/Dict aliases and
-str/int/bool synonyms.
-
-
-## 2026-05-08 — Drop stale exclude_paths entries (doctor --strict)
-
+- New module: src/custodian/audit_kit/glob_match.py
+- Tests: tests/test_glob_match.py (23 cases)
+- Wired into: boundary, code_health, doc_conventions, dead_code,
+  test_shape, structure, adapters/coverage

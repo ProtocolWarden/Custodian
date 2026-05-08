@@ -86,6 +86,7 @@ from pathlib import Path
 from custodian.audit_kit.detector import (
     AuditContext, Detector, DetectorResult, LOW, MEDIUM,
 )
+from custodian.audit_kit.glob_match import glob_match
 
 _MAX_SAMPLES = 8
 _NEEDS_AST = frozenset({"ast_forest"})
@@ -331,7 +332,6 @@ def _dataclass_field_names(src_root: Path, path_excludes: list[str] | None = Non
     Also skips dataclasses that inherit from a class with serialization methods
     (e.g. subclasses of a BaseContract that defines to_dict()).
     """
-    import fnmatch as _fnmatch
 
     # First pass: collect class names that have serialization methods defined
     serializable_classes: set[str] = set()
@@ -347,7 +347,7 @@ def _dataclass_field_names(src_root: Path, path_excludes: list[str] | None = Non
                 rel_posix = path.relative_to(repo_root_guess).as_posix()
             except ValueError:
                 rel_posix = path.as_posix()
-            if any(_fnmatch.fnmatch(rel_posix, excl) for excl in path_excludes):
+            if any(glob_match(rel_posix, excl) for excl in path_excludes):
                 continue
         try:
             text = path.read_text(encoding="utf-8")
@@ -777,7 +777,6 @@ def detect_d3(context: AuditContext) -> DetectorResult:
     if context.graph is None or context.graph.ast_forest is None:
         return DetectorResult(count=0, samples=[])
 
-    import fnmatch as _fnmatch
     audit_cfg: dict = context.config.get("audit") or {}
     excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("D3") or [])
 
@@ -787,7 +786,7 @@ def detect_d3(context: AuditContext) -> DetectorResult:
     for path, tree, _src in context.graph.ast_forest.items():
         rel = path.relative_to(context.repo_root)
         rel_posix = rel.as_posix()
-        if excludes and any(_fnmatch.fnmatch(rel_posix, excl) for excl in excludes):
+        if excludes and any(glob_match(rel_posix, excl) for excl in excludes):
             continue
         protocol_names = _protocol_class_names(tree)
 
@@ -1190,7 +1189,6 @@ def detect_d10(context: AuditContext) -> DetectorResult:
     if context.graph is None or context.graph.ast_forest is None:
         return DetectorResult(count=0, samples=[])
 
-    import fnmatch as _fnmatch
     audit_cfg: dict = context.config.get("audit") or {}
     excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("D10") or [])
 
@@ -1200,7 +1198,7 @@ def detect_d10(context: AuditContext) -> DetectorResult:
     for path, tree, _src in context.graph.ast_forest.items():
         rel = path.relative_to(context.repo_root)
         rel_posix = rel.as_posix()
-        if excludes and any(_fnmatch.fnmatch(rel_posix, excl) for excl in excludes):
+        if excludes and any(glob_match(rel_posix, excl) for excl in excludes):
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.AsyncFunctionDef):
