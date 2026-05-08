@@ -55,6 +55,7 @@ Detectors are grouped by namespace. Each detector has an ID, a severity (LOW/MED
 | P | 1 | Partial implementations: hollow return bodies |
 | R | 6 | README structure: presence, H1 match, "What X is / is not" sections, intro paragraph, docs/ index |
 | B | 1 | Boundary: private-repo-name leakage in tracked files (configurable via `privacy:` block) |
+| DC | 5 | Doc conventions: design front matter, dead doc refs, ADR naming, README sections, bare-symbol citations (configurable via `doc_conventions:` block) |
 
 A further 21 detectors are kept as **deprecated** — third-party tools (ruff, vulture, ty) cover the same cases natively, so these no longer participate in audits but stay importable for backward compatibility. See `docs/design/detector_disposition_matrix.md`.
 
