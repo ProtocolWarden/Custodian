@@ -1,3 +1,7 @@
+---
+status: complete
+---
+
 # Custodian Phase 0 — Detector Disposition Matrix
 
 **Status:** Complete  

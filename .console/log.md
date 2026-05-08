@@ -261,3 +261,5 @@ Custodian improvements this round: F3 model_validate_classes tracking + transiti
 **Current findings (post this session):** Custodian 0, SwitchBoard 0, VF 671 (T1=670, VF5=1, VF6=0), OC 266 (T1=266). All HIGH/MED findings are zero across all repos.
 
 **VF6 added (2026-05-01):** Detects stage classes (have `run(self, context)` method) under `stages/` that are not referenced in any of the three pipeline wiring files (orchestration/api.py, core/manager.py, stages/system/preflight_bundle.py). Currently returns 0 — all stages correctly wired. Will fire if a new stage file is added but not wired in.
+
+- DC1+DC4 self-fix (2026-05-08, on `fix/dc-class-self-findings`): Added YAML front matter to docs/design/detector_disposition_matrix.md (DC1) and an Architecture section to README.md describing the three-layer runner (native detectors / adapter pass / plugin detectors). DC count goes 2 → 0.
