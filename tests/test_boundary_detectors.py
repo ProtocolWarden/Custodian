@@ -181,3 +181,15 @@ class TestB1FallbackWithoutGit:
         assert result.count == 1
         # Restore for any teardown that needs it (no-op on monkeypatch but defensive).
         monkeypatch.setattr(boundary_mod.subprocess, "run", real_run)
+
+
+def test_default_excludes_custodian_config(tmp_path: Path):
+    (tmp_path / ".custodian").mkdir()
+    (tmp_path / ".custodian" / "config.yaml").write_text(
+        "privacy:\n  private_repo_names:\n    - MyPrivateRepo\n",
+        encoding="utf-8",
+    )
+    _git_init(tmp_path)
+    ctx = _ctx(tmp_path, {"privacy": {"private_repo_names": ["MyPrivateRepo"]}})
+    result = detect_b1(ctx)
+    assert result.count == 0

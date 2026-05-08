@@ -46,6 +46,11 @@ from custodian.audit_kit.detector import (
 
 _MAX_SAMPLES = 8
 _DEFAULT_EXCLUDES: tuple[str, ...] = (
+    # The Custodian config that *defines* the banned names. The literal
+    # names must appear there for the rule to function — flagging them
+    # would force operators to add an exclude in every consumer.
+    ".custodian/config.yaml",
+    ".custodian.yaml",  # legacy single-file location
     # Operator-private workspaces — historical narration may legitimately
     # reference past private bindings.
     ".console/**",
