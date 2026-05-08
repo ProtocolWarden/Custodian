@@ -106,6 +106,7 @@ def _tracked_files(repo_root: Path) -> list[Path]:
             capture_output=True,
             check=True,
             text=False,
+            timeout=30,
         )
     except (FileNotFoundError, subprocess.CalledProcessError):
         return [

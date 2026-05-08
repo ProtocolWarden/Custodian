@@ -20,6 +20,7 @@ audit:
     - class_field_count
     - vulture_advisory
     - write_text
+    - managed_repo
 
   known_values:
     - custodian_hygiene
@@ -82,10 +83,15 @@ audit:
       # These files are large by design — they're the core detector registries.
       # code_health.py houses all C-class detectors; dead_code.py houses all
       # D/F-class detectors. structure.py houses A1/S1-S4/H1 — all architecture
-      # detectors in one coherent module. Splitting them would fracture the registry.
+      # detectors in one coherent module. test_shape.py houses all T-class
+      # detectors (T1, T2, T6, T7, T8) plus their helpers. doc_conventions.py
+      # houses DC1-DC8 plus the front-matter / link-graph / ordering helpers.
+      # Splitting any of these would fracture a coherent registry.
       - src/custodian/audit_kit/code_health.py
       - src/custodian/audit_kit/detectors/dead_code.py
       - src/custodian/audit_kit/detectors/structure.py
+      - src/custodian/audit_kit/detectors/test_shape.py
+      - src/custodian/audit_kit/detectors/doc_conventions.py
     C13:
       # CLI tools set os.environ["NO_COLOR"] to disable terminal colour in
       # subprocess output — this is terminal-formatting control, not config
@@ -130,6 +136,63 @@ audit:
       - src/custodian/plugins/protocols.py
       # SARIF report writer is an optional output format; tested through CLI integration.
       - src/custodian/reports/sarif_report.py
+      # Triage matrix dataclass — tested via the joiner/render integration path.
+      - src/custodian/triage/matrix.py
+    T6:
+      # CLI entrypoints are tested via integration suites (subprocess invocation),
+      # not direct imports. Adapter & plugin modules are tested via the registry
+      # path, not by name-import in tests.
+      - "src/custodian/cli/**"
+      - "src/custodian/adapters/**"
+      - "src/custodian/plugins/**"
+      - src/custodian/reports/sarif_report.py
+      - src/custodian/triage/matrix.py
+      - src/custodian/triage/render.py
+      - src/custodian/triage/joiner.py
+    T7:
+      # Same rationale as T6: parallel test files for CLI/adapters/plugins
+      # would mostly mirror integration tests already in tests/.
+      - "src/custodian/cli/**"
+      - "src/custodian/adapters/**"
+      - "src/custodian/plugins/**"
+      - "src/custodian/codemods/**"
+      - "src/custodian/config/**"
+      - "src/custodian/core/**"
+      - "src/custodian/policy/**"
+      - "src/custodian/reports/**"
+      - "src/custodian/triage/**"
+      - src/custodian/audit_kit/result.py
+      - src/custodian/audit_kit/passes/ast_forest.py
+      - src/custodian/audit_kit/passes/call_graph.py
+      - src/custodian/audit_kit/passes/import_graph.py
+      - src/custodian/audit_kit/passes/symbol_index.py
+      - src/custodian/audit_kit/passes/tests_forest.py
+      - src/custodian/audit_kit/detector.py
+      - src/custodian/audit_kit/detectors/directory.py
+      - src/custodian/audit_kit/detectors/imports.py
+      - src/custodian/audit_kit/detectors/annotations.py
+      - src/custodian/audit_kit/detectors/complexity.py
+      - src/custodian/audit_kit/detectors/naming.py
+      - src/custodian/audit_kit/detectors/docs.py
+      - src/custodian/audit_kit/detectors/ghost.py
+      - src/custodian/audit_kit/detectors/stubs.py
+      - src/custodian/audit_kit/detectors/repo_meta.py
+      - src/custodian/audit_kit/detectors/structure.py
+      - src/custodian/audit_kit/detectors/dead_code.py
+      - src/custodian/audit_kit/detectors/test_shape.py
+      - src/custodian/audit_kit/detectors/readme.py
+      - src/custodian/audit_kit/detectors/boundary.py
+      - src/custodian/audit_kit/detectors/doc_conventions.py
+      - src/custodian/audit_kit/code_health.py
+      - src/custodian/audit_kit/code_health_runner.py
+      - src/custodian/triage/matrix.py
+      - src/custodian/triage/render.py
+      - src/custodian/reports/sarif_report.py
+    T8:
+      # Sample-consumer fixtures are deliberately minimal repos used to
+      # test the audit pipeline end-to-end; they don't import custodian.
+      - "tests/fixtures/sample_consumer/**"
+      - tests/test_cli_doctor.py
 
 # Tool adapters — run external tools alongside AST-based detectors.
 # Results appear in audit output with source: "adapter".

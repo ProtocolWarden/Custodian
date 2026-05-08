@@ -451,11 +451,18 @@ def detect_t5(context: AuditContext) -> DetectorResult:
 
 
 def _module_dotted_name(path: Path, src_root: Path) -> str | None:
-    """Convert ``src/foo/bar.py`` to ``foo.bar``. Returns None for __init__/dunder.
+    """Convert ``src/foo/bar.py`` to its importable dotted name.
 
-    ``__init__.py`` is excluded from T6 because the package is implicitly
-    exercised whenever any submodule is imported by tests — flagging it
-    separately produces noisy duplicate findings alongside its submodules.
+    Two conventions:
+      1. ``src_root`` itself is a package (has ``__init__.py``): include
+         the src_root basename — ``src/foo/bar.py`` → ``foo.bar``.
+      2. ``src_root`` is a flat parent of packages: drop it —
+         ``src/`` containing ``foo/bar.py`` → ``foo.bar``.
+
+    Returns None for ``__init__.py`` and dunder files. ``__init__.py`` is
+    excluded from T6 because the package is implicitly exercised whenever
+    any submodule is imported by tests — flagging it separately produces
+    noisy duplicate findings alongside its submodules.
     """
     try:
         rel = path.relative_to(src_root)
@@ -466,6 +473,8 @@ def _module_dotted_name(path: Path, src_root: Path) -> str | None:
     if rel.name.startswith("__") and rel.name.endswith("__.py"):
         return None
     parts = list(rel.parts[:-1]) + [rel.stem]
+    if (src_root / "__init__.py").is_file():
+        parts = [src_root.name] + parts
     return ".".join(parts)
 
 
@@ -617,14 +626,24 @@ def detect_t7(context: AuditContext) -> DetectorResult:
 
 
 def _src_top_level_packages(src_root: Path) -> set[str]:
-    """Names of directories directly under src_root that look like Python packages.
+    """Names tests can use to import from src.
 
-    Either a dir with ``__init__.py`` or a single .py file at the top level
-    (treated as a flat module).
+    Two conventions are accepted:
+      1. ``src_root`` itself is a package (``src/foo`` with ``foo/__init__.py``)
+         → tests import ``from foo.X import ...``; we add ``foo``.
+      2. ``src_root`` is a flat directory of packages (``src/`` contains
+         ``foo/`` and ``bar/``) → tests import ``from foo.X``; we add the
+         children's names.
+
+    Both are supported simultaneously since some repos mix them.
     """
     out: set[str] = set()
     if not src_root.is_dir():
         return out
+    # Convention 1: src_root itself is the importable package.
+    if (src_root / "__init__.py").is_file():
+        out.add(src_root.name)
+    # Convention 2: children of src_root are the importable packages.
     for child in src_root.iterdir():
         if child.is_dir() and (child / "__init__.py").is_file():
             out.add(child.name)
@@ -633,13 +652,71 @@ def _src_top_level_packages(src_root: Path) -> set[str]:
     return out
 
 
+def _file_touches_src(tree: ast.AST, src_packages: set[str]) -> bool:
+    """True when any import in tree's AST touches a top-level src package."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                head = (alias.name or "").split(".", 1)[0]
+                if head in src_packages:
+                    return True
+        elif isinstance(node, ast.ImportFrom):
+            if node.level and node.level > 0:
+                continue
+            if not node.module:
+                continue
+            head = node.module.split(".", 1)[0]
+            if head in src_packages or head == "src":
+                return True
+    return False
+
+
+def _conftest_dirs_touching_src(
+    tests_root: Path, src_packages: set[str],
+) -> set[Path]:
+    """Return dir paths whose conftest.py (or any ancestor's conftest.py)
+    imports a src package.
+
+    Pytest fixtures defined in a conftest.py are visible to every test
+    file at or below that directory. So if conftest.py imports src, the
+    tests under it implicitly exercise src — they're not dangling.
+    """
+    touching: set[Path] = set()
+    for conftest in tests_root.rglob("conftest.py"):
+        try:
+            tree = ast.parse(conftest.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, SyntaxError):
+            continue
+        if _file_touches_src(tree, src_packages):
+            touching.add(conftest.parent.resolve())
+    return touching
+
+
+_T8_DEFAULT_EXEMPT_GLOBS: tuple[str, ...] = (
+    "tests/integration/**",
+    "tests/e2e/**",
+    "tests/smoke/**",
+    "test/integration/**",
+    "test/e2e/**",
+    "test/smoke/**",
+)
+
+
 def detect_t8(context: AuditContext) -> DetectorResult:
     """Flag test files whose imports never reach any src package.
 
     A test that imports only stdlib + helpers and never touches a top-level
     src package is dangling — it doesn't exercise the codebase under audit.
-    Excludes ``conftest.py`` (legitimately may have no src imports) and
-    ``__init__.py``. Configurable extra exempt files via ``audit.t8_exempt``.
+    Excludes ``conftest.py`` and ``__init__.py``. Tests under a directory
+    whose ``conftest.py`` (or any ancestor conftest) imports src are
+    considered to touch src transitively — pytest fixtures from those
+    conftests are visible to the test, so the test is not dangling.
+
+    Default-exempt: ``tests/integration/**``, ``tests/e2e/**``,
+    ``tests/smoke/**`` (and ``test/...`` variants) — these conventionally
+    exercise the codebase via subprocess/HTTP/CLI rather than imports.
+    Override via ``audit.t8_default_exempt: false`` to re-enable, or add
+    repo-specific globs via ``audit.t8_exempt`` / ``audit.exclude_paths.T8``.
     """
     if not context.tests_root.is_dir():
         return DetectorResult(count=0, samples=[])
@@ -648,10 +725,14 @@ def detect_t8(context: AuditContext) -> DetectorResult:
     audit_cfg = context.config.get("audit") or {}
     excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("T8") or [])
     extra_exempt: list[str] = list(audit_cfg.get("t8_exempt") or [])
+    if audit_cfg.get("t8_default_exempt", True):
+        extra_exempt = list(_T8_DEFAULT_EXEMPT_GLOBS) + extra_exempt
 
     src_packages = _src_top_level_packages(context.src_root)
     if not src_packages:
         return DetectorResult(count=0, samples=[])
+
+    conftest_dirs = _conftest_dirs_touching_src(context.tests_root, src_packages)
 
     samples: list[str] = []
     count = 0
@@ -665,27 +746,23 @@ def detect_t8(context: AuditContext) -> DetectorResult:
         if extra_exempt and any(_fnmatch.fnmatch(rel_posix, g) for g in extra_exempt):
             continue
 
-        touches_src = False
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    head = (alias.name or "").split(".", 1)[0]
-                    if head in src_packages:
-                        touches_src = True
-                        break
-            elif isinstance(node, ast.ImportFrom):
-                if node.level and node.level > 0:
-                    continue
-                if not node.module:
-                    continue
-                head = node.module.split(".", 1)[0]
-                if head in src_packages or head == "src":
-                    touches_src = True
-            if touches_src:
-                break
-
-        if touches_src:
+        # Direct import?
+        if _file_touches_src(tree, src_packages):
             continue
+        # Transitive via conftest? Walk ancestors up to tests_root.
+        cur = path.resolve().parent
+        tests_root_abs = context.tests_root.resolve()
+        transitive = False
+        while True:
+            if cur in conftest_dirs:
+                transitive = True
+                break
+            if cur == tests_root_abs or cur.parent == cur:
+                break
+            cur = cur.parent
+        if transitive:
+            continue
+
         count += 1
         if len(samples) < _MAX_SAMPLES:
             pkgs = sorted(src_packages)

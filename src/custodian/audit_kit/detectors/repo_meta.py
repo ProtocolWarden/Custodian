@@ -127,7 +127,7 @@ def detect_m5(ctx: AuditContext) -> DetectorResult:
     if not changelog.exists():
         return DetectorResult(count=0, samples=[])
     try:
-        text = changelog.read_text(errors="replace")
+        text = changelog.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return DetectorResult(count=0, samples=[])
     samples: list[str] = []

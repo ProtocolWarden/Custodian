@@ -21,3 +21,9 @@ design notes and usage guides.
   How the triage layer joins per-detector findings into per-file action
   verdicts (DELETE / IMPLEMENT / WIRE / REDESIGN / CLEANUP). Read this if
   you're configuring `audit.triage` or consuming `custodian-triage` output.
+- [usage/doc_conventions.md](usage/doc_conventions.md) —
+  Repo-wide markdown conventions enforced by DC1–DC8 (front matter,
+  cross-doc references, ADR naming, README sections, section ordering).
+- [usage/private_repo_names.md](usage/private_repo_names.md) —
+  How the B1 boundary detector enforces the public/private repo
+  boundary by flagging private-repo names that leak into tracked files.

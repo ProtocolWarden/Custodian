@@ -1074,7 +1074,7 @@ def detect_c34(context: AuditContext) -> DetectorResult:
     return DetectorResult(count=count, samples=samples)
 
 
-# ── C35: bare `# type: ignore` without error-code brackets ───────────────────
+# ── C35: bare ignore-comments without error-code brackets ───────────────────
 
 _BARE_TYPE_IGNORE_COMMENT_RE = re.compile(r"#\s*type:\s*ignore(?!\s*\[)")
 

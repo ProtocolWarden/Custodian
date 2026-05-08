@@ -135,7 +135,7 @@ def _check_front_matter(
     fields it should carry.
     """
     try:
-        text = md.read_text(errors="replace")
+        text = md.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return []
     if not text.startswith("---"):
@@ -227,7 +227,7 @@ def detect_dc2(ctx: AuditContext) -> DetectorResult:
         if _is_excluded(rel, excludes):
             continue
         try:
-            for i, line in enumerate(f.read_text(errors="replace").splitlines(), 1):
+            for i, line in enumerate(f.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
                 for m in _DOC_REF_RE.finditer(line):
                     target = ctx.repo_root / m.group(1)
                     if not target.exists():
@@ -268,7 +268,7 @@ def detect_dc4(ctx: AuditContext) -> DetectorResult:
         # to avoid double-counting.
         return DetectorResult(count=0, samples=[])
     try:
-        text = readme.read_text(errors="replace")
+        text = readme.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return DetectorResult(count=0, samples=[])
     cfg = _config(ctx)
@@ -322,7 +322,7 @@ def detect_dc5(ctx: AuditContext) -> DetectorResult:
         if _is_excluded(rel, excludes):
             continue
         try:
-            for i, line in enumerate(f.read_text(errors="replace").splitlines(), 1):
+            for i, line in enumerate(f.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
                 if not _IMPL_CONTEXT_RE.search(line):
                     continue
                 if re.search(r"`[^`]*[./:][^`]*`", line):
@@ -385,7 +385,7 @@ _BACKTICK_PATH_RE = re.compile(r"`(docs/[a-z0-9_/\-]+\.md)`")
 
 
 def detect_dc7(ctx: AuditContext) -> DetectorResult:
-    """Flag .md files under docs/ that no tracked .md links to.
+    r"""Flag .md files under docs/ that no tracked .md links to.
 
     A doc is "linked" when any other tracked .md file (under docs/, the
     repo root README, or anywhere else in the working tree) cites it
@@ -432,7 +432,7 @@ def detect_dc7(ctx: AuditContext) -> DetectorResult:
     referenced: set[str] = set()
     for f in corpus:
         try:
-            text = f.read_text(errors="replace")
+            text = f.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
         try:
@@ -502,7 +502,7 @@ def detect_dc8(ctx: AuditContext) -> DetectorResult:
     if not readme.exists():
         return DetectorResult(count=0, samples=[])
     try:
-        text = readme.read_text(errors="replace")
+        text = readme.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return DetectorResult(count=0, samples=[])
 
