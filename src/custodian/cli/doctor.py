@@ -14,6 +14,7 @@ from custodian.audit_kit.detectors.docs import build_docs_detectors
 from custodian.audit_kit.detectors.naming import build_naming_detectors
 from custodian.audit_kit.detectors.boundary import build_boundary_detectors
 from custodian.audit_kit.detectors.cross_repo import build_cross_repo_detectors
+from custodian.audit_kit.detectors.plumbing import build_plumbing_detectors
 from custodian.audit_kit.detectors.doc_conventions import build_doc_convention_detectors
 from custodian.audit_kit.detectors.repo_meta import build_repo_meta_detectors
 from custodian.audit_kit.detectors.ghost import build_ghost_detectors
@@ -50,7 +51,8 @@ _KNOWN_AUDIT_KEYS = frozenset({
     "t7_test_dirs",
     # X-class cross-repo flow audits (loads PlatformManifest data)
     "cross_repo",
-    # T8 conftest dirs
+    # P-class artifact plumbing enforcement
+    "plumbing",
     # plugin-extension keys (plugins may declare arbitrary audit sub-keys)
     "plugin_audit_keys",
 })
@@ -209,6 +211,7 @@ def main():
                                 + build_doc_convention_detectors()
                                 + build_repo_meta_detectors()
                                 + build_cross_repo_detectors()
+                                + build_plumbing_detectors()
                                 + extra)}
     exclude_paths = (config.get("audit") or {}).get("exclude_paths") or {}
     if isinstance(exclude_paths, dict):
