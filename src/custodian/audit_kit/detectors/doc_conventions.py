@@ -67,7 +67,7 @@ _MAX_SAMPLES = 8
 _DEFAULT_DESIGN_DIR = "docs/design"
 _DEFAULT_ADR_DIR = "docs/architecture/adr"
 _DEFAULT_SCAN_DIRS: tuple[str, ...] = ("docs",)
-_DEFAULT_EXCLUDE_PATTERNS: tuple[str, ...] = ("*/archive/*", "*/history/*")
+_DEFAULT_EXCLUDE_PATTERNS: tuple[str, ...] = ("**/archive/**", "**/history/**")
 
 _DEFAULT_README_HEADINGS: tuple[str, ...] = (
     r"^##\s+(?:Quick\s+start|Quickstart|Getting\s+started)\b",
