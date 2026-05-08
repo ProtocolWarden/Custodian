@@ -197,7 +197,7 @@ def detect_dc1(ctx: AuditContext) -> DetectorResult:
             # the way DC3 already exempts them from the naming check.
             if md.name.lower() in {"readme.md", "template.md", "index.md"}:
                 continue
-            samples.extend(_check_front_matter(md, list(required), rel))
+            samples.extend(_check_front_matter(md, [str(x) for x in required], rel))
 
     return DetectorResult(count=len(samples), samples=samples[:_MAX_SAMPLES])
 

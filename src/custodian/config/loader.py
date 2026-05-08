@@ -44,9 +44,10 @@ from pathlib import Path
 from typing import Any
 
 try:
-    import yaml
+    import yaml as _yaml
+    yaml: Any = _yaml
 except ImportError:  # pragma: no cover
-    yaml = None  # type: ignore[assignment]
+    yaml = None
 
 
 _SCHEMA_VERSION_KEY = "version"

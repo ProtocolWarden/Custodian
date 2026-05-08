@@ -249,21 +249,24 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                 path_pattern = pattern.replace(".", "/")
                 for node in ast.walk(tree):
                     mod = None
+                    lineno = 0
                     if isinstance(node, ast.Import):
                         for alias in node.names:
                             mod_as_path = alias.name.replace(".", "/")
                             if _glob_match(Path(mod_as_path), path_pattern):
                                 mod = alias.name
+                                lineno = node.lineno
                                 break
                     elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
                         mod_as_path = node.module.replace(".", "/")
                         if _glob_match(Path(mod_as_path), path_pattern):
                             mod = node.module
+                            lineno = node.lineno
                     if mod:
                         count += 1
                         if len(samples) < _MAX_SAMPLES:
                             samples.append(
-                                f"{rel}:{node.lineno}: imports {mod!r} — forbidden by {name!r}"
+                                f"{rel}:{lineno}: imports {mod!r} — forbidden by {name!r}"
                             )
                         break  # one violation per rule per file is enough
 
@@ -275,22 +278,25 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                 prefix_path = prefix.replace(".", "/")
                 for node in ast.walk(tree):
                     mod = None
+                    lineno = 0
                     if isinstance(node, ast.Import):
                         for alias in node.names:
                             mp = alias.name.replace(".", "/")
                             if mp == prefix_path or mp.startswith(prefix_path + "/"):
                                 mod = alias.name
+                                lineno = node.lineno
                                 break
                     elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
                         # node.level > 0 means a relative import (from .foo import) — skip
                         mp = node.module.replace(".", "/")
                         if mp == prefix_path or mp.startswith(prefix_path + "/"):
                             mod = node.module
+                            lineno = node.lineno
                     if mod:
                         count += 1
                         if len(samples) < _MAX_SAMPLES:
                             samples.append(
-                                f"{rel}:{node.lineno}: imports {mod!r} — forbidden prefix {prefix!r}"
+                                f"{rel}:{lineno}: imports {mod!r} — forbidden prefix {prefix!r}"
                             )
                         break  # one violation per rule per file is enough
 
@@ -336,21 +342,24 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                     pkg_dot = pkg + "."
                     for node in ast.walk(tree):
                         mod = None
+                        lineno = 0
                         if isinstance(node, ast.Import):
                             for alias in node.names:
                                 if alias.name == pkg or alias.name.startswith(pkg_dot):
                                     if alias.name not in allowed:
                                         mod = alias.name
+                                        lineno = node.lineno
                                         break
                         elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
                             if node.module == pkg or node.module.startswith(pkg_dot):
                                 if node.module not in allowed:
                                     mod = node.module
+                                    lineno = node.lineno
                         if mod:
                             count += 1
                             if len(samples) < _MAX_SAMPLES:
                                 samples.append(
-                                    f"{rel}:{node.lineno}: deep import {mod!r} from {pkg!r} — "
+                                    f"{rel}:{lineno}: deep import {mod!r} from {pkg!r} — "
                                     f"only public API allowed: {sorted(allowed)}"
                                 )
                             break

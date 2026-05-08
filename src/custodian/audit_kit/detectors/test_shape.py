@@ -435,7 +435,9 @@ def detect_t5(context: AuditContext) -> DetectorResult:
             for dec in node.decorator_list:
                 if not _is_parametrize_decorator(dec):
                     continue
-                n = _parametrize_case_count(dec)  # type: ignore[arg-type]
+                # _is_parametrize_decorator() already verified Call shape.
+                assert isinstance(dec, ast.Call)  # noqa: S101
+                n = _parametrize_case_count(dec)
                 if n != 1:
                     continue
                 count += 1

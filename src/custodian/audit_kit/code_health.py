@@ -359,6 +359,15 @@ def detect_c11(context: AuditContext) -> DetectorResult:
 _C4_BROAD_TYPES = frozenset({"Exception", "BaseException"})
 
 
+def _describe_exc_type(exc_type: ast.expr) -> str:
+    """Render an exception-type expression as text for C4/C9 sample output."""
+    if isinstance(exc_type, ast.Name):
+        return exc_type.id
+    if isinstance(exc_type, ast.Attribute):
+        return exc_type.attr
+    return ast.unparse(exc_type) if hasattr(ast, "unparse") else "<expr>"
+
+
 def detect_c4(context: AuditContext) -> DetectorResult:
     """Flag broad ``except`` handlers (bare / Exception / BaseException) whose only statement is ``pass``.
 
@@ -396,7 +405,7 @@ def detect_c4(context: AuditContext) -> DetectorResult:
             if len(samples) < _MAX_SAMPLES:
                 type_str = (
                     "except:" if exc_type is None
-                    else f"except {exc_type.id if isinstance(exc_type, ast.Name) else exc_type.attr}:"
+                    else f"except {_describe_exc_type(exc_type)}:"
                 )
                 samples.append(f"{rel}:{node.lineno}: {type_str} pass")
     return DetectorResult(count=count, samples=samples)
@@ -458,7 +467,7 @@ def detect_c9(context: AuditContext) -> DetectorResult:
                 exc_type = node.type
                 type_str = (
                     "except:" if exc_type is None
-                    else f"except {exc_type.id if isinstance(exc_type, ast.Name) else exc_type.attr}:"
+                    else f"except {_describe_exc_type(exc_type)}:"
                 )
                 samples.append(f"{rel}:{node.lineno}: {type_str} as {node.name} (variable unused)")
     return DetectorResult(count=count, samples=samples)
@@ -498,6 +507,7 @@ def detect_c23(context: AuditContext) -> DetectorResult:
             )
             if not is_subprocess:
                 continue
+            assert isinstance(func, ast.Attribute)  # narrowed by is_subprocess  # noqa: S101
             has_shell_true = any(
                 isinstance(kw, ast.keyword)
                 and kw.arg == "shell"
@@ -1021,6 +1031,7 @@ def detect_c20(context: AuditContext) -> DetectorResult:
             )
             if not is_generic:
                 continue
+            assert isinstance(func, ast.Name)  # narrowed by is_generic  # noqa: S101
             count += 1
             if len(samples) < _MAX_SAMPLES:
                 samples.append(f"{rel}:{node.lineno}: raise {func.id}(...)")
@@ -1209,7 +1220,8 @@ def _flatten_yaml_keys(obj: object, prefix: str = "") -> list[str]:
         return []
     result: list[str] = []
     for k, v in obj.items():
-        full = f"{prefix}.{k}" if prefix else k
+        key = str(k)
+        full = f"{prefix}.{key}" if prefix else key
         if isinstance(v, dict):
             result.extend(_flatten_yaml_keys(v, full))
         else:
