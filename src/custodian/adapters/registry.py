@@ -53,6 +53,23 @@ def get_enabled_adapters(config: dict) -> list[ToolAdapter]:
         else:
             result.append(SemgrepAdapter())
 
+    md_cfg = tools_cfg.get("markdownlint")
+    if md_cfg:
+        from custodian.adapters.markdownlint import MarkdownlintAdapter
+        if isinstance(md_cfg, dict):
+            globs = md_cfg.get("globs") or []
+            if not isinstance(globs, list):
+                globs = []
+            mdc = md_cfg.get("config")
+            timeout = int(md_cfg.get("timeout", 60))
+            result.append(MarkdownlintAdapter(
+                globs=globs or None,
+                config=mdc if isinstance(mdc, str) else None,
+                timeout=timeout,
+            ))
+        else:
+            result.append(MarkdownlintAdapter())
+
     # Coverage adapter — default OFF. Opt-in by repos that produce a
     # coverage.json (typically via their own end-to-end audit pipeline).
     coverage_cfg = tools_cfg.get("coverage")
