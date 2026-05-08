@@ -359,3 +359,15 @@ detector class typology is by-design pattern-similar.
 
 ## 2026-05-08 — D11 rebased on glob_match
 
+
+## 2026-05-08 — X1: cross-repo flow audit (PlatformManifest legacy-name drift)
+
+New X-class. X1 reads PlatformManifest's bundled YAML from a configured
+sibling repo and flags any tracked file that references a legacy alias
+when the canonical name should be used. Silent skip when PM not found.
+
+- New module: src/custodian/audit_kit/detectors/cross_repo.py
+- Tests: tests/test_x1_cross_repo.py (7 cases)
+- Wired into runner + doctor; cross_repo is a known audit sub-key.
+- Loads YAML directly — no hard dep on platform_manifest package.
+

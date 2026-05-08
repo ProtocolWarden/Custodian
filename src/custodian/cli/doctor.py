@@ -13,6 +13,7 @@ from custodian.audit_kit.detectors.dead_code import build_dead_code_detectors
 from custodian.audit_kit.detectors.docs import build_docs_detectors
 from custodian.audit_kit.detectors.naming import build_naming_detectors
 from custodian.audit_kit.detectors.boundary import build_boundary_detectors
+from custodian.audit_kit.detectors.cross_repo import build_cross_repo_detectors
 from custodian.audit_kit.detectors.doc_conventions import build_doc_convention_detectors
 from custodian.audit_kit.detectors.repo_meta import build_repo_meta_detectors
 from custodian.audit_kit.detectors.ghost import build_ghost_detectors
@@ -41,6 +42,15 @@ _KNOWN_AUDIT_KEYS = frozenset({
     "k1_extra_doc_dirs", "known_values",
     # F1/F3 dead-code keys
     "f1_exempt", "f3_validate_functions", "f3_exempt",
+    # D11 (duplicate-function) tuning
+    "d11_min_statements", "d11_min_lines",
+    # T8 conftest exempt + integration default
+    "t8_exempt", "t8_default_exempt",
+    # T7 test-dir hint extension
+    "t7_test_dirs",
+    # X-class cross-repo flow audits (loads PlatformManifest data)
+    "cross_repo",
+    # T8 conftest dirs
     # plugin-extension keys (plugins may declare arbitrary audit sub-keys)
     "plugin_audit_keys",
 })
@@ -198,6 +208,7 @@ def main():
                                 + build_readme_detectors()
                                 + build_doc_convention_detectors()
                                 + build_repo_meta_detectors()
+                                + build_cross_repo_detectors()
                                 + extra)}
     exclude_paths = (config.get("audit") or {}).get("exclude_paths") or {}
     if isinstance(exclude_paths, dict):
