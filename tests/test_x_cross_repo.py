@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Tests for X1/X2/X3 — cross-repo detectors."""
 from __future__ import annotations
 
@@ -23,19 +23,19 @@ _PM_YAML = textwrap.dedent("""\
       operations_center:
         canonical_name: OperationsCenter
         legacy_names: [ControlPlane]
-        github_url: https://github.com/Velascat/OperationsCenter
+        github_url: https://github.com/ProtocolWarden/OperationsCenter
       operator_console:
         canonical_name: OperatorConsole
         legacy_names: [FOB]
-        github_url: https://github.com/Velascat/OperatorConsole
+        github_url: https://github.com/ProtocolWarden/OperatorConsole
       cxrp:
         canonical_name: CxRP
         legacy_names: [ExecutionContractProtocol]
-        github_url: https://github.com/Velascat/CxRP
+        github_url: https://github.com/ProtocolWarden/CxRP
       switchboard:
         canonical_name: SwitchBoard
         legacy_names: []
-        github_url: https://github.com/Velascat/SwitchBoard
+        github_url: https://github.com/ProtocolWarden/SwitchBoard
     edges:
       - {from: OperatorConsole, to: OperationsCenter, type: dispatches_to}
       - {from: OperationsCenter, to: CxRP, type: depends_on_contracts_from}
@@ -290,14 +290,14 @@ class TestX2:
 
 class TestX3:
     def test_silent_when_no_manifest(self, tmp_path):
-        (tmp_path / "README.md").write_text("See https://github.com/Velascat/ControlPlane\n")
+        (tmp_path / "README.md").write_text("See https://github.com/ProtocolWarden/ControlPlane\n")
         ctx = _ctx(tmp_path, {})
         assert detect_x3(ctx).count == 0
 
     def test_stale_url_in_markdown_caught(self, tmp_path):
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
-            "See https://github.com/Velascat/ControlPlane for details.\n"
+            "See https://github.com/ProtocolWarden/ControlPlane for details.\n"
         )
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x3(ctx)
@@ -308,7 +308,7 @@ class TestX3:
     def test_canonical_url_not_flagged(self, tmp_path):
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
-            "See https://github.com/Velascat/OperationsCenter\n"
+            "See https://github.com/ProtocolWarden/OperationsCenter\n"
         )
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         assert detect_x3(ctx).count == 0
@@ -316,8 +316,8 @@ class TestX3:
     def test_multiple_stale_urls(self, tmp_path):
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
-            "- https://github.com/Velascat/ControlPlane\n"
-            "- https://github.com/Velascat/FOB\n"
+            "- https://github.com/ProtocolWarden/ControlPlane\n"
+            "- https://github.com/ProtocolWarden/FOB\n"
         )
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x3(ctx)
@@ -326,7 +326,7 @@ class TestX3:
     def test_stale_url_without_https_caught(self, tmp_path):
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
-            "See github.com/Velascat/ControlPlane\n"
+            "See github.com/ProtocolWarden/ControlPlane\n"
         )
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x3(ctx)
@@ -337,7 +337,7 @@ class TestX3:
         # SwitchBoard has no legacy names → no stale URLs possible
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
-            "See https://github.com/Velascat/SwitchBoard\n"
+            "See https://github.com/ProtocolWarden/SwitchBoard\n"
         )
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         assert detect_x3(ctx).count == 0
@@ -346,7 +346,7 @@ class TestX3:
         _write_pm(tmp_path)
         ctx = _ctx(
             tmp_path,
-            {"a.py": "url = 'https://github.com/Velascat/ControlPlane'\n"},
+            {"a.py": "url = 'https://github.com/ProtocolWarden/ControlPlane'\n"},
             config=_CROSS_REPO_CFG,
         )
         # X3 only scans .md files
@@ -357,7 +357,7 @@ class TestX3:
         history_dir = tmp_path / "docs" / "history"
         history_dir.mkdir(parents=True)
         (history_dir / "notes.md").write_text(
-            "Formerly github.com/Velascat/ControlPlane\n"
+            "Formerly github.com/ProtocolWarden/ControlPlane\n"
         )
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         assert detect_x3(ctx).count == 0
@@ -365,7 +365,7 @@ class TestX3:
     def test_exclude_paths_honoured(self, tmp_path):
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
-            "See https://github.com/Velascat/ControlPlane\n"
+            "See https://github.com/ProtocolWarden/ControlPlane\n"
         )
         ctx = _ctx(tmp_path, {}, config={
             "audit": {

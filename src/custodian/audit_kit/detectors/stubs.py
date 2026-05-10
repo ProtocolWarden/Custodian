@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """U-class and P-class detectors — unimplemented / stub / hollow functions.
 
 These detectors use the ``ast_forest`` analysis pass to inspect function

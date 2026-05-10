@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Tests for C31 (weak hash), N1 (exception naming), and P1 refinements."""
 from __future__ import annotations
 

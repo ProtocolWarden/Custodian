@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Recursive-glob matching for path patterns.
 
 Drop-in replacement for ``fnmatch.fnmatch`` that handles ``**`` the way

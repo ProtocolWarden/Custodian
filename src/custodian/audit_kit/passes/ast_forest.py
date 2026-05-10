@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """AST forest analysis pass.
 
 Pre-parses every .py file under src_root into an ast.Module tree.

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Adapter-based audit runner — Phase 1 skeleton.
 
 This runner is additive: it sits alongside the existing legacy runner

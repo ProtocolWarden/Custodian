@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """M-class detectors — repo-meta file presence.
 
 Public repos are expected to ship a small set of meta files at the

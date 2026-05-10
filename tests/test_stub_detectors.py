@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Tests for U-class (stub/unimplemented) detectors: U1, U2, U3."""
 from __future__ import annotations
 

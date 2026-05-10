@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """X-class detectors — removed; replaced by ruff C901 and PLR0913."""
 from __future__ import annotations
 

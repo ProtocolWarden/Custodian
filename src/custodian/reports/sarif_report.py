@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """SARIF 2.1.0 report builder.
 
 Produces a minimal SARIF document compatible with GitHub Code Scanning and

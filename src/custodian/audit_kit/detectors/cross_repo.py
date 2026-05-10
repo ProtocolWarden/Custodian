@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """X-class detectors — cross-repo flow audits.
 
 These detectors validate the local repo against PlatformManifest data
@@ -21,7 +21,7 @@ X2  Undeclared cross-repo import — a .py file imports a package that maps
 
 X3  Stale GitHub URL in docs — a .md file contains a GitHub URL pointing
     to a platform repo via an old/legacy name
-    (e.g. ``github.com/Velascat/ControlPlane``).  Complements X1's
+    (e.g. ``github.com/ProtocolWarden/ControlPlane``).  Complements X1's
     string-name drift check with URL-level drift detection.
 
 Configuration
@@ -444,9 +444,9 @@ def detect_x3(context: AuditContext) -> DetectorResult:
     """Flag markdown docs containing GitHub URLs that use legacy repo names.
 
     Complements X1 (string-name drift) with URL-level drift detection.
-    Scans .md files for URLs like ``github.com/Velascat/ControlPlane``
+    Scans .md files for URLs like ``github.com/ProtocolWarden/ControlPlane``
     when PlatformManifest says the canonical URL is
-    ``github.com/Velascat/OperationsCenter``.
+    ``github.com/ProtocolWarden/OperationsCenter``.
 
     Configurable exclude paths via ``audit.exclude_paths.X3``.
     """

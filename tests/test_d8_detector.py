@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Tests for D8 (inconsistent return paths — value return with implicit None fall-through)."""
 from __future__ import annotations
 

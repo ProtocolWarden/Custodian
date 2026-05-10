@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 # Vulture whitelist — symbols that are public API but not called within src/.
 # Plugin-author Protocols: implemented by _custodian/ overlays in consumer repos.
 from custodian.plugins.protocols import LogScanner, StateScanner

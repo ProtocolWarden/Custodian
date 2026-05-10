@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Architecture boundary policy — enforce import restrictions declared in config.
 
 Config schema (under ``policy.architecture`` or ``architecture``):

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Adapter registry — reads the ``tools:`` block in .custodian.yaml and returns
 enabled adapter instances.
 

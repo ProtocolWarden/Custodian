@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 r"""DC-class detectors — documentation conventions beyond README hygiene.
 
 R-class enforces README structural shape (presence, H1, "What X is",

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """A2 detector — directory structure invariants.
 
 These detectors check filesystem shape: whether directories matching a glob

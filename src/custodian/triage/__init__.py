@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Triage layer — joins per-detector findings into per-file verdicts.
 
 Each Custodian detector flags one symptom in isolation. Triage answers the

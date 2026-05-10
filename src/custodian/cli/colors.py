@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Minimal ANSI color helpers for terminal output.
 
 Only applies colors when stdout is a TTY so piped/CI output stays clean.

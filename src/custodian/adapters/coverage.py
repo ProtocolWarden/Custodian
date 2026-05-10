@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Coverage.json adapter — dynamic-execution coverage findings.
 
 Custodian does NOT run coverage.py itself (running coverage means running the

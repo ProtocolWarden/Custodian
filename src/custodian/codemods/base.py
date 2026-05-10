@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Codemod base — safe, diff-producing file transforms.
 
 A Codemod is a targeted automated fix for a class of findings.  Each

@@ -83,7 +83,7 @@ Each consumer repo declares:
 - `tools`: external-tool adapter toggles (ruff, vulture, ty, semgrep, coverage)
 - `maintenance` thresholds
 
-The preferred layout is `.custodian/config.yaml` at repo root (used by every Velascat platform repo). A legacy single-file `.custodian.yaml` form is still loaded as a fallback for backwards compatibility — see `tests/fixtures/sample_consumer/.custodian.yaml` for a minimal example of that form.
+The preferred layout is `.custodian/config.yaml` at repo root (used by every ProtocolWarden platform repo). A legacy single-file `.custodian.yaml` form is still loaded as a fallback for backwards compatibility — see `tests/fixtures/sample_consumer/.custodian.yaml` for a minimal example of that form.
 
 ## Versioning and schema stability
 

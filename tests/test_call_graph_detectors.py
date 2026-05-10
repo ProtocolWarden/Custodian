@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Tests for call-graph pass, D1 (dead functions), and F1 (dead dataclass fields)."""
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """``custodian triage`` — turn an audit JSON into per-file verdicts.
 
 Reads either ``custodian-audit --json`` output (a JSON file, ``-`` for

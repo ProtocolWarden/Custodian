@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Parse audit-result samples and group them by file path.
 
 Sample format (set by detectors): ``"path/to/file.py:42: message"`` or

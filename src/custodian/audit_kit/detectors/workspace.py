@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """W-class workspace integrity detectors.
 
   W1  .console/ required files   — task.md, guidelines.md, backlog.md, log.md

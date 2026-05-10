@@ -11,7 +11,7 @@ Custodian is the cross-repo audit and maintenance toolkit. It provides a reusabl
 ## Development Setup
 
 ```bash
-git clone https://github.com/Velascat/Custodian.git
+git clone https://github.com/ProtocolWarden/Custodian.git
 cd Custodian
 python3 -m venv .venv
 source .venv/bin/activate

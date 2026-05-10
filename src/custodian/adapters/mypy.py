@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """mypy adapter — fallback type-checker when ty is unavailable.
 
 mypy output format (with --no-error-summary --show-column-numbers):

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """Semgrep adapter — runs `semgrep --json` and normalizes SARIF/JSON output."""
 from __future__ import annotations
 

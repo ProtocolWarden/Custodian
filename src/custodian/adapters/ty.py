@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright (C) 2026 Velascat
+# Copyright (C) 2026 ProtocolWarden
 """ty adapter — runs `ty check --output-format concise` and maps diagnostics to Findings."""
 from __future__ import annotations
 
