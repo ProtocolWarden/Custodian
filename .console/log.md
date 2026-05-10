@@ -401,3 +401,9 @@ the original intent.
 
 - Updated repo-owned references from the previous GitHub username to `ProtocolWarden` after the account rename.
 - Scope: license headers, GitHub URLs, workflow install commands, manifests, dependency URLs, examples, and local owner defaults where present.
+
+## 2026-05-10 — Custodian command setup and hook resolution
+
+- Added `setup.sh` to bootstrap Custodian, install editable commands, and symlink the `custodian*` CLIs into `~/.local/bin`.
+- Setup supports `--repo-venvs` to install editable Custodian into sibling repo `.venv` directories.
+- Updated the pre-push guard to prefer system `custodian-multi`, with repo venv and sibling Custodian venv fallbacks.
