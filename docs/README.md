@@ -27,3 +27,6 @@ design notes and usage guides.
 - [usage/private_repo_names.md](usage/private_repo_names.md) —
   How the B1 boundary detector enforces the public/private repo
   boundary by flagging private-repo names that leak into tracked files.
+- [usage/platform_manifest_visibility.md](usage/platform_manifest_visibility.md) —
+  How PMV detectors validate public PlatformManifest projections against
+  forbidden fields, private terms, internal paths, URLs, and unsafe edges.

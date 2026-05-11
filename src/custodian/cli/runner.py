@@ -19,6 +19,9 @@ from custodian.audit_kit.detectors.naming import build_naming_detectors
 from custodian.audit_kit.detectors.boundary import build_boundary_detectors
 from custodian.audit_kit.detectors.cross_repo import build_cross_repo_detectors
 from custodian.audit_kit.detectors.plumbing import build_plumbing_detectors
+from custodian.audit_kit.detectors.platform_manifest_native import (
+    load_platform_manifest_native_detectors,
+)
 from custodian.audit_kit.detectors.workspace import build_workspace_detectors
 from custodian.audit_kit.detectors.envvar import build_envvar_detectors
 from custodian.audit_kit.detectors.doc_conventions import build_doc_convention_detectors
@@ -103,6 +106,7 @@ def run_repo_audit(
 
     src_root   = repo_root / config.get("src_root", "src")
     tests_root = repo_root / config.get("tests_root", "tests")
+    native     = load_platform_manifest_native_detectors(config)
     detectors  = (build_code_health_detectors()
                   + build_structure_detectors()
                   + build_directory_detectors()
@@ -123,7 +127,8 @@ def run_repo_audit(
                   + build_plumbing_detectors()
                   + build_workspace_detectors()
                   + build_envvar_detectors()
-                  + extra)
+                  + extra
+                  + native)
 
     if only:
         detectors = [d for d in detectors if d.id in only]
