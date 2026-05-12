@@ -1,12 +1,12 @@
-# Private repo name leakage (B-class)
+# Boundary artifact leakage (B-class)
 
 Public repos describe stable, reusable platform capabilities. Private
 manifests bind those capabilities to specific private repos. A public
 repo that names a private repo in tracked artifacts leaks the
 private/public boundary.
 
-The **B-class detectors** scan tracked files for configured
-private-repo names and flag any matches.
+The **B-class detectors** scan tracked files for RepoGraph-derived forbidden
+names and flag any matches.
 
 ## When to enable it
 
@@ -22,29 +22,54 @@ repo:
 
 ```yaml
 privacy:
-  private_repo_names:
-    - PrivateRepoName
-    - privaterepo_name
+  require_boundary_artifact: true
+  boundary_artifact_file: /path/to/boundary_disclosure_artifact.json
   # Optional. Adds to the default exclude list documented below.
   exclude_paths:
     - "examples/legacy/**"
 ```
 
-### What goes in `private_repo_names`
+or
 
-The literal string an operator would see in tracked text. Match is
-**case-sensitive substring on file content**, line by line. List every
-casing that appears in your codebase explicitly:
-
-```yaml
-private_repo_names:
-  - MyPrivateRepo       # matches docstrings, README mentions
-  - myprivaterepo       # matches package imports, YAML keys
-  - MYPRIVATEREPO       # matches uppercase enum values
+```bash
+export REPOGRAPH_BOUNDARY_ARTIFACT_FILE=/path/to/boundary_disclosure_artifact.json
 ```
 
-The detector does not normalise casing because the surface that
-leaks is the literal string, not a canonical identifier.
+or
+
+```bash
+export REPOGRAPH_BOUNDARY_ARTIFACT="$(cat boundary_disclosure_artifact.json)"
+```
+
+Legacy compatibility remains available through:
+
+- `privacy.private_repo_names`
+- `privacy.private_repo_names_file`
+- `CUSTODIAN_PRIVATE_REPO_NAMES_FILE`
+- `CUSTODIAN_PRIVATE_REPO_NAMES`
+
+### What goes in the boundary artifact
+
+Custodian reads `forbidden_names` from a RepoGraph boundary artifact:
+
+```json
+{
+  "source_graph_id": "PrivateManifest",
+  "source_ref_or_commit": "abc123",
+  "forbidden_names": ["MyPrivateRepo", "myprivaterepo"],
+  "allowed_aliases": ["ManagedProjectPublic"],
+  "redacted_entities": ["private_impl"],
+  "redaction_rules_applied": ["forbid_non_public_canonical_names"]
+}
+```
+
+Match is **case-sensitive substring on file content**, line by line. The
+artifact should therefore include every casing that must be treated as a leak.
+
+### Supported artifact sources
+
+`boundary_artifact_file` and `REPOGRAPH_BOUNDARY_ARTIFACT_FILE` accept JSON or
+YAML documents with a top-level `forbidden_names` list.
 
 ### Default excludes
 
@@ -73,6 +98,7 @@ are skipped automatically — the detector only scans text content.
 | Code | Description | Severity | Behavior on empty config |
 |------|-------------|----------|--------------------------|
 | **B1** | Tracked file contains a private-repo name | MEDIUM | Returns 0 findings (silent) |
+| **B2** | Boundary artifact or private-name source is required but missing | MEDIUM | Returns 0 findings unless `require_boundary_artifact: true` or `require_private_repo_name_source: true` |
 
 B1 reports one finding per matching line, with samples showing the
 first ~8 violations as `path:lineno: contains 'NAME'`. The total count
@@ -84,13 +110,12 @@ gate when needed.
 ```yaml
 # .custodian/config.yaml
 privacy:
-  private_repo_names:
-    - MyPrivateRepo
-    - myprivaterepo
+  require_boundary_artifact: true
 
 audit:
   blocking:
     - B1   # block any merge that introduces a private-repo name
+    - B2   # block any merge if the private-name source is missing
 ```
 
 ## What the detector does NOT do
@@ -101,6 +126,5 @@ audit:
   string explicitly.
 - It does not look inside binary blobs, including images that may
   contain text via OCR. Manage binary leaks separately.
-- It does not enforce the migration pattern (private bindings under
-  `config/managed_repos/local/`, or whatever overlay convention your
-  consumer uses) — it just confirms public surfaces stay clean.
+- It does not generate the boundary artifact itself. `PrivateManifest` does
+  that from RepoGraph identity metadata.

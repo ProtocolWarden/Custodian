@@ -3,12 +3,13 @@
 """B-class detector tests — private-repo-name leakage."""
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
 
 from custodian.audit_kit.detector import AuditContext
-from custodian.audit_kit.detectors.boundary import build_boundary_detectors, detect_b1
+from custodian.audit_kit.detectors.boundary import build_boundary_detectors, detect_b1, detect_b2
 
 
 def _ctx(
@@ -138,6 +139,26 @@ class TestB1Excludes:
 
 
 class TestB1ConfigParsing:
+    def test_loads_names_from_boundary_artifact_file(self, tmp_path: Path):
+        artifact = tmp_path / "boundary.json"
+        artifact.write_text(
+            json.dumps({
+                "source_graph_id": "PrivateManifest",
+                "source_ref_or_commit": "abc123",
+                "forbidden_names": ["MyPrivateRepo"],
+                "allowed_aliases": ["PublicAlias"],
+                "redacted_entities": [],
+                "redaction_rules_applied": [],
+            }),
+            encoding="utf-8",
+        )
+        (tmp_path / "doc.md").write_text("MyPrivateRepo\n", encoding="utf-8")
+        _git_init(tmp_path)
+        ctx = _ctx(tmp_path, {"privacy": {"boundary_artifact_file": str(artifact)}})
+        result = detect_b1(ctx)
+        assert result.count == 1
+        assert "boundary=PrivateManifest@abc123" in result.samples[0]
+
     def test_no_config_returns_zero(self, tmp_path: Path):
         (tmp_path / "doc.md").write_text("MyPrivateRepo\n", encoding="utf-8")
         _git_init(tmp_path)
@@ -153,16 +174,82 @@ class TestB1ConfigParsing:
         result = detect_b1(ctx)
         assert result.count == 0
 
+    def test_loads_names_from_yaml_file(self, tmp_path: Path):
+        names_file = tmp_path / "private_repo_names.yaml"
+        names_file.write_text("private_repo_names:\n  - MyPrivateRepo\n", encoding="utf-8")
+        (tmp_path / "doc.md").write_text("MyPrivateRepo\n", encoding="utf-8")
+        _git_init(tmp_path)
+        ctx = _ctx(tmp_path, {"privacy": {"private_repo_names_file": str(names_file)}})
+        result = detect_b1(ctx)
+        assert result.count == 1
+
+    def test_loads_names_from_env_file(self, tmp_path: Path, monkeypatch):
+        names_file = tmp_path / "private_repo_names.txt"
+        names_file.write_text("MyPrivateRepo\n", encoding="utf-8")
+        (tmp_path / "doc.md").write_text("MyPrivateRepo\n", encoding="utf-8")
+        _git_init(tmp_path)
+        monkeypatch.setenv("CUSTODIAN_PRIVATE_REPO_NAMES_FILE", str(names_file))
+        ctx = _ctx(tmp_path, {})
+        result = detect_b1(ctx)
+        assert result.count == 1
+
+    def test_loads_names_from_env_blob(self, tmp_path: Path, monkeypatch):
+        (tmp_path / "doc.md").write_text("MyPrivateRepo\n", encoding="utf-8")
+        _git_init(tmp_path)
+        monkeypatch.setenv("CUSTODIAN_PRIVATE_REPO_NAMES", "MyPrivateRepo\nmyprivaterepo")
+        ctx = _ctx(tmp_path, {})
+        result = detect_b1(ctx)
+        assert result.count == 1
+
 
 class TestB1Build:
     def test_build_returns_p1(self):
         detectors = build_boundary_detectors()
         ids = {d.id for d in detectors}
         assert "B1" in ids
+        assert "B2" in ids
 
     def test_p1_severity_is_medium(self):
         d = next(d for d in build_boundary_detectors() if d.id == "B1")
         assert d.severity == "medium"
+
+
+class TestB2RequireSource:
+    def test_b2_flags_missing_required_source(self, tmp_path: Path):
+        _git_init(tmp_path)
+        ctx = _ctx(tmp_path, {"privacy": {"require_boundary_artifact": True}})
+        result = detect_b2(ctx)
+        assert result.count == 1
+        assert "require_boundary_artifact" in result.samples[0]
+
+    def test_b2_passes_when_inline_names_present(self, tmp_path: Path):
+        _git_init(tmp_path)
+        ctx = _ctx(
+            tmp_path,
+            {"privacy": {"require_private_repo_name_source": True, "private_repo_names": ["MyPrivateRepo"]}},
+        )
+        result = detect_b2(ctx)
+        assert result.count == 0
+
+    def test_b2_passes_when_boundary_artifact_present(self, tmp_path: Path):
+        artifact = tmp_path / "boundary.json"
+        artifact.write_text(
+            json.dumps({
+                "source_graph_id": "PrivateManifest",
+                "forbidden_names": ["MyPrivateRepo"],
+                "allowed_aliases": [],
+                "redacted_entities": [],
+                "redaction_rules_applied": [],
+            }),
+            encoding="utf-8",
+        )
+        _git_init(tmp_path)
+        ctx = _ctx(
+            tmp_path,
+            {"privacy": {"require_boundary_artifact": True, "boundary_artifact_file": str(artifact)}},
+        )
+        result = detect_b2(ctx)
+        assert result.count == 0
 
 
 class TestB1FallbackWithoutGit:
