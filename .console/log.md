@@ -486,3 +486,14 @@ the original intent.
 - Registered as `ARCH4` detector in `DETECTORS` list.
 - Added 4 tests in `tests/test_architecture_split_detectors.py`: skips non-RepoGraph repos, passes when README describes graph-language semantics, fires when wording is missing, fires when README is absent.
 - All 7 architecture split detector tests pass.
+
+## 2026-05-13 — Fix ruff/mypy/ty path-doubling when repo is a relative Path
+
+When `custodian audit --repo SwitchBoard` or `custodian multi --repos SwitchBoard ...`
+is invoked from the parent directory, `repo_root` arrives as a relative `Path("SwitchBoard")`.
+Adapters set `cwd=repo_path` on their subprocess and pass `str(src_root)` (e.g. `"SwitchBoard/src"`)
+as an argument — which the subprocess interprets relative to its new CWD, producing
+`SwitchBoard/SwitchBoard/src` (path doubled).
+
+Fix: `repo_root = repo_root.resolve()` at the top of `run_repo_audit`. All downstream
+callers (ruff, mypy, ty adapters) receive an absolute path. 8/8 reachable repos clean.
