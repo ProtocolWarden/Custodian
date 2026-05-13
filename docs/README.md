@@ -30,3 +30,8 @@ design notes and usage guides.
 - [usage/platform_manifest_visibility.md](usage/platform_manifest_visibility.md) —
   How PMV detectors validate public PlatformManifest projections against
   forbidden fields, private terms, internal paths, URLs, and unsafe edges.
+
+## Operations
+
+- [semantic-federation.md](semantic-federation.md) — How to run the
+  cross-repo semantic federation gate locally and in CI.

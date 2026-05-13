@@ -4,7 +4,7 @@
 
 These detectors enforce a few high-signal repo-boundary claims:
 
-- Warehouse must remain a utility repo, not a platform spine.
+- Warehouse must remain a utility repo, not a platform authority.
 - private topology repositories must not fork manifest language semantics.
 - PlatformDeployment docs must present the repo as PlatformDeployment/topography,
   not as the canonical architecture authority.
@@ -21,7 +21,7 @@ def build_architecture_split_detectors() -> list[Detector]:
     return [
         Detector(
             "ARCH1",
-            "Warehouse is described as a platform spine or governance authority",
+            "Warehouse is described as a platform authority or governance authority",
             "open",
             detect_arch1,
             MEDIUM,
@@ -57,7 +57,7 @@ def detect_arch1(context: AuditContext) -> DetectorResult:
     if "context packaging" not in lowered and "context-packaging" not in lowered:
         samples.append("README.md: Warehouse should describe itself as a context packaging utility")
     for phrase in (
-        "platform spine",
+        "platform authority",
         "topology owner",
         "registry owner",
         "scheduler",

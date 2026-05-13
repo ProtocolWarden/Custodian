@@ -3,6 +3,10 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+- 2026-05-12 — Added semantic federation documentation for the cross-repo
+  migration gate and kept the Warehouse wording aligned to utility-only
+  boundaries.
+
 - 2026-05-12 — RepoGraph hardening tranche: added explicit schema governance
   scaffolding, boundary artifact hash/provenance validation, projection profile
   awareness, diff/drift primitives, and migration-gate checks for schema version,
