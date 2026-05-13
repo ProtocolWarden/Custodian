@@ -49,7 +49,7 @@ def _collect_env_keys_from_src(src_root: Path) -> dict[str, list[str]]:
         rel = str(py_file)
         for node in ast.walk(tree):
             key = _extract_env_key(node)
-            if key:
+            if key and hasattr(node, "lineno"):
                 results.setdefault(key, []).append(f"{rel}:{node.lineno}")
     return results
 

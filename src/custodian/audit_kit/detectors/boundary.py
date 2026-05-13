@@ -166,7 +166,7 @@ def _parse_boundary_artifact_document(text: str) -> tuple[dict[str, object] | No
     parsed: object = None
     try:
         parsed = json.loads(stripped)
-    except Exception:
+    except (json.JSONDecodeError, ValueError):
         parsed = None
     if parsed is None:
         try:
@@ -207,7 +207,8 @@ def _parse_boundary_artifact_document(text: str) -> tuple[dict[str, object] | No
 
 
 def _parse_boundary_artifact_names(payload: dict[str, object]) -> list[str]:
-    values = payload.get("forbidden_names") or []
+    raw = payload.get("forbidden_names")
+    values = list(raw) if isinstance(raw, list) else []
     return [str(item).strip() for item in values if str(item).strip()]
 
 

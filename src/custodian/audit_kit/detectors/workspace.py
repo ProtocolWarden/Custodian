@@ -26,9 +26,7 @@ from __future__ import annotations
 
 import re
 
-from pathlib import Path
-
-from custodian.audit_kit.detector import AuditContext, Detector, DetectorResult, MEDIUM, LOW, HIGH
+from custodian.audit_kit.detector import AuditContext, Detector, DetectorResult, MEDIUM, LOW
 
 _REQUIRED_CONSOLE_FILES = ("task.md", "guidelines.md", "backlog.md", "log.md")
 
@@ -60,7 +58,7 @@ def _detect_w2_hooks_wiring(ctx: AuditContext) -> DetectorResult:
         return DetectorResult(count=0, samples=[])
 
     try:
-        text = git_config.read_text()
+        text = git_config.read_text(encoding="utf-8")
     except OSError:
         return DetectorResult(count=0, samples=[])
 
@@ -81,7 +79,7 @@ def _detect_w3_hook_content(ctx: AuditContext) -> DetectorResult:
     if not pre_commit.exists():
         return DetectorResult(count=0, samples=[])
     try:
-        text = pre_commit.read_text()
+        text = pre_commit.read_text(encoding="utf-8")
     except OSError:
         return DetectorResult(count=0, samples=[])
     if _LOG_GUARD_RE.search(text):
@@ -100,7 +98,7 @@ def _detect_w4_gitmodules_branch(ctx: AuditContext) -> DetectorResult:
     if not gitmodules.exists():
         return DetectorResult(count=0, samples=[])
     try:
-        text = gitmodules.read_text()
+        text = gitmodules.read_text(encoding="utf-8")
     except OSError:
         return DetectorResult(count=0, samples=[])
 
@@ -122,7 +120,7 @@ def _detect_w5_env_example(ctx: AuditContext) -> DetectorResult:
     if not gitignore.exists():
         return DetectorResult(count=0, samples=[])
     try:
-        text = gitignore.read_text()
+        text = gitignore.read_text(encoding="utf-8")
     except OSError:
         return DetectorResult(count=0, samples=[])
     if not _GITIGNORE_ENV_RE.search(text):

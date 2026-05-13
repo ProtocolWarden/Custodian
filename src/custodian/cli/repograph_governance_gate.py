@@ -50,6 +50,7 @@ def _rg(repo: Path, pattern: str) -> list[str]:
         ["rg", "-n", pattern, "-S", str(repo)],
         capture_output=True,
         text=True,
+        timeout=30,
     )
     if proc.returncode not in (0, 1):
         raise RuntimeError(proc.stderr.strip() or f"rg failed for {repo}")
@@ -649,7 +650,7 @@ def main() -> None:
         "findings": [asdict(f) for f in findings],
     }
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
-    args.json_out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    args.json_out.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     _write_markdown(args.summary_out, findings)
 
     if findings:

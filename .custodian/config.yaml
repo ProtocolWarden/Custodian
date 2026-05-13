@@ -87,12 +87,15 @@ audit:
       # detectors (T1, T2, T6, T7, T8) plus their helpers. doc_conventions.py
       # houses DC1-DC8 plus the front-matter / link-graph / ordering helpers.
       # Splitting any of these would fracture a coherent registry.
+      # repograph_governance_gate.py is a single-file governance enforcement tool;
+      # its checks are tightly coupled and splitting them would break cohesion.
       - src/custodian/audit_kit/code_health.py
       - src/custodian/audit_kit/detectors/dead_code.py
       - src/custodian/audit_kit/detectors/structure.py
       - src/custodian/audit_kit/detectors/test_shape.py
       - src/custodian/audit_kit/detectors/doc_conventions.py
       - src/custodian/audit_kit/detectors/docs.py
+      - src/custodian/cli/repograph_governance_gate.py
     C13:
       # CLI tools set os.environ["NO_COLOR"] to disable terminal colour in
       # subprocess output — this is terminal-formatting control, not config
@@ -106,6 +109,13 @@ audit:
       - src/custodian/audit_kit/detectors/complexity.py
       # _load_codemods() is a documented scaffold: it will grow as codemods are
       # added; returning [] is not hollow but a "no codemods yet" sentinel.
+      - src/custodian/cli/fix.py
+    U5:
+      # Builder functions return [] intentionally — classes were removed/superseded
+      # and the empty list is the correct sentinel. fix.py scaffold same rationale.
+      - src/custodian/audit_kit/detectors/imports.py
+      - src/custodian/audit_kit/detectors/annotations.py
+      - src/custodian/audit_kit/detectors/complexity.py
       - src/custodian/cli/fix.py
     T1:
       # Detector functions (detect_cN, build_*_detectors) are tested
@@ -122,6 +132,12 @@ audit:
       - src/custodian/audit_kit/detectors/docs.py
       - src/custodian/audit_kit/detectors/naming.py
       - src/custodian/audit_kit/detectors/cross_repo.py
+      - src/custodian/audit_kit/detectors/architecture_split.py
+      - src/custodian/audit_kit/detectors/envvar.py
+      - src/custodian/audit_kit/detectors/platform_manifest_native.py
+      - src/custodian/audit_kit/detectors/plumbing.py
+      # policy dataclasses are used by governance gate, tested transitively.
+      - src/custodian/policy/public_surface_catalog.py
       # CLI runner and report modules are tested through end-to-end CLI tests.
       - src/custodian/cli/runner.py
       - src/custodian/cli/report.py
@@ -147,6 +163,7 @@ audit:
       - "src/custodian/cli/**"
       - "src/custodian/adapters/**"
       - "src/custodian/plugins/**"
+      - src/custodian/audit_kit/detectors/platform_manifest_native.py
       - src/custodian/reports/sarif_report.py
       - src/custodian/triage/matrix.py
       - src/custodian/triage/joiner.py
@@ -185,6 +202,11 @@ audit:
       - src/custodian/audit_kit/detectors/boundary.py
       - src/custodian/audit_kit/detectors/doc_conventions.py
       - src/custodian/audit_kit/detectors/cross_repo.py
+      - src/custodian/audit_kit/detectors/architecture_split.py
+      - src/custodian/audit_kit/detectors/envvar.py
+      - src/custodian/audit_kit/detectors/platform_manifest_native.py
+      - src/custodian/audit_kit/detectors/plumbing.py
+      - src/custodian/audit_kit/detectors/workspace.py
       - src/custodian/audit_kit/code_health.py
       - src/custodian/triage/matrix.py
       - src/custodian/reports/sarif_report.py
@@ -200,7 +222,6 @@ audit:
       # test the audit pipeline end-to-end; they don't import custodian.
       - "tests/fixtures/sample_consumer/**"
       - tests/test_cli_doctor.py
-
 # Tool adapters — run external tools alongside AST-based detectors.
 # Results appear in audit output with source: "adapter".
 tools:
@@ -219,3 +240,8 @@ tools:
 # applied automatically.
 privacy:
   require_boundary_artifact: true
+  exclude_paths:
+    # Test files that exercise B1 and boundary checks must name private-truth
+    # repos as fixtures — the name IS the test case.
+    - tests/test_boundary_detectors.py
+    - tests/test_repograph_governance_gate.py

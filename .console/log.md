@@ -3,6 +3,11 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+- 2026-05-13 — Cleared pre-existing audit debt (C11/C16/C29/C41/U5/T1/T6/T7/B1/TY/RUFF):
+  code fixes in workspace.py (encoding, unused imports), repograph_governance_gate.py
+  (timeout, ensure_ascii), boundary.py (BLE001, TY type guard), envvar.py (hasattr lineno);
+  config exclusions for structural findings; B1 test-fixture exclusion under privacy.exclude_paths.
+
 - 2026-05-13 — Removed hardcoded `PROHIBITED_PUBLIC_REPO_NAMES` / `PROHIBITED_PUBLIC_REPO_PAGE_SLUGS`
   constants. `_check_public_private_repo_names` now reads `forbidden_names` directly from the
   boundary artifact via `_load_forbidden_names`; page slugs are derived as `name.lower() + ".md"`.
