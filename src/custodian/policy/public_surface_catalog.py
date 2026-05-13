@@ -3,8 +3,9 @@
 """Public surface catalog policy.
 
 The browseable repository catalog is curated and only lists approved public
-repo pages. It is separate from privacy detection and separate from the
-architecture charter's mention of private-truth repos.
+repo pages. Public docs must not promote private-truth repos into first-class
+browseable entries, and they must not name private-truth repos as public repo
+pages.
 """
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ import re
 from dataclasses import dataclass
 
 PUBLIC_REPO_CATALOG = {
+    "RepoGraph": "repograph.md",
     "OperationsCenter": "operationscenter.md",
     "OperatorConsole": "operatorconsole.md",
     "PlatformManifest": "platformmanifest.md",
@@ -26,6 +28,8 @@ PUBLIC_REPO_CATALOG = {
 }
 
 PUBLIC_REPO_PAGE_SLUGS = frozenset(PUBLIC_REPO_CATALOG.values())
+PROHIBITED_PUBLIC_REPO_NAMES = frozenset({"PrivateManifest", "VideoFoundry"})
+PROHIBITED_PUBLIC_REPO_PAGE_SLUGS = frozenset({"privatemanifest.md", "videofoundry.md"})
 
 
 @dataclass(frozen=True)
@@ -40,7 +44,7 @@ def parse_canonical_repo_catalog(text: str) -> list[RepoCatalogEntry]:
     in_catalog = False
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped.startswith("## Canonical repos"):
+        if stripped.startswith("## Core platform repos") or stripped.startswith("## Canonical repos"):
             in_catalog = True
             continue
         if in_catalog and stripped.startswith("## "):

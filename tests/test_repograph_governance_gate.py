@@ -215,12 +215,37 @@ def test_public_repo_catalog_rejects_archive_pages(tmp_path: Path) -> None:
     assert "public_repo_catalog_only" in rule_ids
 
 
+def test_public_surface_rejects_private_repo_names(tmp_path: Path) -> None:
+    repo = tmp_path / "ProtocolWarden.github.io"
+    (repo / "docs" / "overview").mkdir(parents=True, exist_ok=True)
+    (repo / "README.md").write_text(
+        "# ProtocolWarden\n\nPrivateManifest should not appear here.\n",
+        encoding="utf-8",
+    )
+    (repo / "mkdocs.yml").write_text(
+        "nav:\n"
+        "  - Overview:\n"
+        "      - Ecosystem: docs/overview/index.md\n",
+        encoding="utf-8",
+    )
+    (repo / "docs" / "overview" / "index.md").write_text(
+        "# Overview\n\nVideoFoundry should not appear here either.\n",
+        encoding="utf-8",
+    )
+    findings: list[Finding] = []
+
+    _check_repo(repo, tmp_path / "boundary.json", findings)
+
+    rule_ids = {finding.rule_id for finding in findings}
+    assert "public_private_repo_names_forbidden" in rule_ids
+
+
 def test_public_repo_catalog_policy_is_explicit() -> None:
     catalog = "\n".join(
         [
             "# Repository Catalog",
             "",
-            "## Canonical repos",
+            "## Core platform repos",
             "",
             "| Repo | Role | Notes |",
             "| --- | --- | --- |",
@@ -230,6 +255,7 @@ def test_public_repo_catalog_policy_is_explicit() -> None:
     )
     entries = parse_canonical_repo_catalog(catalog)
     assert [entry.repo for entry in entries] == ["OperationsCenter", "Warehouse"]
+    assert allowed_repo_page("RepoGraph") == "repograph.md"
     assert allowed_repo_page("OperationsCenter") == "operationscenter.md"
     assert "operationscenter.md" in PUBLIC_REPO_PAGE_SLUGS
     assert PUBLIC_REPO_CATALOG["Warehouse"] == "warehouse.md"

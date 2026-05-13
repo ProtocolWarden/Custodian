@@ -13,6 +13,8 @@ from hashlib import sha256
 
 from custodian.policy.public_surface_catalog import (
     PUBLIC_REPO_PAGE_SLUGS,
+    PROHIBITED_PUBLIC_REPO_NAMES,
+    PROHIBITED_PUBLIC_REPO_PAGE_SLUGS,
     allowed_repo_page,
     parse_canonical_repo_catalog,
 )
@@ -280,6 +282,47 @@ def _check_boundary_artifact_provenance(repo: Path, boundary_artifact: Path, fin
             )
 
 
+def _check_public_private_repo_names(repo: Path, findings: list[Finding]) -> None:
+    if repo.name != "ProtocolWarden.github.io":
+        return
+
+    search_roots = [
+        repo / "README.md",
+        repo / "mkdocs.yml",
+        repo / "docs",
+    ]
+    for name in sorted(PROHIBITED_PUBLIC_REPO_NAMES):
+        for root in search_roots:
+            if not root.exists():
+                continue
+            for hit in _rg(root, rf"\b{re.escape(name)}\b"):
+                findings.append(
+                    Finding(
+                        repo=repo.name,
+                        file=hit.split(":", 1)[0],
+                        rule_id="public_private_repo_names_forbidden",
+                        severity="high",
+                        expected_boundary="public docs do not name private-truth repos as public surfaces",
+                        observed_violation=hit,
+                        recommended_fix=f"Remove {name} from the public docs surface and keep it out of browseable pages",
+                    )
+                )
+
+    for slug in sorted(PROHIBITED_PUBLIC_REPO_PAGE_SLUGS):
+        for hit in _rg(repo / "docs", rf"\b{re.escape(slug)}\b"):
+            findings.append(
+                Finding(
+                    repo=repo.name,
+                    file=hit.split(":", 1)[0],
+                    rule_id="public_private_repo_names_forbidden",
+                    severity="high",
+                    expected_boundary="public docs do not expose private-truth repo page slugs",
+                    observed_violation=hit,
+                    recommended_fix="Remove the private-truth repo page from docs and navigation",
+                )
+            )
+
+
 def _check_legacy_inputs(repo: Path, findings: list[Finding]) -> None:
     legacy_pattern = (
         r"CUSTODIAN_PRIVATE_"
@@ -345,6 +388,7 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
     if boundary_artifact.exists():
         _check_boundary_artifact_provenance(repo, boundary_artifact, findings)
     _check_public_repo_catalog(repo, findings)
+    _check_public_private_repo_names(repo, findings)
 
     # Minimal ownership boundary checks required by the RepoGraph governance gate.
     if repo.name == "Warehouse":

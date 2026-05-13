@@ -3,6 +3,10 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+- 2026-05-13 — Removed private-repo names and browseable pages from the public
+  ProtocolWarden site, and added a governance-gate ban so `PrivateManifest` and
+  `VideoFoundry` cannot reappear in public docs or the repo catalog.
+
 - 2026-05-12 — Added semantic federation documentation for the cross-repo
   migration gate and kept the Warehouse wording aligned to utility-only
   boundaries.
