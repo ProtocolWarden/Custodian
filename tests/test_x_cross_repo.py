@@ -109,7 +109,7 @@ class TestX1:
         )
         result = detect_x1(ctx)
         assert result.count == 1
-        assert "ControlPlane" in result.samples[0]
+        assert "OperationsCenterPublic" in result.samples[0]
         assert "OperationsCenter" in result.samples[0]
 
     def test_public_label_in_markdown_caught(self, tmp_path):
@@ -118,7 +118,7 @@ class TestX1:
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x1(ctx)
         assert result.count == 1
-        assert "FOB" in result.samples[0]
+        assert "OperatorConsolePublic" in result.samples[0]
         assert "OperatorConsole" in result.samples[0]
 
     def test_public_label_in_yaml_caught(self, tmp_path):
@@ -127,15 +127,15 @@ class TestX1:
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x1(ctx)
         assert result.count == 1
-        assert "ControlPlane" in result.samples[0]
+        assert "OperationsCenterPublic" in result.samples[0]
 
     def test_public_label_in_yml_caught(self, tmp_path):
         _write_pm(tmp_path)
-        (tmp_path / "deploy.yml").write_text("service: FOB\n")
+        (tmp_path / "deploy.yml").write_text("service: OperatorConsolePublic\n")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x1(ctx)
         assert result.count == 1
-        assert "FOB" in result.samples[0]
+        assert "OperatorConsolePublic" in result.samples[0]
 
     def test_yaml_in_venv_skipped(self, tmp_path):
         _write_pm(tmp_path)
@@ -297,12 +297,12 @@ class TestX3:
     def test_stale_url_in_markdown_caught(self, tmp_path):
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
-            "See https://github.com/ProtocolWarden/ControlPlane for details.\n"
+            "See https://github.com/ProtocolWarden/OperationsCenterPublic for details.\n"
         )
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x3(ctx)
         assert result.count == 1
-        assert "ControlPlane" in result.samples[0]
+        assert "OperationsCenterPublic" in result.samples[0]
         assert "OperationsCenter" in result.samples[0]
 
     def test_canonical_url_not_flagged(self, tmp_path):
@@ -316,8 +316,8 @@ class TestX3:
     def test_multiple_stale_urls(self, tmp_path):
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
-            "- https://github.com/ProtocolWarden/ControlPlane\n"
-            "- https://github.com/ProtocolWarden/FOB\n"
+            "- https://github.com/ProtocolWarden/OperationsCenterPublic\n"
+            "- https://github.com/ProtocolWarden/OperatorConsolePublic\n"
         )
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x3(ctx)
@@ -326,12 +326,12 @@ class TestX3:
     def test_stale_url_without_https_caught(self, tmp_path):
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
-            "See github.com/ProtocolWarden/ControlPlane\n"
+            "See github.com/ProtocolWarden/OperationsCenterPublic\n"
         )
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x3(ctx)
         assert result.count == 1
-        assert "ControlPlane" in result.samples[0]
+        assert "OperationsCenterPublic" in result.samples[0]
 
     def test_no_stale_urls_when_empty_public_labels(self, tmp_path):
         # SwitchBoard has no public labels → no stale URLs possible

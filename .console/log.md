@@ -486,3 +486,20 @@ the original intent.
 - Registered as `ARCH4` detector in `DETECTORS` list.
 - Added 4 tests in `tests/test_architecture_split_detectors.py`: skips non-RepoGraph repos, passes when README describes graph-language semantics, fires when wording is missing, fires when README is absent.
 - All 7 architecture split detector tests pass.
+
+## 2026-05-13 — Fix ruff/mypy/ty path-doubling when repo is a relative Path
+
+When `custodian audit --repo SwitchBoard` or `custodian multi --repos SwitchBoard ...`
+is invoked from the parent directory, `repo_root` arrives as a relative `Path("SwitchBoard")`.
+Adapters set `cwd=repo_path` on their subprocess and pass `str(src_root)` (e.g. `"SwitchBoard/src"`)
+as an argument — which the subprocess interprets relative to its new CWD, producing
+`SwitchBoard/SwitchBoard/src` (path doubled).
+
+Fix: `repo_root = repo_root.resolve()` at the top of `run_repo_audit`. All downstream
+callers (ruff, mypy, ty adapters) receive an absolute path. 8/8 reachable repos clean.
+
+## 2026-05-13 — Fix stale X1/X3 test assertions after public label rename
+
+- X1 tests (test_public_label_in_python_caught, test_public_label_in_markdown_caught, test_public_label_in_yaml_caught, test_public_label_in_yml_caught): assertions still expected old labels "ControlPlane" and "FOB". Updated to match current manifest: "OperationsCenterPublic" and "OperatorConsolePublic". Updated test_public_label_in_yml_caught fixture content from "FOB" to "OperatorConsolePublic".
+- X3 tests (test_stale_url_in_markdown_caught, test_multiple_stale_urls, test_stale_url_without_https_caught): test URLs used legacy repo names not in current manifest stale_url_to_canonical map. Updated to use OperationsCenterPublic and OperatorConsolePublic public-label URLs that X3 actually tracks.
+- All 1090 tests pass.

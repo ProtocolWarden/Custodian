@@ -79,6 +79,7 @@ def run_repo_audit(
     Returns AuditResult so callers can decide on JSON, human, or aggregator
     output formatting.
     """
+    repo_root = repo_root.resolve()
     config = load_config(repo_root)
     if enable_coverage:
         # Shallow-merge the coverage adapter override into the loaded config.
