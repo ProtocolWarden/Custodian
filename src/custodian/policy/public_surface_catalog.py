@@ -3,9 +3,7 @@
 """Public surface catalog policy.
 
 The browseable repository catalog is curated and only lists approved public
-repo pages. Public docs must not promote private-truth repos into first-class
-browseable entries, and they must not name private-truth repos as public repo
-pages.
+repo pages.
 """
 from __future__ import annotations
 
@@ -28,8 +26,6 @@ PUBLIC_REPO_CATALOG = {
 }
 
 PUBLIC_REPO_PAGE_SLUGS = frozenset(PUBLIC_REPO_CATALOG.values())
-PROHIBITED_PUBLIC_REPO_NAMES = frozenset({"PrivateManifest", "VideoFoundry"})
-PROHIBITED_PUBLIC_REPO_PAGE_SLUGS = frozenset({"privatemanifest.md", "videofoundry.md"})
 
 
 @dataclass(frozen=True)

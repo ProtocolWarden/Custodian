@@ -5,8 +5,6 @@
 from .public_surface_catalog import (
     PUBLIC_REPO_CATALOG,
     PUBLIC_REPO_PAGE_SLUGS,
-    PROHIBITED_PUBLIC_REPO_NAMES,
-    PROHIBITED_PUBLIC_REPO_PAGE_SLUGS,
     RepoCatalogEntry,
     allowed_repo_page,
     parse_canonical_repo_catalog,

@@ -13,8 +13,6 @@ from hashlib import sha256
 
 from custodian.policy.public_surface_catalog import (
     PUBLIC_REPO_PAGE_SLUGS,
-    PROHIBITED_PUBLIC_REPO_NAMES,
-    PROHIBITED_PUBLIC_REPO_PAGE_SLUGS,
     allowed_repo_page,
     parse_canonical_repo_catalog,
 )
@@ -282,16 +280,24 @@ def _check_boundary_artifact_provenance(repo: Path, boundary_artifact: Path, fin
             )
 
 
-def _check_public_private_repo_names(repo: Path, findings: list[Finding]) -> None:
-    if repo.name != "ProtocolWarden.github.io":
+def _load_forbidden_names(boundary_artifact: Path) -> frozenset[str]:
+    """Return the forbidden repo names from the boundary artifact, or empty set if unavailable."""
+    try:
+        data = json.loads(boundary_artifact.read_text(encoding="utf-8"))
+        names = data.get("forbidden_names") or []
+        return frozenset(str(n) for n in names if isinstance(n, str))
+    except Exception:
+        return frozenset()
+
+
+def _check_public_private_repo_names(
+    repo: Path, forbidden_names: frozenset[str], findings: list[Finding]
+) -> None:
+    if repo.name != "ProtocolWarden.github.io" or not forbidden_names:
         return
 
-    search_roots = [
-        repo / "README.md",
-        repo / "mkdocs.yml",
-        repo / "docs",
-    ]
-    for name in sorted(PROHIBITED_PUBLIC_REPO_NAMES):
+    search_roots = [repo / "README.md", repo / "mkdocs.yml", repo / "docs"]
+    for name in sorted(forbidden_names):
         for root in search_roots:
             if not root.exists():
                 continue
@@ -308,7 +314,8 @@ def _check_public_private_repo_names(repo: Path, findings: list[Finding]) -> Non
                     )
                 )
 
-    for slug in sorted(PROHIBITED_PUBLIC_REPO_PAGE_SLUGS):
+    for name in sorted(forbidden_names):
+        slug = name.lower() + ".md"
         for hit in _rg(repo / "docs", rf"\b{re.escape(slug)}\b"):
             findings.append(
                 Finding(
@@ -318,7 +325,7 @@ def _check_public_private_repo_names(repo: Path, findings: list[Finding]) -> Non
                     severity="high",
                     expected_boundary="public docs do not expose private-truth repo page slugs",
                     observed_violation=hit,
-                    recommended_fix="Remove the private-truth repo page from docs and navigation",
+                    recommended_fix=f"Remove the {name} repo page from docs and navigation",
                 )
             )
 
@@ -388,7 +395,7 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
     if boundary_artifact.exists():
         _check_boundary_artifact_provenance(repo, boundary_artifact, findings)
     _check_public_repo_catalog(repo, findings)
-    _check_public_private_repo_names(repo, findings)
+    _check_public_private_repo_names(repo, _load_forbidden_names(boundary_artifact), findings)
 
     # Minimal ownership boundary checks required by the RepoGraph governance gate.
     if repo.name == "Warehouse":

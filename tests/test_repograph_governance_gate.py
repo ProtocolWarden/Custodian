@@ -232,9 +232,23 @@ def test_public_surface_rejects_private_repo_names(tmp_path: Path) -> None:
         "# Overview\n\nVideoFoundry should not appear here either.\n",
         encoding="utf-8",
     )
+    boundary = tmp_path / "boundary.json"
+    payload = {
+        "schema_kind": "boundary_artifact",
+        "schema_version": "1.0.0",
+        "artifact_kind": "boundary_disclosure_artifact",
+        "source_graph_id": "PrivateManifest",
+        "source_ref_or_commit": "abc123",
+        "generated_at": "2026-05-13T00:00:00Z",
+        "forbidden_names": ["PrivateManifest", "VideoFoundry"],
+        "allowed_aliases": [],
+        "redacted_entities": [],
+        "redaction_rules_applied": [],
+    }
+    boundary.write_text(json.dumps(payload), encoding="utf-8")
     findings: list[Finding] = []
 
-    _check_repo(repo, tmp_path / "boundary.json", findings)
+    _check_repo(repo, boundary, findings)
 
     rule_ids = {finding.rule_id for finding in findings}
     assert "public_private_repo_names_forbidden" in rule_ids

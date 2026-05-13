@@ -3,6 +3,11 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+- 2026-05-13 — Removed hardcoded `PROHIBITED_PUBLIC_REPO_NAMES` / `PROHIBITED_PUBLIC_REPO_PAGE_SLUGS`
+  constants. `_check_public_private_repo_names` now reads `forbidden_names` directly from the
+  boundary artifact via `_load_forbidden_names`; page slugs are derived as `name.lower() + ".md"`.
+  No hardcoded private repo names remain in the codebase.
+
 - 2026-05-13 — Removed private-repo names and browseable pages from the public
   ProtocolWarden site, and added a governance-gate ban so `PrivateManifest` and
   `VideoFoundry` cannot reappear in public docs or the repo catalog.
