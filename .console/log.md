@@ -3,6 +3,11 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+- 2026-05-12 — RepoGraph boundary artifact wiring tightened to file-only: removed inline
+  boundary-artifact fallback from B2, rewrote the boundary detector tests for file-only
+  inputs, and updated the repo-local pre-push guard so it fails closed unless
+  `REPOGRAPH_BOUNDARY_ARTIFACT_FILE` already points at a materialized artifact file.
+
 - 2026-05-11 — PlatformManifest native PMV contributor loading: moved PlatformManifest-specific
   PMV detector loading behind a native contributor module so Custodian stays on generic detector
   runtime/plumbing only; documented the visibility workflow, registered the contributor in runner

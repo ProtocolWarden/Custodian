@@ -25,12 +25,11 @@ package uses) explicitly — the detector does not normalise casing
 because the leak surface is the literal string an operator sees in
 tracked files. Binary files are skipped.
 
-Boundary sources may also be provided indirectly, so public repos do not
-need to hardcode private names in tracked config:
+Boundary sources must be provided as a file so provenance stays
+auditable:
 
 * ``privacy.boundary_artifact_file`` — RepoGraph boundary artifact path
 * ``$REPOGRAPH_BOUNDARY_ARTIFACT_FILE`` — path to that artifact
-* ``$REPOGRAPH_BOUNDARY_ARTIFACT`` — inline JSON/YAML artifact payload
 
 Detectors
 ─────────
@@ -44,10 +43,8 @@ B2  Boundary artifact is required but no boundary source is
 """
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
-from typing import Any
 
 from custodian.audit_kit.detector import (
     AuditContext, Detector, DetectorResult, MEDIUM,
@@ -57,7 +54,6 @@ from custodian.audit_kit.glob_match import glob_match
 
 _MAX_SAMPLES = 8
 _ARTIFACT_FILE_ENV = "REPOGRAPH_BOUNDARY_ARTIFACT_FILE"
-_ARTIFACT_TEXT_ENV = "REPOGRAPH_BOUNDARY_ARTIFACT"
 _DEFAULT_EXCLUDES: tuple[str, ...] = (
     # The Custodian config that *defines* the banned names. The literal
     # names must appear there for the rule to function — flagging them
@@ -140,34 +136,33 @@ def _env_str(name: str) -> str | None:
     return value or None
 
 
-def _load_boundary_artifact_payload(block: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+def _load_boundary_artifact_payload(block: dict[str, object]) -> tuple[dict[str, object] | None, str | None]:
     file_path = block.get("boundary_artifact_file") or _env_str(_ARTIFACT_FILE_ENV)
-    if file_path:
-        path = Path(str(file_path)).expanduser()
-        if path.is_file():
-            try:
-                text = path.read_text(encoding="utf-8")
-            except OSError:
-                return None, None
-            payload = _parse_boundary_artifact_document(text)
-            if payload is not None:
-                return payload, _artifact_provenance(payload, fallback=str(path))
-    inline = block.get("boundary_artifact") or _env_str(_ARTIFACT_TEXT_ENV)
-    if inline:
-        payload = _parse_boundary_artifact_document(str(inline))
-        if payload is not None:
-            return payload, _artifact_provenance(payload, fallback="inline-artifact")
+    if not file_path:
+        return None, None
+    path = Path(str(file_path)).expanduser()
+    if not path.is_file():
+        return None, None
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None, None
+    payload = _parse_boundary_artifact_document(text)
+    if payload is not None:
+        return payload, _artifact_provenance(payload, fallback=str(path))
     return None, None
 
 
-def _parse_boundary_artifact_document(text: str) -> dict[str, Any] | None:
+def _parse_boundary_artifact_document(text: str) -> dict[str, object] | None:
     stripped = text.strip()
     if not stripped:
         return None
-    parsed: Any = None
+    parsed: object = None
     try:
+        import json
+
         parsed = json.loads(stripped)
-    except json.JSONDecodeError:
+    except Exception:
         parsed = None
     if parsed is None:
         try:
@@ -187,12 +182,12 @@ def _parse_boundary_artifact_document(text: str) -> dict[str, Any] | None:
     return parsed
 
 
-def _parse_boundary_artifact_names(payload: dict[str, Any]) -> list[str]:
+def _parse_boundary_artifact_names(payload: dict[str, object]) -> list[str]:
     values = payload.get("forbidden_names") or []
     return [str(item).strip() for item in values if str(item).strip()]
 
 
-def _artifact_provenance(payload: dict[str, Any], *, fallback: str) -> str:
+def _artifact_provenance(payload: dict[str, object], *, fallback: str) -> str:
     source = payload.get("source_graph_id") or fallback
     ref = payload.get("source_ref_or_commit")
     return f"{source}@{ref}" if ref else str(source)
@@ -307,13 +302,13 @@ def detect_b1(context: AuditContext) -> DetectorResult:
 
 
 def detect_b2(context: AuditContext) -> DetectorResult:
-    """Fail when a repo requires a private-name source but none is configured."""
+    """Fail when a repo requires a boundary artifact file but none is configured."""
     names, _excludes, require, _provenance = _parse_config(context.config)
     if not require or names:
         return DetectorResult(count=0, samples=[])
     samples = [
         "privacy.require_boundary_artifact=true but no "
-        "boundary source was provided via privacy.boundary_artifact_file, "
-        f"${_ARTIFACT_FILE_ENV}, or ${_ARTIFACT_TEXT_ENV}"
+        "boundary artifact file was provided via privacy.boundary_artifact_file "
+        f"or ${_ARTIFACT_FILE_ENV}"
     ]
     return DetectorResult(count=1, samples=samples)

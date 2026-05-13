@@ -71,20 +71,6 @@ class TestB1BoundaryArtifact:
         result = detect_b1(_ctx(tmp_path, {}))
         assert result.count == 1
 
-    def test_uses_inline_artifact_env(self, tmp_path: Path, monkeypatch) -> None:
-        payload = {
-            "source_graph_id": "PrivateManifest",
-            "forbidden_names": ["MyPrivateRepo"],
-            "allowed_aliases": [],
-            "redacted_entities": [],
-            "redaction_rules_applied": [],
-        }
-        (tmp_path / "doc.md").write_text("MyPrivateRepo\n", encoding="utf-8")
-        _git_init(tmp_path)
-        monkeypatch.setenv("REPOGRAPH_BOUNDARY_ARTIFACT", json.dumps(payload))
-        result = detect_b1(_ctx(tmp_path, {}))
-        assert result.count == 1
-
     def test_no_boundary_source_returns_zero(self, tmp_path: Path) -> None:
         (tmp_path / "doc.md").write_text("MyPrivateRepo\n", encoding="utf-8")
         _git_init(tmp_path)
