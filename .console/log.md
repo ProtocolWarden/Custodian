@@ -3,6 +3,11 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+## 2026-05-13 — WorkStation → PlatformDeployment hard cutover
+
+- `detect_arch3` in `architecture_split.py`: repo root name check updated from `workstation` to `platformdeployment`.
+- Corresponding test renamed to `test_arch3_flags_deprecated_canonical_claim`.
+
 - 2026-05-13 — Cleared pre-existing audit debt (C11/C16/C29/C41/U5/T1/T6/T7/B1/TY/RUFF):
   code fixes in workspace.py (encoding, unused imports), repograph_governance_gate.py
   (timeout, ensure_ascii), boundary.py (BLE001, TY type guard), envvar.py (hasattr lineno);

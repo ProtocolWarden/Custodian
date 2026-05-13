@@ -44,7 +44,7 @@ def test_arch2_flags_schema_fork_in_private_topology_repo(tmp_path: Path) -> Non
     assert "should not define manifest schemas" in result.samples[0]
 
 
-def test_arch3_flags_old_workstation_canonical_claim(tmp_path: Path) -> None:
+def test_arch3_flags_deprecated_canonical_claim(tmp_path: Path) -> None:
     repo = tmp_path / "PlatformDeployment"
     (repo / "docs").mkdir(parents=True)
     (repo / "docs" / "README.md").write_text(

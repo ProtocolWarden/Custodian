@@ -96,7 +96,7 @@ def detect_arch2(context: AuditContext) -> DetectorResult:
 
 
 def detect_arch3(context: AuditContext) -> DetectorResult:
-    if context.repo_root.name.lower() != "workstation":
+    if context.repo_root.name.lower() != "platformdeployment":
         return DetectorResult(count=0, samples=[])
     samples: list[str] = []
     docs_readme = _read(context.repo_root / "docs" / "README.md")
