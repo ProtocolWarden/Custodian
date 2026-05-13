@@ -479,3 +479,10 @@ the original intent.
 - Added `setup.sh` to bootstrap Custodian, install editable commands, and symlink the `custodian*` CLIs into `~/.local/bin`.
 - Setup supports `--repo-venvs` to install editable Custodian into sibling repo `.venv` directories.
 - Updated the pre-push guard to prefer system `custodian-multi`, with repo venv and sibling Custodian venv fallbacks.
+
+## 2026-05-13 — ARCH4 detector: RepoGraph instance-ownership invariant
+
+- Added `detect_arch4()` to `architecture_split.py` with negation-aware regex (checks 20-char prefix before "own" match for "not"/"never"/"no").
+- Registered as `ARCH4` detector in `DETECTORS` list.
+- Added 4 tests in `tests/test_architecture_split_detectors.py`: skips non-RepoGraph repos, passes when README describes graph-language semantics, fires when wording is missing, fires when README is absent.
+- All 7 architecture split detector tests pass.

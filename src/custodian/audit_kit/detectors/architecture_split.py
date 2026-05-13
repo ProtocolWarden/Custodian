@@ -150,8 +150,12 @@ def detect_arch4(context: AuditContext) -> DetectorResult:
         "public graph publication",
         "audit execution",
     ):
-        if re.search(rf"\bown[s]?\b.*{re.escape(phrase)}\b", lowered):
+        for m in re.finditer(rf"\bown[s]?\b.{{0,120}}{re.escape(phrase)}", lowered):
+            prefix = lowered[max(0, m.start() - 20):m.start()]
+            if "not" in prefix or "never" in prefix or "no " in prefix:
+                continue
             samples.append(f"README.md: RepoGraph claims to own '{phrase}' — language library only")
+            break
     return DetectorResult(count=len(samples), samples=samples[:8])
 
 
