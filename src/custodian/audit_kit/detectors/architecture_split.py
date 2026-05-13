@@ -6,7 +6,7 @@ These detectors enforce a few high-signal repo-boundary claims:
 
 - Warehouse must remain a utility repo, not a platform spine.
 - private topology repositories must not fork manifest language semantics.
-- WorkStation docs must present the repo as PlatformDeployment/topography,
+- PlatformDeployment docs must present the repo as PlatformDeployment/topography,
   not as the canonical architecture authority.
 """
 from __future__ import annotations
@@ -37,7 +37,7 @@ def build_architecture_split_detectors() -> list[Detector]:
         ),
         Detector(
             "ARCH3",
-            "WorkStation docs still claim canonical architecture ownership instead of PlatformDeployment/topography",
+            "PlatformDeployment docs still claim canonical architecture ownership instead of PlatformDeployment/topography",
             "open",
             detect_arch3,
             MEDIUM,
@@ -110,14 +110,14 @@ def detect_arch3(context: AuditContext) -> DetectorResult:
         if phrase in lowered:
             samples.append(f"docs: deprecated canonical-architecture claim still present: {phrase!r}")
     if combined and "PlatformDeployment" not in combined:
-        samples.append("docs: WorkStation should describe itself as the PlatformDeployment plane")
+        samples.append("docs: PlatformDeployment should describe itself as the PlatformDeployment plane")
     for phrase in (
         "topology owner",
         "orchestration engine",
         "protocol contract owner",
     ):
         if re.search(rf"\bowns?:.*{re.escape(phrase)}\b", lowered):
-            samples.append(f"docs: WorkStation misclassified as {phrase}")
+            samples.append(f"docs: PlatformDeployment misclassified as {phrase}")
     return DetectorResult(count=len(samples), samples=samples[:8])
 
 

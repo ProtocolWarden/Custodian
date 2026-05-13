@@ -33,6 +33,7 @@ custodian-fix = "custodian.cli.fix:main"
 custodian-config = "custodian.cli.config_migrate:main"
 custodian-report = "custodian.cli.report:main"
 custodian-triage = "custodian.cli.triage:main"
+custodian-repograph-migration-gate = "custodian.cli.repograph_migration_gate:main"
 custodian = "custodian.cli.main:main"
 
 [tool.setuptools.packages.find]

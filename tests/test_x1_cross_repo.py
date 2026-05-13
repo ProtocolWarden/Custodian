@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 ProtocolWarden
-"""Tests for X1 — PlatformManifest legacy-name drift."""
+"""Tests for X1 — PlatformManifest public-label drift."""
 from __future__ import annotations
 
 import textwrap
@@ -18,10 +18,10 @@ _PM_YAML = textwrap.dedent("""\
     repos:
       operations_center:
         canonical_name: OperationsCenter
-        legacy_names: [ControlPlane]
+        public_label: OperationsCenterPublic
       operator_console:
         canonical_name: OperatorConsole
-        legacy_names: [FOB]
+        public_label: OperatorConsolePublic
 """)
 
 
@@ -63,23 +63,23 @@ class TestX1:
         })
         assert detect_x1(ctx).count == 0
 
-    def test_legacy_name_in_python_caught(self, tmp_path):
+    def test_public_label_in_python_caught(self, tmp_path):
         _write_pm(tmp_path)
         ctx = _ctx(
             tmp_path,
-            {"a.py": "ControlPlane = 'still using the old name'\n"},
+            {"a.py": "OperationsCenterPublic = 'stale label'\n"},
             config={"audit": {"cross_repo": {
                 "platform_manifest_repo": "PlatformManifest",
             }}},
         )
         result = detect_x1(ctx)
         assert result.count == 1
-        assert "ControlPlane" in result.samples[0]
+        assert "OperationsCenterPublic" in result.samples[0]
         assert "OperationsCenter" in result.samples[0]
 
-    def test_legacy_name_in_markdown_caught(self, tmp_path):
+    def test_public_label_in_markdown_caught(self, tmp_path):
         _write_pm(tmp_path)
-        (tmp_path / "README.md").write_text("FOB launches the watcher.\n")
+        (tmp_path / "README.md").write_text("OperatorConsolePublic launches the watcher.\n")
         ctx = _ctx(
             tmp_path,
             {},
@@ -89,7 +89,7 @@ class TestX1:
         )
         result = detect_x1(ctx)
         assert result.count == 1
-        assert "FOB" in result.samples[0]
+        assert "OperatorConsolePublic" in result.samples[0]
         assert "OperatorConsole" in result.samples[0]
 
     def test_canonical_name_not_flagged(self, tmp_path):

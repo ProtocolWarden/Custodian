@@ -22,19 +22,19 @@ _PM_YAML = textwrap.dedent("""\
     repos:
       operations_center:
         canonical_name: OperationsCenter
-        legacy_names: [ControlPlane]
+        public_label: OperationsCenterPublic
         github_url: https://github.com/ProtocolWarden/OperationsCenter
       operator_console:
         canonical_name: OperatorConsole
-        legacy_names: [FOB]
+        public_label: OperatorConsolePublic
         github_url: https://github.com/ProtocolWarden/OperatorConsole
       cxrp:
         canonical_name: CxRP
-        legacy_names: [ExecutionContractProtocol]
+        public_label: CxRPContracts
         github_url: https://github.com/ProtocolWarden/CxRP
       switchboard:
         canonical_name: SwitchBoard
-        legacy_names: []
+        
         github_url: https://github.com/ProtocolWarden/SwitchBoard
     edges:
       - {from: OperatorConsole, to: OperationsCenter, type: dispatches_to}
@@ -86,7 +86,7 @@ def _ctx(
 
 
 # ---------------------------------------------------------------------------
-# X1 — legacy name drift
+# X1 — public-label drift
 # ---------------------------------------------------------------------------
 
 class TestX1:
@@ -100,11 +100,11 @@ class TestX1:
         })
         assert detect_x1(ctx).count == 0
 
-    def test_legacy_name_in_python_caught(self, tmp_path):
+    def test_public_label_in_python_caught(self, tmp_path):
         _write_pm(tmp_path)
         ctx = _ctx(
             tmp_path,
-            {"a.py": "ControlPlane = 'still using the old name'\n"},
+            {"a.py": "OperationsCenterPublic = 'stale label'\n"},
             config=_CROSS_REPO_CFG,
         )
         result = detect_x1(ctx)
@@ -112,24 +112,24 @@ class TestX1:
         assert "ControlPlane" in result.samples[0]
         assert "OperationsCenter" in result.samples[0]
 
-    def test_legacy_name_in_markdown_caught(self, tmp_path):
+    def test_public_label_in_markdown_caught(self, tmp_path):
         _write_pm(tmp_path)
-        (tmp_path / "README.md").write_text("FOB launches the watcher.\n")
+        (tmp_path / "README.md").write_text("OperatorConsolePublic launches the watcher.\n")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x1(ctx)
         assert result.count == 1
         assert "FOB" in result.samples[0]
         assert "OperatorConsole" in result.samples[0]
 
-    def test_legacy_name_in_yaml_caught(self, tmp_path):
+    def test_public_label_in_yaml_caught(self, tmp_path):
         _write_pm(tmp_path)
-        (tmp_path / "config.yaml").write_text("target: ControlPlane\n")
+        (tmp_path / "config.yaml").write_text("target: OperationsCenterPublic\n")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x1(ctx)
         assert result.count == 1
         assert "ControlPlane" in result.samples[0]
 
-    def test_legacy_name_in_yml_caught(self, tmp_path):
+    def test_public_label_in_yml_caught(self, tmp_path):
         _write_pm(tmp_path)
         (tmp_path / "deploy.yml").write_text("service: FOB\n")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
@@ -333,8 +333,8 @@ class TestX3:
         assert result.count == 1
         assert "ControlPlane" in result.samples[0]
 
-    def test_no_stale_urls_when_empty_legacy_names(self, tmp_path):
-        # SwitchBoard has no legacy names → no stale URLs possible
+    def test_no_stale_urls_when_empty_public_labels(self, tmp_path):
+        # SwitchBoard has no public labels → no stale URLs possible
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
             "See https://github.com/ProtocolWarden/SwitchBoard\n"

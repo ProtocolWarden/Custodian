@@ -45,12 +45,12 @@ def test_arch2_flags_schema_fork_in_private_topology_repo(tmp_path: Path) -> Non
 
 
 def test_arch3_flags_old_workstation_canonical_claim(tmp_path: Path) -> None:
-    repo = tmp_path / "WorkStation"
+    repo = tmp_path / "PlatformDeployment"
     (repo / "docs").mkdir(parents=True)
     (repo / "docs" / "README.md").write_text(
-        "WorkStation hosts the canonical platform architecture docs.",
+        "PlatformDeployment hosts the canonical platform architecture docs.",
         encoding="utf-8",
     )
-    result = detect_arch3(_context(repo, "WorkStation"))
+    result = detect_arch3(_context(repo, "PlatformDeployment"))
     assert result.count >= 1
     assert "deprecated canonical-architecture claim" in "\n".join(result.samples)

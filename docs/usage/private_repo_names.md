@@ -35,18 +35,7 @@ or
 export REPOGRAPH_BOUNDARY_ARTIFACT_FILE=/path/to/boundary_disclosure_artifact.json
 ```
 
-or
-
-```bash
-export REPOGRAPH_BOUNDARY_ARTIFACT="$(cat boundary_disclosure_artifact.json)"
-```
-
-Legacy compatibility remains available through:
-
-- `privacy.private_repo_names`
-- `privacy.private_repo_names_file`
-- `CUSTODIAN_PRIVATE_REPO_NAMES_FILE`
-- `CUSTODIAN_PRIVATE_REPO_NAMES`
+Legacy private-name sources are not supported.
 
 ### What goes in the boundary artifact
 
@@ -98,7 +87,7 @@ are skipped automatically — the detector only scans text content.
 | Code | Description | Severity | Behavior on empty config |
 |------|-------------|----------|--------------------------|
 | **B1** | Tracked file contains a private-repo name | MEDIUM | Returns 0 findings (silent) |
-| **B2** | Boundary artifact or private-name source is required but missing | MEDIUM | Returns 0 findings unless `require_boundary_artifact: true` or `require_private_repo_name_source: true` |
+| **B2** | Boundary artifact source is required but missing | MEDIUM | Returns 0 findings unless `require_boundary_artifact: true` |
 
 B1 reports one finding per matching line, with samples showing the
 first ~8 violations as `path:lineno: contains 'NAME'`. The total count

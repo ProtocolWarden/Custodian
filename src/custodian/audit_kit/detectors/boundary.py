@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 ProtocolWarden
-"""B-class detectors — boundary / private-repo-name leakage.
+"""B-class detectors — boundary artifact leakage enforcement.
 
 Public repos describe stable, reusable platform capabilities. Private
 manifests bind those capabilities to specific private repos. A public
@@ -8,13 +8,12 @@ repo that names a private repo in its tracked artifacts leaks the
 private/public boundary — operators who consume the public repo learn
 which private repos the platform's owner runs.
 
-This detector class enforces that boundary. Configure the names you
-treat as private in ``.custodian/config.yaml``::
+This detector class enforces that boundary via RepoGraph artifacts.
+Configure the artifact source in ``.custodian/config.yaml``::
 
     privacy:
-      private_repo_names:
-        - PrivateRepoName
-        - privaterepo_name
+      require_boundary_artifact: true
+      boundary_artifact_file: /path/to/boundary_disclosure_artifact.json
       exclude_paths:
         - "docs/history/**"
         - "config/managed_repos/local/**"
@@ -32,9 +31,6 @@ need to hardcode private names in tracked config:
 * ``privacy.boundary_artifact_file`` — RepoGraph boundary artifact path
 * ``$REPOGRAPH_BOUNDARY_ARTIFACT_FILE`` — path to that artifact
 * ``$REPOGRAPH_BOUNDARY_ARTIFACT`` — inline JSON/YAML artifact payload
-* legacy compatibility:
-  ``privacy.private_repo_names_file``, ``$CUSTODIAN_PRIVATE_REPO_NAMES_FILE``,
-  ``$CUSTODIAN_PRIVATE_REPO_NAMES``
 
 Detectors
 ─────────
@@ -42,7 +38,7 @@ B1  Tracked file under the repo root contains a configured private-repo
     name. MEDIUM severity. The detector returns one finding per
     line/match (capped at ``_MAX_SAMPLES``); the first ~8 violations
     are reported in samples.
-B2  Privacy blocklist is required but no private-repo names source is
+B2  Boundary artifact is required but no boundary source is
     configured. MEDIUM severity. Used by public repos to make the
     private-name gate mandatory.
 """
@@ -62,8 +58,6 @@ from custodian.audit_kit.glob_match import glob_match
 _MAX_SAMPLES = 8
 _ARTIFACT_FILE_ENV = "REPOGRAPH_BOUNDARY_ARTIFACT_FILE"
 _ARTIFACT_TEXT_ENV = "REPOGRAPH_BOUNDARY_ARTIFACT"
-_NAMES_FILE_ENV = "CUSTODIAN_PRIVATE_REPO_NAMES_FILE"
-_NAMES_TEXT_ENV = "CUSTODIAN_PRIVATE_REPO_NAMES"
 _DEFAULT_EXCLUDES: tuple[str, ...] = (
     # The Custodian config that *defines* the banned names. The literal
     # names must appear there for the rule to function — flagging them
@@ -99,7 +93,7 @@ def build_boundary_detectors() -> list[Detector]:
         ),
         Detector(
             "B2",
-            "Private repo name blocklist is required but not configured",
+            "Boundary artifact is required but not configured",
             "open",
             detect_b2,
             MEDIUM,
@@ -116,17 +110,10 @@ def _parse_config(config: dict) -> tuple[list[str], list[str], bool, str | None]
     artifact_payload, provenance = _load_boundary_artifact_payload(block)
     if artifact_payload is not None:
         names.extend(_parse_boundary_artifact_names(artifact_payload))
-    names.extend(list(block.get("private_repo_names") or []))
-    names.extend(_load_names_from_file(block.get("private_repo_names_file")))
-    names.extend(_load_names_from_file(_env_str(_NAMES_FILE_ENV)))
-    names.extend(_parse_names_blob(_env_str(_NAMES_TEXT_ENV)))
     names = _dedupe_preserve_order(name for name in names if name)
     extra_excludes = list(block.get("exclude_paths") or [])
     excludes = list(_DEFAULT_EXCLUDES) + extra_excludes
-    require_names_source = bool(
-        block.get("require_boundary_artifact", False)
-        or block.get("require_private_repo_name_source", False)
-    )
+    require_names_source = bool(block.get("require_boundary_artifact", False))
     return names, excludes, require_names_source, provenance
 
 
@@ -136,8 +123,6 @@ def _names_source_paths(config: dict) -> list[Path]:
     for raw in (
         block.get("boundary_artifact_file"),
         _env_str(_ARTIFACT_FILE_ENV),
-        block.get("private_repo_names_file"),
-        _env_str(_NAMES_FILE_ENV),
     ):
         if not raw:
             continue
@@ -153,19 +138,6 @@ def _env_str(name: str) -> str | None:
         return None
     value = value.strip()
     return value or None
-
-
-def _load_names_from_file(raw_path: Any) -> list[str]:
-    if not raw_path:
-        return []
-    path = Path(str(raw_path)).expanduser()
-    if not path.is_file():
-        return []
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return []
-    return _parse_names_document(text)
 
 
 def _load_boundary_artifact_payload(block: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
@@ -224,50 +196,6 @@ def _artifact_provenance(payload: dict[str, Any], *, fallback: str) -> str:
     source = payload.get("source_graph_id") or fallback
     ref = payload.get("source_ref_or_commit")
     return f"{source}@{ref}" if ref else str(source)
-
-
-def _parse_names_document(text: str) -> list[str]:
-    stripped = text.strip()
-    if not stripped:
-        return []
-
-    parsed: Any = None
-    try:
-        parsed = json.loads(stripped)
-    except json.JSONDecodeError:
-        parsed = None
-
-    if parsed is None:
-        try:
-            import yaml
-        except ImportError:
-            parsed = None
-        else:
-            try:
-                parsed = yaml.safe_load(stripped)
-            except yaml.YAMLError:
-                parsed = None
-
-    if isinstance(parsed, dict):
-        values = parsed.get("private_repo_names") or []
-        if isinstance(values, list):
-            return [str(item).strip() for item in values if str(item).strip()]
-    if isinstance(parsed, list):
-        return [str(item).strip() for item in parsed if str(item).strip()]
-
-    return _parse_names_blob(stripped)
-
-
-def _parse_names_blob(blob: str | None) -> list[str]:
-    if not blob:
-        return []
-    parts: list[str] = []
-    for raw in blob.replace(",", "\n").splitlines():
-        item = raw.strip()
-        if not item or item.startswith("#"):
-            continue
-        parts.append(item)
-    return parts
 
 
 def _dedupe_preserve_order(values) -> list[str]:
@@ -384,9 +312,8 @@ def detect_b2(context: AuditContext) -> DetectorResult:
     if not require or names:
         return DetectorResult(count=0, samples=[])
     samples = [
-        "privacy.require_boundary_artifact/require_private_repo_name_source=true but no "
+        "privacy.require_boundary_artifact=true but no "
         "boundary source was provided via privacy.boundary_artifact_file, "
-        f"${_ARTIFACT_FILE_ENV}, ${_ARTIFACT_TEXT_ENV}, privacy.private_repo_names, "
-        f"privacy.private_repo_names_file, ${_NAMES_FILE_ENV}, or ${_NAMES_TEXT_ENV}"
+        f"${_ARTIFACT_FILE_ENV}, or ${_ARTIFACT_TEXT_ENV}"
     ]
     return DetectorResult(count=1, samples=samples)

@@ -8,11 +8,11 @@ previously informal cross-repo coupling into machine-checked invariants.
 
 Detectors
 ─────────
-X1  Legacy-name reference in tracked source — a tracked .py / .md / .yaml
-    file references a name that PlatformManifest declares as a *legacy*
-    alias of a different repo (e.g. ``ControlPlane`` when the canonical
-    name is now ``OperationsCenter``). The legacy name should be looked up
-    via the manifest's resolver rather than hard-coded.
+X1  Public-label reference in tracked source — a tracked .py / .md / .yaml
+    file references a PlatformManifest disclosure-safe label instead of
+    the canonical repo name (e.g. ``OperationsCenterPublic`` when the
+    canonical name is ``OperationsCenter``). The label should be looked
+    up via the manifest rather than hard-coded.
 
 X2  Undeclared cross-repo import — a .py file imports a package that maps
     to a platform repo but no edge is declared from this repo to that
@@ -20,8 +20,8 @@ X2  Undeclared cross-repo import — a .py file imports a package that maps
     set in the repo's ``.custodian/config.yaml``.
 
 X3  Stale GitHub URL in docs — a .md file contains a GitHub URL pointing
-    to a platform repo via an old/legacy name
-    (e.g. ``github.com/ProtocolWarden/ControlPlane``).  Complements X1's
+    to a platform repo via a stale public label
+    (e.g. ``github.com/ProtocolWarden/OperationsCenterPublic``).  Complements X1's
     string-name drift check with URL-level drift detection.
 
 Configuration
@@ -64,7 +64,7 @@ _IMPORT_RE = re.compile(r'^\s*(?:import|from)\s+([A-Za-z_][A-Za-z0-9_]*)', re.MU
 
 @dataclass
 class _ManifestInfo:
-    legacy_to_canonical: dict[str, str]          # X1: {legacy_name: canonical_name}
+    label_to_canonical: dict[str, str]            # X1: {public_label: canonical_name}
     entry_key_to_canonical: dict[str, str]        # X2: {entry_key: canonical_name}
     edges: frozenset[tuple[str, str]]             # X2: {(from_canonical, to_canonical)}
     stale_url_to_canonical: dict[str, str]        # X3: {stale_url: canonical_url}
@@ -74,7 +74,7 @@ class _ManifestInfo:
 def build_cross_repo_detectors() -> list[Detector]:
     return [
         Detector("X1",
-                 "tracked file references a PlatformManifest legacy alias "
+                 "tracked file references a PlatformManifest public label "
                  "instead of the canonical repo name",
                  "open", detect_x1, LOW, frozenset()),
         Detector("X2",
@@ -134,7 +134,7 @@ def _load_manifest_info(
 
     repos = (data.get("repos") or {}) if isinstance(data, dict) else {}
 
-    legacy_to_canonical: dict[str, str] = {}
+    label_to_canonical: dict[str, str] = {}
     entry_key_to_canonical: dict[str, str] = {}
     canonical_to_github_url: dict[str, str] = {}
 
@@ -151,12 +151,9 @@ def _load_manifest_info(
             if isinstance(github_url, str) and github_url:
                 canonical_to_github_url[canonical] = github_url
 
-            legacy_names = entry.get("legacy_names") or []
-            if not isinstance(legacy_names, list):
-                continue
-            for name in legacy_names:
-                if isinstance(name, str) and name and name != canonical:
-                    legacy_to_canonical[name] = canonical
+            public_label = entry.get("public_label")
+            if isinstance(public_label, str) and public_label and public_label != canonical:
+                label_to_canonical[public_label] = canonical
 
     # Build edges set: {(from_canonical, to_canonical)}
     raw_edges = (data.get("edges") or []) if isinstance(data, dict) else []
@@ -172,7 +169,7 @@ def _load_manifest_info(
 
     # Build stale URL map: {stale_url: canonical_url}
     stale_url_to_canonical: dict[str, str] = {}
-    for legacy, canonical in legacy_to_canonical.items():
+    for legacy, canonical in label_to_canonical.items():
         canonical_url = canonical_to_github_url.get(canonical)
         if not canonical_url:
             continue
@@ -181,7 +178,7 @@ def _load_manifest_info(
             stale_url_to_canonical[stale_url] = canonical_url
 
     return _ManifestInfo(
-        legacy_to_canonical=legacy_to_canonical,
+        label_to_canonical=label_to_canonical,
         entry_key_to_canonical=entry_key_to_canonical,
         edges=frozenset(edges),
         stale_url_to_canonical=stale_url_to_canonical,
@@ -299,27 +296,27 @@ def _markdown_paths(
 
 
 # ---------------------------------------------------------------------------
-# X1 — legacy name references
+# X1 — public label references
 # ---------------------------------------------------------------------------
 
 def detect_x1(context: AuditContext) -> DetectorResult:
-    """Flag tracked files referencing a PlatformManifest legacy alias.
+    """Flag tracked files referencing a PlatformManifest public label.
 
     When a repo has been renamed in PlatformManifest, callers should
-    resolve the new canonical name through the manifest rather than
-    hard-coding the old name. X1 catches stale references.
+    resolve the canonical name through the manifest rather than
+    hard-coding the label. X1 catches stale references.
 
     Configurable exclude paths via ``audit.exclude_paths.X1``.
     """
     audit_cfg = context.config.get("audit") or {}
     info = _load_manifest_info(context.repo_root, audit_cfg)
-    if not info or not info.legacy_to_canonical:
+    if not info or not info.label_to_canonical:
         return DetectorResult(count=0, samples=[])
 
     excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("X1") or [])
     skip_roots = _extra_skip_roots(context.repo_root, audit_cfg)
 
-    pattern = r"\b(?:" + "|".join(re.escape(n) for n in info.legacy_to_canonical) + r")\b"
+    pattern = r"\b(?:" + "|".join(re.escape(n) for n in info.label_to_canonical) + r")\b"
     matcher = re.compile(pattern)
 
     samples: list[str] = []
@@ -337,16 +334,16 @@ def detect_x1(context: AuditContext) -> DetectorResult:
             continue
         for i, line in enumerate(text.splitlines(), 1):
             for match in matcher.finditer(line):
-                legacy = match.group(0)
-                key = (rel_posix, i, legacy)
+                label = match.group(0)
+                key = (rel_posix, i, label)
                 if key in seen:
                     continue
                 seen.add(key)
                 count += 1
                 if len(samples) < _MAX_SAMPLES:
-                    canonical = info.legacy_to_canonical[legacy]
+                    canonical = info.label_to_canonical[label]
                     samples.append(
-                        f"{rel}:{i}: legacy name `{legacy}` — "
+                        f"{rel}:{i}: public label `{label}` — "
                         f"PlatformManifest canonical is `{canonical}`"
                     )
     return DetectorResult(count=count, samples=samples)

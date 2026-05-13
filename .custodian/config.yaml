@@ -218,4 +218,4 @@ tools:
 # (.console/**, .custodian/config.yaml itself, docs/history/**, etc.)
 # applied automatically.
 privacy:
-  require_private_repo_name_source: true
+  require_boundary_artifact: true
