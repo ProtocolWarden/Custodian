@@ -13,6 +13,16 @@ _Not a task tracker — that's backlog.md. Keep entries concise and dated._
   repo page as historical, and taught the RepoGraph gate to require canonical
   status metadata for current docs plus archival status for the legacy page.
 
+- 2026-05-12 — RepoGraph policy and explorer hardening: documented policy as
+  adjacent to semantics, required the public explorer spec to remain
+  projection-only, and added a federated semantic CI workflow that clones the
+  public repo set and runs the RepoGraph migration gate across the workspace.
+
+- 2026-05-12 — Cross-repo semantic CI hardening: added a dedicated
+  `semantic-federation` workflow that clones the public repo set, materializes
+  the RepoGraph boundary artifact, and runs the migration gate over the whole
+  workspace on push and schedule.
+
 - 2026-05-12 — RepoGraph boundary artifact wiring tightened to file-only: removed inline
   boundary-artifact fallback from B2, rewrote the boundary detector tests for file-only
   inputs, and updated the repo-local pre-push guard so it fails closed unless

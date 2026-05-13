@@ -263,9 +263,68 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
                     severity="medium",
                     expected_boundary="RepoGraph schema governance docs exist",
                     observed_violation="schema governance docs missing",
-                    recommended_fix="Add docs/schema-governance.md documenting schema versions",
+                        recommended_fix="Add docs/schema-governance.md documenting schema versions",
+                    )
+                )
+        policy = repo / "docs" / "policy-plane.md"
+        if not policy.exists():
+            findings.append(
+                Finding(
+                    repo=repo.name,
+                    file=str(policy),
+                    rule_id="policy_plane_separation_required",
+                    severity="medium",
+                    expected_boundary="RepoGraph policy boundary doc exists",
+                    observed_violation="policy plane doc missing",
+                    recommended_fix="Add docs/policy-plane.md documenting policy != semantics",
                 )
             )
+        else:
+            text = policy.read_text(encoding="utf-8")
+            if "policy is not semantics" not in text.lower() and "policy != semantics" not in text.lower():
+                findings.append(
+                    Finding(
+                        repo=repo.name,
+                        file=str(policy),
+                        rule_id="policy_plane_separation_required",
+                        severity="medium",
+                        expected_boundary="policy stays separate from graph semantics",
+                        observed_violation="policy/semantics separation is not stated",
+                        recommended_fix="State that policy is adjacent to semantics, not the semantics layer",
+                    )
+                )
+        explorer = repo / "docs" / "repograph-explorer-spec.md"
+        if not explorer.exists():
+            findings.append(
+                Finding(
+                    repo=repo.name,
+                    file=str(explorer),
+                    rule_id="explorer_projection_only",
+                    severity="medium",
+                    expected_boundary="public-safe explorer spec exists",
+                    observed_violation="explorer spec missing",
+                    recommended_fix="Add docs/repograph-explorer-spec.md describing projection-only rendering",
+                )
+            )
+        else:
+            text = explorer.read_text(encoding="utf-8")
+            required_phrases = (
+                "projection outputs only",
+                "does not implement redaction logic",
+                "public explorer uses `PUBLIC_SAFE` or `PUBLIC_DOCS` only",
+            )
+            if not all(phrase.lower() in text.lower() for phrase in required_phrases):
+                findings.append(
+                    Finding(
+                        repo=repo.name,
+                        file=str(explorer),
+                        rule_id="explorer_projection_only",
+                        severity="medium",
+                        expected_boundary="explorer renders projections only",
+                        observed_violation="explorer spec does not constrain projection bypass",
+                        recommended_fix="State that the explorer consumes projections only and cannot redact",
+                    )
+                )
         rules = repo / "src" / "repograph" / "projection" / "rules.py"
         if rules.exists():
             text = rules.read_text(encoding="utf-8")
@@ -279,6 +338,35 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
                         expected_boundary="public projection explicitly marks PUBLIC_SAFE",
                         observed_violation="projection profile safety marker missing",
                         recommended_fix="Write projection_profile=PUBLIC_SAFE into public manifest output",
+                    )
+                )
+
+    if repo.name == "Custodian":
+        federation = repo / ".github" / "workflows" / "semantic-federation.yml"
+        if not federation.exists():
+            findings.append(
+                Finding(
+                    repo=repo.name,
+                    file=str(federation),
+                    rule_id="cross_repo_semantic_ci_required",
+                    severity="medium",
+                    expected_boundary="federated semantic CI workflow exists",
+                    observed_violation="semantic federation workflow missing",
+                    recommended_fix="Add .github/workflows/semantic-federation.yml to run the cross-repo gate",
+                )
+            )
+        else:
+            text = federation.read_text(encoding="utf-8")
+            if "custodian-repograph-migration-gate" not in text or "ProtocolWarden.github.io" not in text:
+                findings.append(
+                    Finding(
+                        repo=repo.name,
+                        file=str(federation),
+                        rule_id="cross_repo_semantic_ci_required",
+                        severity="medium",
+                        expected_boundary="workflow clones and audits the public repo set",
+                        observed_violation="semantic federation workflow is not wired to the full public repo set",
+                        recommended_fix="Clone the public repos and run custodian-repograph-migration-gate over them",
                     )
                 )
 
