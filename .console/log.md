@@ -3,6 +3,11 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+## 2026-05-13 — WorkStation hard cutover: remove legacy workstation.md gate
+
+- Removed `workstation.md` existence check from `_check_public_repo_catalog` in `repograph_governance_gate.py`. Migration is complete; guard has served its purpose.
+- Removed corresponding `workstation.md` fixture creation and nav entry from `test_public_repo_catalog_rejects_archive_pages`. The `doc-status.md` check continues to cover the rule assertion.
+
 ## 2026-05-13 — WorkStation → PlatformDeployment hard cutover
 
 - `detect_arch3` in `architecture_split.py`: repo root name check updated from `workstation` to `platformdeployment`.

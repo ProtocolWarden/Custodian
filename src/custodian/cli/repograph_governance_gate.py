@@ -172,19 +172,6 @@ def _check_public_repo_catalog(repo: Path, findings: list[Finding]) -> None:
             )
         )
 
-    workstation = repo / "docs" / "repos" / "workstation.md"
-    if workstation.exists():
-        findings.append(
-            Finding(
-                repo=repo.name,
-                file=str(workstation),
-                rule_id="public_repo_catalog_only",
-                severity="high",
-                expected_boundary="no archival repo pages in the public catalog",
-                observed_violation="legacy workstation page still present",
-                recommended_fix="Remove docs/repos/workstation.md and any nav/catalog references to it",
-            )
-        )
 
 
 def _check_boundary_artifact_required(repo: Path, findings: list[Finding]) -> None:

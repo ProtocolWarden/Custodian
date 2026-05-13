@@ -180,8 +180,6 @@ def test_public_repo_catalog_rejects_archive_pages(tmp_path: Path) -> None:
         "  - Repos:\n"
         "      - Overview: repos/index.md\n"
         "      - OperationsCenter: repos/operationscenter.md\n"
-        "      - Historical:\n"
-        "          - PlatformDeployment (WorkStation): repos/workstation.md\n"
         "  - Architecture:\n"
         "      - Overview: architecture/index.md\n"
         "      - Documentation Status: architecture/doc-status.md\n",
@@ -201,10 +199,6 @@ def test_public_repo_catalog_rejects_archive_pages(tmp_path: Path) -> None:
     )
     (repo / "docs" / "architecture" / "doc-status.md").write_text(
         "# Documentation Status\n\nThe site uses archival labels.\n",
-        encoding="utf-8",
-    )
-    (repo / "docs" / "repos" / "workstation.md").write_text(
-        "# PlatformDeployment\n\nThis is a historical page.\n",
         encoding="utf-8",
     )
     findings: list[Finding] = []
