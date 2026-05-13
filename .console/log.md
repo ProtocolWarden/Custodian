@@ -3,6 +3,13 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+## 2026-05-13 — Add ARCH4 detector for RepoGraph authority drift
+
+- Added `detect_arch4()` to `architecture_split.py` and registered it in `build_architecture_split_detectors()`.
+- ARCH4 fires on RepoGraph if README does not describe it as a graph-language/semantics library, or if it claims to own graph instances, private truth, orchestration, or deployment execution.
+- Updated module docstring to document the RepoGraph invariant.
+- Verified: ARCH4 passes on current RepoGraph README (correctly describes graph-language library, not an instance owner).
+
 ## 2026-05-13 — WorkStation hard cutover: remove legacy workstation.md gate
 
 - Removed `workstation.md` existence check from `_check_public_repo_catalog` in `repograph_governance_gate.py`. Migration is complete; guard has served its purpose.

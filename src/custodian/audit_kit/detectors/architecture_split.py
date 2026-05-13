@@ -8,6 +8,8 @@ These detectors enforce a few high-signal repo-boundary claims:
 - private topology repositories must not fork manifest language semantics.
 - PlatformDeployment docs must present the repo as PlatformDeployment/topography,
   not as the canonical architecture authority.
+- RepoGraph must remain the graph-language library; it must not claim to own
+  graph instances, private truth, orchestration, or deployment execution.
 """
 from __future__ import annotations
 
@@ -40,6 +42,14 @@ def build_architecture_split_detectors() -> list[Detector]:
             "PlatformDeployment docs still claim canonical architecture ownership instead of PlatformDeployment/topography",
             "open",
             detect_arch3,
+            MEDIUM,
+            frozenset(),
+        ),
+        Detector(
+            "ARCH4",
+            "RepoGraph claims to own graph instances, private truth, or orchestration behavior",
+            "open",
+            detect_arch4,
             MEDIUM,
             frozenset(),
         ),
@@ -118,6 +128,30 @@ def detect_arch3(context: AuditContext) -> DetectorResult:
     ):
         if re.search(rf"\bowns?:.*{re.escape(phrase)}\b", lowered):
             samples.append(f"docs: PlatformDeployment misclassified as {phrase}")
+    return DetectorResult(count=len(samples), samples=samples[:8])
+
+
+def detect_arch4(context: AuditContext) -> DetectorResult:
+    if context.repo_root.name.lower() != "repograph":
+        return DetectorResult(count=0, samples=[])
+    readme = _read(context.repo_root / "README.md")
+    samples: list[str] = []
+    if not readme:
+        return DetectorResult(count=0, samples=[])
+    lowered = readme.lower()
+    if "graph language" not in lowered and "graph-language" not in lowered and "graph semantics" not in lowered and "graph-semantics" not in lowered:
+        samples.append("README.md: RepoGraph should describe itself as the graph-language/semantics library")
+    for phrase in (
+        "graph instance owner",
+        "graph database",
+        "private truth",
+        "orchestration",
+        "deployment execution",
+        "public graph publication",
+        "audit execution",
+    ):
+        if re.search(rf"\bown[s]?\b.*{re.escape(phrase)}\b", lowered):
+            samples.append(f"README.md: RepoGraph claims to own '{phrase}' — language library only")
     return DetectorResult(count=len(samples), samples=samples[:8])
 
 
