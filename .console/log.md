@@ -503,3 +503,9 @@ callers (ruff, mypy, ty adapters) receive an absolute path. 8/8 reachable repos 
 - X1 tests (test_public_label_in_python_caught, test_public_label_in_markdown_caught, test_public_label_in_yaml_caught, test_public_label_in_yml_caught): assertions still expected old labels "ControlPlane" and "FOB". Updated to match current manifest: "OperationsCenterPublic" and "OperatorConsolePublic". Updated test_public_label_in_yml_caught fixture content from "FOB" to "OperatorConsolePublic".
 - X3 tests (test_stale_url_in_markdown_caught, test_multiple_stale_urls, test_stale_url_without_https_caught): test URLs used legacy repo names not in current manifest stale_url_to_canonical map. Updated to use OperationsCenterPublic and OperatorConsolePublic public-label URLs that X3 actually tracks.
 - All 1090 tests pass.
+
+## 2026-05-13 — Add W7 detector: .console/CLAUDE.md gitignore policy
+
+- Added W7 detector to workspace.py: flags repos where .console/ uses blanket ignore instead of .console/* with tracked-file exceptions, or where CLAUDE.md is present but not in .gitignore.
+- W7 only activates when .console/ dir is present or CLAUDE.md exists at repo root.
+- All 1090 tests pass.
