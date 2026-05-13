@@ -22,6 +22,12 @@ _Not a task tracker — that's backlog.md. Keep entries concise and dated._
   projection-only, and added a federated semantic CI workflow that clones the
   public repo set and runs the RepoGraph migration gate across the workspace.
 
+- 2026-05-13 — Public-surface catalog policy codified as a dedicated
+  `custodian.policy.public_surface_catalog` helper and the RepoGraph governance
+  gate was renamed from migration-era wording; current-only public docs now
+  reject archival/catalog leftovers and keep private-truth repos out of the
+  browseable repo index.
+
 - 2026-05-12 — Cross-repo semantic CI hardening: added a dedicated
   `semantic-federation` workflow that clones the public repo set, materializes
   the RepoGraph boundary artifact, and runs the migration gate over the whole

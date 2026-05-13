@@ -8,7 +8,7 @@ Dispatches to subcommands:
   custodian report    → generate reports
   custodian config    → inspect/migrate config
   custodian doctor    → check tool availability
-  custodian repograph-migration-gate → strict RepoGraph migration checks
+  custodian repograph-governance-gate → strict RepoGraph governance checks
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ _COMMANDS = {
     "doctor":  "custodian.cli.doctor:main",
     "multi":   "custodian.cli.multi:main",
     "triage":  "custodian.cli.triage:main",
-    "repograph-migration-gate": "custodian.cli.repograph_migration_gate:main",
+    "repograph-governance-gate": "custodian.cli.repograph_governance_gate:main",
 }
 
 _HELP = """\
@@ -37,8 +37,8 @@ Commands:
   doctor    Check tool availability and versions
   multi     Run audit across multiple repositories
   triage    Convert audit findings into per-file action recommendations
-  repograph-migration-gate
-            Run strict cross-repo RepoGraph migration gate checks
+  repograph-governance-gate
+            Run strict cross-repo RepoGraph governance checks
 
 Run `custodian <command> --help` for command-specific options.
 """

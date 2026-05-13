@@ -1,6 +1,6 @@
 # Semantic Federation
 
-`Custodian`'s semantic federation workflow keeps the cross-repo migration gate
+`Custodian`'s semantic federation workflow keeps the cross-repo governance gate
 operational after the initial RepoGraph hardening pass.
 
 ## What it verifies
@@ -19,11 +19,11 @@ Run the full federated gate against a workspace root and a materialized boundary
 artifact file:
 
 ```bash
-custodian-repograph-migration-gate \
+custodian-repograph-governance-gate \
   --repo-root /path/to/workspace \
   --boundary-artifact /path/to/boundary_disclosure_artifact.json \
-  --json-out /tmp/repograph-federation.json \
-  --summary-out /tmp/repograph-federation.md
+  --json-out /tmp/repograph-governance.json \
+  --summary-out /tmp/repograph-governance.md
 ```
 
 The boundary artifact must already exist. `Custodian` does not generate it.
@@ -50,3 +50,13 @@ If artifact materialization fails, the workflow fails before the gate runs.
 
 The workflow is fail-closed by design. It is operational glue around the same
 enforcement boundary, not a second enforcement layer.
+
+## Policy split
+
+- `custodian.policy.public_surface_catalog` governs which repo pages may appear
+  in the browseable public repository catalog.
+- Privacy and boundary detectors remain responsible for leakage, forbidden
+  names, and artifact validation.
+- Architecture docs may still mention `PrivateManifest`; the catalog policy only
+  limits first-class public repo pages.
+- The public site exposes current pages only.

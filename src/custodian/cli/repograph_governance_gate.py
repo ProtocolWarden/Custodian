@@ -4,11 +4,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from hashlib import sha256
+
+from custodian.policy.public_surface_catalog import (
+    PUBLIC_REPO_PAGE_SLUGS,
+    allowed_repo_page,
+    parse_canonical_repo_catalog,
+)
 
 
 PUBLIC_REPOS = [
@@ -26,7 +33,6 @@ PUBLIC_REPOS = [
     "ProtocolWarden.github.io",
     "RepoGraph",
 ]
-
 
 @dataclass
 class Finding:
@@ -48,6 +54,136 @@ def _rg(repo: Path, pattern: str) -> list[str]:
     if proc.returncode not in (0, 1):
         raise RuntimeError(proc.stderr.strip() or f"rg failed for {repo}")
     return [line for line in proc.stdout.splitlines() if line.strip()]
+
+
+def _check_public_repo_catalog(repo: Path, findings: list[Finding]) -> None:
+    if repo.name != "ProtocolWarden.github.io":
+        return
+
+    index = repo / "docs" / "repos" / "index.md"
+    if not index.exists():
+        return
+    text = index.read_text(encoding="utf-8")
+    entries = parse_canonical_repo_catalog(text)
+    for entry in entries:
+        approved_slug = allowed_repo_page(entry.repo)
+        if approved_slug is None:
+            findings.append(
+                Finding(
+                    repo=repo.name,
+                    file=str(index),
+                    rule_id="public_repo_catalog_only",
+                    severity="high",
+                    expected_boundary="canonical repo catalog lists only approved public repos",
+                    observed_violation=f"unapproved repo catalog entry: {entry.repo} -> {entry.slug}",
+                    recommended_fix="Remove private-truth or unmanaged repos from the browseable catalog",
+                )
+            )
+        elif approved_slug != Path(entry.slug).name:
+            findings.append(
+                Finding(
+                    repo=repo.name,
+                    file=str(index),
+                    rule_id="public_repo_catalog_only",
+                    severity="high",
+                    expected_boundary="canonical repo catalog entry maps to the approved page slug",
+                    observed_violation=f"{entry.repo} is linked to {entry.slug}, expected {approved_slug}",
+                    recommended_fix="Update the catalog link to the approved repo page slug",
+                )
+            )
+
+    nav = repo / "mkdocs.yml"
+    if nav.exists():
+        nav_text = nav.read_text(encoding="utf-8")
+        nav_pages = {
+            Path(match.group(1)).name
+            for match in re.finditer(r"repos/([A-Za-z0-9_.-]+\.md)", nav_text)
+        }
+        unexpected = sorted(
+            page
+            for page in nav_pages
+            if page not in PUBLIC_REPO_PAGE_SLUGS | {"index.md"}
+        )
+        for page in unexpected:
+            findings.append(
+                Finding(
+                    repo=repo.name,
+                    file=str(nav),
+                    rule_id="public_repo_catalog_only",
+                    severity="high",
+                    expected_boundary="site nav only exposes approved public repo pages",
+                    observed_violation=f"unexpected repo page in nav: {page}",
+                    recommended_fix="Remove non-catalog repo pages from the public repository navigation",
+                )
+            )
+
+    if "private-truth repos as normal browsable repo pages" not in text.lower() and "private-truth repos are not normal browsable repo pages" not in text.lower():
+        findings.append(
+            Finding(
+                repo=repo.name,
+                file=str(index),
+                rule_id="public_repo_catalog_only",
+                severity="medium",
+                expected_boundary="catalog explains private-truth repos are not browseable repo pages",
+                observed_violation="catalog does not state the private-truth / catalog boundary",
+                recommended_fix="Add the managed-projects note that private-truth repos are not normal browsable repo pages",
+            )
+        )
+
+    policy_doc = repo / "docs" / "governance" / "public-repo-catalog.md"
+    if not policy_doc.exists():
+        findings.append(
+            Finding(
+                repo=repo.name,
+                file=str(policy_doc),
+                rule_id="public_repo_catalog_only",
+                severity="high",
+                expected_boundary="public repo catalog policy is documented",
+                observed_violation="public repo catalog policy doc missing",
+                recommended_fix="Add docs/governance/public-repo-catalog.md and link it from the governance index",
+            )
+        )
+
+    if "historical" in text.lower() or "archival" in text.lower():
+        findings.append(
+            Finding(
+                repo=repo.name,
+                file=str(index),
+                rule_id="public_repo_catalog_only",
+                severity="medium",
+                expected_boundary="public repo catalog contains only current entries",
+                observed_violation="historical or archival catalog language remains",
+                recommended_fix="Remove archival/historical repo catalog language and keep only current entries",
+            )
+        )
+
+    doc_status = repo / "docs" / "architecture" / "doc-status.md"
+    if doc_status.exists():
+        findings.append(
+            Finding(
+                repo=repo.name,
+                file=str(doc_status),
+                rule_id="public_repo_catalog_only",
+                severity="high",
+                expected_boundary="no archival status system in the public site",
+                observed_violation="doc-status page still present",
+                recommended_fix="Remove docs/architecture/doc-status.md and its nav entry",
+            )
+        )
+
+    workstation = repo / "docs" / "repos" / "workstation.md"
+    if workstation.exists():
+        findings.append(
+            Finding(
+                repo=repo.name,
+                file=str(workstation),
+                rule_id="public_repo_catalog_only",
+                severity="high",
+                expected_boundary="no archival repo pages in the public catalog",
+                observed_violation="legacy workstation page still present",
+                recommended_fix="Remove docs/repos/workstation.md and any nav/catalog references to it",
+            )
+        )
 
 
 def _check_boundary_artifact_required(repo: Path, findings: list[Finding]) -> None:
@@ -154,7 +290,7 @@ def _check_legacy_inputs(repo: Path, findings: list[Finding]) -> None:
     )
     for hit in _rg(repo, legacy_pattern):
         file_path = hit.split(":", 1)[0]
-        if file_path.endswith("repograph_migration_gate.py"):
+        if file_path.endswith("repograph_governance_gate.py"):
             continue
         if "/report/" in file_path.replace("\\", "/"):
             continue
@@ -208,8 +344,9 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
     _check_workflow_artifact_file_only(repo, findings)
     if boundary_artifact.exists():
         _check_boundary_artifact_provenance(repo, boundary_artifact, findings)
+    _check_public_repo_catalog(repo, findings)
 
-    # Minimal ownership boundary checks required by migration gate.
+    # Minimal ownership boundary checks required by the RepoGraph governance gate.
     if repo.name == "Warehouse":
         for hit in _rg(repo, r"graph authority|topology owner|registry owner|scheduler|governance authority"):
             findings.append(
@@ -357,7 +494,7 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
             )
         else:
             text = federation.read_text(encoding="utf-8")
-            if "custodian-repograph-migration-gate" not in text or "ProtocolWarden.github.io" not in text:
+            if "custodian-repograph-governance-gate" not in text or "ProtocolWarden.github.io" not in text:
                 findings.append(
                     Finding(
                         repo=repo.name,
@@ -366,76 +503,36 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
                         severity="medium",
                         expected_boundary="workflow clones and audits the public repo set",
                         observed_violation="semantic federation workflow is not wired to the full public repo set",
-                        recommended_fix="Clone the public repos and run custodian-repograph-migration-gate over them",
+                        recommended_fix="Clone the public repos and run custodian-repograph-governance-gate over them",
                     )
                 )
 
     if repo.name == "ProtocolWarden.github.io":
-        doc_status = repo / "docs" / "architecture" / "doc-status.md"
-        if not doc_status.exists():
-            findings.append(
-                Finding(
-                    repo=repo.name,
-                    file=str(doc_status),
-                    rule_id="archival_doc_status_required",
-                    severity="medium",
-                    expected_boundary="docs architecture status convention page exists",
-                    observed_violation="doc status page missing",
-                    recommended_fix="Add docs/architecture/doc-status.md with current/historical rules",
-                )
-            )
         simple_model = repo / "docs" / "architecture" / "simple-platform-model.md"
         if not simple_model.exists():
             findings.append(
                 Finding(
                     repo=repo.name,
                     file=str(simple_model),
-                    rule_id="archival_doc_status_required",
+                    rule_id="public_repo_catalog_only",
                     severity="medium",
-                    expected_boundary="simple platform model page exists with status metadata",
+                    expected_boundary="simple platform model page exists",
                     observed_violation="simple platform model page missing",
-                    recommended_fix="Add current canonical simple-platform-model page with frontmatter",
+                    recommended_fix="Add current simple-platform-model page",
                 )
             )
         else:
             text = simple_model.read_text(encoding="utf-8")
-            if "architecture_status: CURRENT" not in text or "canonical: true" not in text:
+            if "architecture_status:" in text or "canonical:" in text:
                 findings.append(
                     Finding(
                         repo=repo.name,
                         file=str(simple_model),
-                        rule_id="archival_doc_status_required",
+                        rule_id="public_repo_catalog_only",
                         severity="medium",
-                        expected_boundary="current docs carry explicit archival status metadata",
-                        observed_violation="missing CURRENT/canonical frontmatter",
-                        recommended_fix="Add architecture_status: CURRENT and canonical: true",
-                    )
-                )
-        workstation = repo / "docs" / "repos" / "workstation.md"
-        if not workstation.exists():
-            findings.append(
-                Finding(
-                    repo=repo.name,
-                    file=str(workstation),
-                    rule_id="archival_doc_status_required",
-                    severity="medium",
-                    expected_boundary="historical workstation page remains labeled",
-                    observed_violation="historical workstation page missing",
-                    recommended_fix="Keep the archival workstation page with HISTORICAL frontmatter",
-                )
-            )
-        else:
-            text = workstation.read_text(encoding="utf-8")
-            if "architecture_status: HISTORICAL" not in text or "canonical: false" not in text:
-                findings.append(
-                    Finding(
-                        repo=repo.name,
-                        file=str(workstation),
-                        rule_id="archival_doc_status_required",
-                        severity="medium",
-                        expected_boundary="historical workstation page is labeled non-canonical",
-                        observed_violation="missing HISTORICAL/canonical: false frontmatter",
-                        recommended_fix="Mark docs/repos/workstation.md as HISTORICAL and canonical: false",
+                        expected_boundary="simple platform model contains no archival frontmatter",
+                        observed_violation="status frontmatter remains on a current page",
+                        recommended_fix="Remove architecture_status/canonical frontmatter from the public model page",
                     )
                 )
 
