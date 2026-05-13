@@ -44,6 +44,8 @@ B2  Boundary artifact is required but no boundary source is
 from __future__ import annotations
 
 import subprocess
+from hashlib import sha256
+import json
 from pathlib import Path
 
 from custodian.audit_kit.detector import (
@@ -103,7 +105,9 @@ def _parse_config(config: dict) -> tuple[list[str], list[str], bool, str | None]
     block = config.get("privacy") or {}
     names: list[str] = []
     provenance: str | None = None
-    artifact_payload, provenance = _load_boundary_artifact_payload(block)
+    artifact_payload, provenance, error = _load_boundary_artifact_payload(block)
+    if error:
+        return [], list(_DEFAULT_EXCLUDES) + list(block.get("exclude_paths") or []), bool(block.get("require_boundary_artifact", False)), error
     if artifact_payload is not None:
         names.extend(_parse_boundary_artifact_names(artifact_payload))
     names = _dedupe_preserve_order(name for name in names if name)
@@ -136,31 +140,31 @@ def _env_str(name: str) -> str | None:
     return value or None
 
 
-def _load_boundary_artifact_payload(block: dict[str, object]) -> tuple[dict[str, object] | None, str | None]:
+def _load_boundary_artifact_payload(block: dict[str, object]) -> tuple[dict[str, object] | None, str | None, str | None]:
     file_path = block.get("boundary_artifact_file") or _env_str(_ARTIFACT_FILE_ENV)
     if not file_path:
-        return None, None
+        return None, None, None
     path = Path(str(file_path)).expanduser()
     if not path.is_file():
-        return None, None
+        return None, None, f"boundary artifact file not found: {path}"
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
-        return None, None
-    payload = _parse_boundary_artifact_document(text)
+        return None, None, f"boundary artifact file unreadable: {path}"
+    payload, error = _parse_boundary_artifact_document(text)
+    if error:
+        return None, None, error
     if payload is not None:
-        return payload, _artifact_provenance(payload, fallback=str(path))
-    return None, None
+        return payload, _artifact_provenance(payload, fallback=str(path)), None
+    return None, None, "boundary artifact document is empty"
 
 
-def _parse_boundary_artifact_document(text: str) -> dict[str, object] | None:
+def _parse_boundary_artifact_document(text: str) -> tuple[dict[str, object] | None, str | None]:
     stripped = text.strip()
     if not stripped:
-        return None
+        return None, "boundary artifact document is empty"
     parsed: object = None
     try:
-        import json
-
         parsed = json.loads(stripped)
     except Exception:
         parsed = None
@@ -175,11 +179,31 @@ def _parse_boundary_artifact_document(text: str) -> dict[str, object] | None:
             except yaml.YAMLError:
                 parsed = None
     if not isinstance(parsed, dict):
-        return None
+        return None, "boundary artifact document is not a JSON/YAML object"
     names = parsed.get("forbidden_names")
     if not isinstance(names, list):
-        return None
-    return parsed
+        return None, "boundary artifact missing forbidden_names list"
+    schema_kind = parsed.get("schema_kind")
+    schema_version = parsed.get("schema_version")
+    artifact_kind = parsed.get("artifact_kind")
+    if schema_kind != "boundary_artifact":
+        return None, "boundary artifact schema_kind must be 'boundary_artifact'"
+    if schema_version != "1.0.0":
+        return None, f"boundary artifact schema_version unsupported: {schema_version!r}"
+    if artifact_kind != "boundary_disclosure_artifact":
+        return None, "boundary artifact_kind must be 'boundary_disclosure_artifact'"
+    required = ("source_graph_id", "generated_at")
+    missing = [key for key in required if not parsed.get(key)]
+    if missing:
+        return None, f"boundary artifact missing required fields: {missing}"
+    artifact_hash = parsed.get("artifact_hash")
+    if artifact_hash:
+        expected = _boundary_artifact_hash(parsed)
+        if artifact_hash != expected:
+            return None, "boundary artifact hash mismatch"
+    if parsed.get("signature"):
+        return None, "boundary artifact signature present but no verifier is configured"
+    return parsed, None
 
 
 def _parse_boundary_artifact_names(payload: dict[str, object]) -> list[str]:
@@ -191,6 +215,16 @@ def _artifact_provenance(payload: dict[str, object], *, fallback: str) -> str:
     source = payload.get("source_graph_id") or fallback
     ref = payload.get("source_ref_or_commit")
     return f"{source}@{ref}" if ref else str(source)
+
+
+def _boundary_artifact_hash(payload: dict[str, object]) -> str:
+    material = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"artifact_hash", "signature", "signed_at", "public_projection_redaction_report"}
+    }
+    canonical = json.dumps(material, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _dedupe_preserve_order(values) -> list[str]:
@@ -258,6 +292,8 @@ def detect_b1(context: AuditContext) -> DetectorResult:
     are skipped.
     """
     names, excludes, _require, provenance = _parse_config(context.config)
+    if isinstance(provenance, str) and provenance.startswith("boundary artifact"):
+        return DetectorResult(count=1, samples=[provenance])
     source_paths = set(_names_source_paths(context.config))
     if not names:
         return DetectorResult(count=0, samples=[])
@@ -303,7 +339,9 @@ def detect_b1(context: AuditContext) -> DetectorResult:
 
 def detect_b2(context: AuditContext) -> DetectorResult:
     """Fail when a repo requires a boundary artifact file but none is configured."""
-    names, _excludes, require, _provenance = _parse_config(context.config)
+    names, _excludes, require, provenance = _parse_config(context.config)
+    if isinstance(provenance, str) and provenance.startswith("boundary artifact"):
+        return DetectorResult(count=1, samples=[provenance])
     if not require or names:
         return DetectorResult(count=0, samples=[])
     samples = [

@@ -8,6 +8,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
+from hashlib import sha256
 
 
 PUBLIC_REPOS = [
@@ -66,6 +67,81 @@ def _check_boundary_artifact_required(repo: Path, findings: list[Finding]) -> No
                 recommended_fix="Set privacy.require_boundary_artifact: true",
             )
         )
+
+
+def _check_boundary_artifact_provenance(repo: Path, boundary_artifact: Path, findings: list[Finding]) -> None:
+    try:
+        data = json.loads(boundary_artifact.read_text(encoding="utf-8"))
+    except Exception as exc:
+        findings.append(
+            Finding(
+                repo=repo.name,
+                file=str(boundary_artifact),
+                rule_id="boundary_artifact_invalid",
+                severity="high",
+                expected_boundary="valid RepoGraph boundary artifact JSON",
+                observed_violation=f"json decode error: {exc}",
+                recommended_fix="Regenerate artifact from PrivateManifest exporter",
+            )
+        )
+        return
+
+    if data.get("schema_kind") != "boundary_artifact" or data.get("schema_version") != "1.0.0":
+        findings.append(
+            Finding(
+                repo=repo.name,
+                file=str(boundary_artifact),
+                rule_id="schema_version_supported",
+                severity="high",
+                expected_boundary="supported boundary artifact schema version",
+                observed_violation=f"schema={data.get('schema_kind')!r} version={data.get('schema_version')!r}",
+                recommended_fix="Regenerate artifact with supported RepoGraph schema version",
+            )
+        )
+    if not data.get("source_graph_id") or not data.get("generated_at"):
+        findings.append(
+            Finding(
+                repo=repo.name,
+                file=str(boundary_artifact),
+                rule_id="boundary_artifact_provenance_required",
+                severity="high",
+                expected_boundary="artifact includes provenance fields",
+                observed_violation="missing source_graph_id or generated_at",
+                recommended_fix="Generate artifact via PrivateManifest exporter",
+            )
+        )
+    if not data.get("artifact_hash"):
+        findings.append(
+            Finding(
+                repo=repo.name,
+                file=str(boundary_artifact),
+                rule_id="boundary_artifact_hash_valid",
+                severity="high",
+                expected_boundary="artifact hash present and valid",
+                observed_violation="artifact_hash is missing",
+                recommended_fix="Regenerate artifact with RepoGraph hash support",
+            )
+        )
+    else:
+        material = {
+            key: value
+            for key, value in data.items()
+            if key not in {"artifact_hash", "signature", "signed_at", "public_projection_redaction_report"}
+        }
+        canonical = json.dumps(material, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        observed = sha256(canonical.encode("utf-8")).hexdigest()
+        if observed != data["artifact_hash"]:
+            findings.append(
+                Finding(
+                    repo=repo.name,
+                    file=str(boundary_artifact),
+                    rule_id="boundary_artifact_hash_valid",
+                    severity="high",
+                    expected_boundary="artifact hash matches payload",
+                    observed_violation="artifact hash mismatch",
+                    recommended_fix="Regenerate artifact from PrivateManifest exporter",
+                )
+            )
 
 
 def _check_legacy_inputs(repo: Path, findings: list[Finding]) -> None:
@@ -130,6 +206,8 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
     _check_boundary_artifact_required(repo, findings)
     _check_legacy_inputs(repo, findings)
     _check_workflow_artifact_file_only(repo, findings)
+    if boundary_artifact.exists():
+        _check_boundary_artifact_provenance(repo, boundary_artifact, findings)
 
     # Minimal ownership boundary checks required by migration gate.
     if repo.name == "Warehouse":
@@ -174,35 +252,66 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
                 )
             )
 
-    if boundary_artifact.exists():
-        try:
-            data = json.loads(boundary_artifact.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
+    if repo.name == "RepoGraph":
+        docs = repo / "docs" / "schema-governance.md"
+        if not docs.exists():
             findings.append(
                 Finding(
                     repo=repo.name,
-                    file=str(boundary_artifact),
-                    rule_id="boundary_artifact_invalid",
-                    severity="high",
-                    expected_boundary="valid RepoGraph boundary artifact JSON",
-                    observed_violation=f"json decode error: {exc}",
-                    recommended_fix="Regenerate artifact from PrivateManifest exporter",
+                    file=str(docs),
+                    rule_id="schema_version_supported",
+                    severity="medium",
+                    expected_boundary="RepoGraph schema governance docs exist",
+                    observed_violation="schema governance docs missing",
+                    recommended_fix="Add docs/schema-governance.md documenting schema versions",
                 )
             )
-            return
-        for k in ("source_graph_id", "source_ref_or_commit", "forbidden_names"):
-            if k not in data:
+        rules = repo / "src" / "repograph" / "projection" / "rules.py"
+        if rules.exists():
+            text = rules.read_text(encoding="utf-8")
+            if "projection_profile" not in text or "PUBLIC_SAFE" not in text:
                 findings.append(
                     Finding(
                         repo=repo.name,
-                        file=str(boundary_artifact),
-                        rule_id="boundary_artifact_invalid",
-                        severity="high",
-                        expected_boundary="artifact has provenance and forbidden_names",
-                        observed_violation=f"missing key: {k}",
-                        recommended_fix="Regenerate artifact with RepoGraph boundary model",
+                        file=str(rules),
+                        rule_id="projection_profile_public_safety",
+                        severity="medium",
+                        expected_boundary="public projection explicitly marks PUBLIC_SAFE",
+                        observed_violation="projection profile safety marker missing",
+                        recommended_fix="Write projection_profile=PUBLIC_SAFE into public manifest output",
                     )
                 )
+
+    if repo.name == "ProtocolWarden.github.io":
+        simple_model = repo / "docs" / "architecture" / "simple-platform-model.md"
+        if not simple_model.exists():
+            findings.append(
+                Finding(
+                    repo=repo.name,
+                    file=str(simple_model),
+                    rule_id="archival_doc_status_required",
+                    severity="medium",
+                    expected_boundary="simple platform model page exists with status metadata",
+                    observed_violation="simple platform model page missing",
+                    recommended_fix="Add current canonical simple-platform-model page with frontmatter",
+                )
+            )
+        else:
+            text = simple_model.read_text(encoding="utf-8")
+            if "architecture_status: CURRENT" not in text or "canonical: true" not in text:
+                findings.append(
+                    Finding(
+                        repo=repo.name,
+                        file=str(simple_model),
+                        rule_id="archival_doc_status_required",
+                        severity="medium",
+                        expected_boundary="current docs carry explicit archival status metadata",
+                        observed_violation="missing CURRENT/canonical frontmatter",
+                        recommended_fix="Add architecture_status: CURRENT and canonical: true",
+                    )
+                )
+
+    # Boundary provenance checks live in _check_boundary_artifact_provenance().
 
 
 def _write_markdown(path: Path, findings: list[Finding]) -> None:

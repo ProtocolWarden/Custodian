@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 import subprocess
 from pathlib import Path
 
@@ -32,22 +33,22 @@ def _git_init(root: Path) -> None:
 
 
 def _write_artifact(path: Path, forbidden: list[str]) -> None:
-    path.write_text(
-        json.dumps(
-            {
-                "schema_version": "1.0",
-                "artifact_kind": "boundary_disclosure_artifact",
-                "source_graph_id": "PrivateManifest",
-                "source_ref_or_commit": "abc123",
-                "generated_at": "2026-05-13T00:00:00Z",
-                "forbidden_names": forbidden,
-                "allowed_aliases": ["VideoFoundryPublic"],
-                "redacted_entities": [],
-                "redaction_rules_applied": [],
-            }
-        ),
-        encoding="utf-8",
-    )
+    payload = {
+        "schema_kind": "boundary_artifact",
+        "schema_version": "1.0.0",
+        "artifact_kind": "boundary_disclosure_artifact",
+        "source_graph_id": "PrivateManifest",
+        "source_ref_or_commit": "abc123",
+        "generated_at": "2026-05-13T00:00:00Z",
+        "forbidden_names": forbidden,
+        "allowed_aliases": ["VideoFoundryPublic"],
+        "redacted_entities": [],
+        "redaction_rules_applied": [],
+    }
+    payload["artifact_hash"] = sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    path.write_text(json.dumps(payload), encoding="utf-8")
 
 
 class TestB1BoundaryArtifact:
@@ -96,6 +97,15 @@ class TestB2Required:
             )
         )
         assert result.count == 0
+
+    def test_invalid_artifact_fails_closed(self, tmp_path: Path) -> None:
+        artifact = tmp_path / "boundary.json"
+        artifact.write_text("{}", encoding="utf-8")
+        _git_init(tmp_path)
+        ctx = _ctx(tmp_path, {"privacy": {"boundary_artifact_file": str(artifact), "require_boundary_artifact": True}})
+        result = detect_b1(ctx)
+        assert result.count == 1
+        assert "boundary artifact" in result.samples[0]
 
 
 def test_build_returns_b1_b2() -> None:

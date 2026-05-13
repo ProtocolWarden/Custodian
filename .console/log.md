@@ -3,6 +3,11 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+- 2026-05-12 — RepoGraph hardening tranche: added explicit schema governance
+  scaffolding, boundary artifact hash/provenance validation, projection profile
+  awareness, diff/drift primitives, and migration-gate checks for schema version,
+  provenance, hash validity, archival doc status, and public projection safety.
+
 - 2026-05-12 — RepoGraph boundary artifact wiring tightened to file-only: removed inline
   boundary-artifact fallback from B2, rewrote the boundary detector tests for file-only
   inputs, and updated the repo-local pre-push guard so it fails closed unless
