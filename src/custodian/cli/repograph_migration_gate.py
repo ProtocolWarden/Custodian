@@ -283,6 +283,19 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
                 )
 
     if repo.name == "ProtocolWarden.github.io":
+        doc_status = repo / "docs" / "architecture" / "doc-status.md"
+        if not doc_status.exists():
+            findings.append(
+                Finding(
+                    repo=repo.name,
+                    file=str(doc_status),
+                    rule_id="archival_doc_status_required",
+                    severity="medium",
+                    expected_boundary="docs architecture status convention page exists",
+                    observed_violation="doc status page missing",
+                    recommended_fix="Add docs/architecture/doc-status.md with current/historical rules",
+                )
+            )
         simple_model = repo / "docs" / "architecture" / "simple-platform-model.md"
         if not simple_model.exists():
             findings.append(
@@ -308,6 +321,33 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
                         expected_boundary="current docs carry explicit archival status metadata",
                         observed_violation="missing CURRENT/canonical frontmatter",
                         recommended_fix="Add architecture_status: CURRENT and canonical: true",
+                    )
+                )
+        workstation = repo / "docs" / "repos" / "workstation.md"
+        if not workstation.exists():
+            findings.append(
+                Finding(
+                    repo=repo.name,
+                    file=str(workstation),
+                    rule_id="archival_doc_status_required",
+                    severity="medium",
+                    expected_boundary="historical workstation page remains labeled",
+                    observed_violation="historical workstation page missing",
+                    recommended_fix="Keep the archival workstation page with HISTORICAL frontmatter",
+                )
+            )
+        else:
+            text = workstation.read_text(encoding="utf-8")
+            if "architecture_status: HISTORICAL" not in text or "canonical: false" not in text:
+                findings.append(
+                    Finding(
+                        repo=repo.name,
+                        file=str(workstation),
+                        rule_id="archival_doc_status_required",
+                        severity="medium",
+                        expected_boundary="historical workstation page is labeled non-canonical",
+                        observed_violation="missing HISTORICAL/canonical: false frontmatter",
+                        recommended_fix="Mark docs/repos/workstation.md as HISTORICAL and canonical: false",
                     )
                 )
 

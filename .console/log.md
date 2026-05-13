@@ -8,6 +8,11 @@ _Not a task tracker — that's backlog.md. Keep entries concise and dated._
   awareness, diff/drift primitives, and migration-gate checks for schema version,
   provenance, hash validity, archival doc status, and public projection safety.
 
+- 2026-05-12 — ProtocolWarden archival-doc labeling: added explicit
+  CURRENT/HISTORICAL metadata guidance, marked the legacy PlatformDeployment
+  repo page as historical, and taught the RepoGraph gate to require canonical
+  status metadata for current docs plus archival status for the legacy page.
+
 - 2026-05-12 — RepoGraph boundary artifact wiring tightened to file-only: removed inline
   boundary-artifact fallback from B2, rewrote the boundary detector tests for file-only
   inputs, and updated the repo-local pre-push guard so it fails closed unless
