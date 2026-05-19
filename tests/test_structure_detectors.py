@@ -391,34 +391,34 @@ class TestA1:
 
     def _public_api_rule(self) -> dict:
         return {
-            "name": "ER public API only",
+            "name": "CR public API only",
             "glob": "src/**/*.py",
             "public_api_only": {
-                "package": "executor_runtime",
+                "package": "core_runner",
                 "allowed_paths": [
-                    "executor_runtime",
-                    "executor_runtime.runners",
-                    "executor_runtime.contracts",
+                    "core_runner",
+                    "core_runner.runners",
+                    "core_runner.contracts",
                 ],
             },
         }
 
     def test_public_api_only_top_level_import_allowed(self, tmp_path):
-        src = "from executor_runtime import ExecutorRuntime\n"
+        src = "from core_runner import CoreRunner\n"
         ctx = self._ctx(src, tmp_path, config={
             "architecture": {"invariants": [self._public_api_rule()]}
         })
         assert detect_a1(ctx).count == 0
 
     def test_public_api_only_runners_subpackage_allowed(self, tmp_path):
-        src = "from executor_runtime.runners import HttpRunner\n"
+        src = "from core_runner.runners import HttpRunner\n"
         ctx = self._ctx(src, tmp_path, config={
             "architecture": {"invariants": [self._public_api_rule()]}
         })
         assert detect_a1(ctx).count == 0
 
     def test_public_api_only_contracts_subpackage_allowed(self, tmp_path):
-        src = "from executor_runtime.contracts import RuntimeInvocation\n"
+        src = "from core_runner.contracts import RuntimeInvocation\n"
         ctx = self._ctx(src, tmp_path, config={
             "architecture": {"invariants": [self._public_api_rule()]}
         })
@@ -426,18 +426,18 @@ class TestA1:
 
     def test_public_api_only_deep_module_import_flagged(self, tmp_path):
         # Bypassing the runners __init__ — reaches into a private module
-        src = "from executor_runtime.runners.subprocess_runner import _run_with_process_group\n"
+        src = "from core_runner.runners.subprocess_runner import _run_with_process_group\n"
         ctx = self._ctx(src, tmp_path, config={
             "architecture": {"invariants": [self._public_api_rule()]}
         })
         result = detect_a1(ctx)
         assert result.count == 1
         assert "deep import" in result.samples[0]
-        assert "executor_runtime.runners.subprocess_runner" in result.samples[0]
+        assert "core_runner.runners.subprocess_runner" in result.samples[0]
 
     def test_public_api_only_direct_module_import_flagged(self, tmp_path):
-        # `import executor_runtime.runtime` (the bare module path) bypasses the public API
-        src = "import executor_runtime.runtime\n"
+        # `import core_runner.runtime` (the bare module path) bypasses the public API
+        src = "import core_runner.runtime\n"
         ctx = self._ctx(src, tmp_path, config={
             "architecture": {"invariants": [self._public_api_rule()]}
         })
@@ -453,19 +453,19 @@ class TestA1:
 
     def test_public_api_only_no_config_no_findings(self, tmp_path):
         # If allowed_paths is empty/missing, the rule does nothing (safe default)
-        src = "from executor_runtime.runners.subprocess_runner import _x\n"
+        src = "from core_runner.runners.subprocess_runner import _x\n"
         ctx = self._ctx(src, tmp_path, config={
             "architecture": {"invariants": [{
                 "name": "broken rule",
                 "glob": "src/**/*.py",
-                "public_api_only": {"package": "executor_runtime"},
+                "public_api_only": {"package": "core_runner"},
             }]}
         })
         assert detect_a1(ctx).count == 0
 
     def test_public_api_only_relative_import_not_flagged(self, tmp_path):
         # Relative imports never match — they don't reach external packages
-        src = "from .executor_runtime import x\n"
+        src = "from .core_runner import x\n"
         ctx = self._ctx(src, tmp_path, config={
             "architecture": {"invariants": [self._public_api_rule()]}
         })

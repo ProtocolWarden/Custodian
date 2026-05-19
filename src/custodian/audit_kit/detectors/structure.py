@@ -91,16 +91,16 @@ that bypass the public API contract::
 
     architecture:
       invariants:
-        - name: "ExecutorRuntime: public API only"
+        - name: "CoreRunner: public API only"
           glob: "src/operations_center/**"
           public_api_only:
-            package: "executor_runtime"
+            package: "core_runner"
             allowed_paths:
-              - "executor_runtime"
-              - "executor_runtime.runners"
-              - "executor_runtime.contracts"
+              - "core_runner"
+              - "core_runner.runners"
+              - "core_runner.contracts"
 
-Any import of ``executor_runtime.*`` whose imported module path is
+Any import of ``core_runner.*`` whose imported module path is
 not in ``allowed_paths`` (exact match) is flagged. This enforces
 boundary discipline that ``forbidden_import_prefix`` can't express
 (it's all-or-nothing).

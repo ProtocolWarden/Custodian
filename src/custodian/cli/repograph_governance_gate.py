@@ -24,7 +24,7 @@ PUBLIC_REPOS = [
     "SwitchBoard",
     "CxRP",
     "RxP",
-    "ExecutorRuntime",
+    "CoreRunner",
     "SourceRegistry",
     "PlatformManifest",
     "PlatformDeployment",

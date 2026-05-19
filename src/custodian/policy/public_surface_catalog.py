@@ -18,7 +18,7 @@ PUBLIC_REPO_CATALOG = {
     "Custodian": "custodian.md",
     "CxRP": "cxrp.md",
     "RxP": "rxp.md",
-    "ExecutorRuntime": "executorruntime.md",
+    "CoreRunner": "corerunner.md",
     "SwitchBoard": "switchboard.md",
     "SourceRegistry": "sourceregistry.md",
     "PlatformDeployment": "platformdeployment.md",
