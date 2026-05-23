@@ -107,6 +107,7 @@ def run_audit(
     *,
     min_severity: str | None = None,
     skip_deprecated: bool = True,
+    ignore_rules: set[str] | None = None,
 ) -> AuditResult:
     """Run all detectors consistently so repos can compare outputs across runs.
 
@@ -117,6 +118,7 @@ def run_audit(
                       Accepted values: "high", "medium", "low".
                       "high" runs only HIGH detectors; "medium" runs HIGH + MEDIUM;
                       "low" runs all (equivalent to not filtering).
+        ignore_rules: Set of detector IDs to skip entirely (e.g. {"W2", "F3"}).
     """
     cutoff = _SEVERITY_ORDER.get(min_severity or LOW, _SEVERITY_ORDER[LOW])
 
@@ -124,6 +126,8 @@ def run_audit(
     total = 0
     for detector in detectors:
         if skip_deprecated and detector.deprecated:
+            continue
+        if ignore_rules and detector.id in ignore_rules:
             continue
         det_order = _SEVERITY_ORDER.get(detector.severity, _SEVERITY_ORDER[MEDIUM])
         if det_order > cutoff:
