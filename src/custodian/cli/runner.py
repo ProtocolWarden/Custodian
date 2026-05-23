@@ -146,8 +146,10 @@ def run_repo_audit(
                                     src_root=src_root, repo_root=repo_root,
                                     tests_root=tests_root),
     )
+    _ignore = set((config.get("audit") or {}).get("ignore_rules") or [])
     result = run_audit(context=context, detectors=detectors, min_severity=min_severity,
-                       skip_deprecated=skip_deprecated)
+                       skip_deprecated=skip_deprecated,
+                       ignore_rules=_ignore or None)
 
     # Run enabled tool adapters and merge findings into result
     _run_adapters(result, repo_root=repo_root, config=config)
