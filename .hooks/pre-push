@@ -3,10 +3,27 @@
 set -e
 
 repo_root="$(git rev-parse --show-toplevel)"
+workspace_root="$(cd "$repo_root/.." && pwd)"
+
+if [ -z "${REPOGRAPH_BOUNDARY_ARTIFACT_FILE:-}" ]; then
+    shopt -s nullglob
+    for candidate in \
+        "$workspace_root"/PrivateManifest/dist/boundary_disclosure_artifact.json \
+        "$workspace_root"/*/dist/boundary_disclosure_artifact.json \
+        "$workspace_root"/*/policy/boundary_disclosure_artifact.json
+    do
+        if [ -f "$candidate" ]; then
+            export REPOGRAPH_BOUNDARY_ARTIFACT_FILE="$candidate"
+            break
+        fi
+    done
+    shopt -u nullglob
+fi
 
 if [ -z "${REPOGRAPH_BOUNDARY_ARTIFACT_FILE:-}" ] || [ ! -f "$REPOGRAPH_BOUNDARY_ARTIFACT_FILE" ]; then
     echo "[custodian-pre-push] missing REPOGRAPH_BOUNDARY_ARTIFACT_FILE; failing closed"
-    echo "  Generate artifact from PrivateManifest first and export REPOGRAPH_BOUNDARY_ARTIFACT_FILE"
+    echo "  Generate artifact from PrivateManifest first:"
+    echo "  python -m private_manifest.export_boundary_artifact --graph-root graph --out dist/boundary_disclosure_artifact.json"
     exit 1
 fi
 
@@ -17,7 +34,8 @@ fi
 for candidate in \
     "$custodian_multi" \
     "$repo_root/.venv/bin/custodian-multi" \
-    "$repo_root/.warehouse-venv/bin/custodian-multi"
+    "$repo_root/.warehouse-venv/bin/custodian-multi" \
+    "$workspace_root/Custodian/.venv/bin/custodian-multi"
 do
     if [ -x "$candidate" ]; then
         custodian_multi="$candidate"

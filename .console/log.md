@@ -509,3 +509,7 @@ callers (ruff, mypy, ty adapters) receive an absolute path. 8/8 reachable repos 
 - Added W7 detector to workspace.py: flags repos where .console/ uses blanket ignore instead of .console/* with tracked-file exceptions, or where CLAUDE.md is present but not in .gitignore.
 - W7 only activates when .console/ dir is present or CLAUDE.md exists at repo root.
 - All 1090 tests pass.
+
+## 2026-05-23 — Standardize pre-push hook
+
+- Updated `.hooks/pre-push` to the auto-discovering boundary-artifact variant (auto-locates PrivateManifest/dist artifact; extra custodian-multi fallback path).
