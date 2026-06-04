@@ -7,6 +7,10 @@ tests_root: tests
 # repos, it should be flagged here too.
 
 audit:
+  # R1/R2 (.console reconciliation gate) are opt-in. Custodian was reconciled
+  # in the pilot (log/backlog trimmed, .console scrub-clean), so it dogfoods
+  # enforcement: R1 (oversized log) + R2 (private-name leak) now fail-closed here.
+  reconcile_enforce: true
   # Terms used as documentation vocabulary (category labels, config key names)
   # that are not Python class/function names — suppress K1/K2 false positives.
   common_words:

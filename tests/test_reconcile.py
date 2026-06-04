@@ -40,11 +40,20 @@ _FAKE_LONG = "Acme" + "Private"          # synthetic private-repo name
 _FAKE_SHORT = "A" + "P"                  # its word-boundary abbreviation
 
 
-def _ctx(repo_root: Path, config: dict) -> AuditContext:
+def _ctx(repo_root: Path, config: dict, enforce: bool = True) -> AuditContext:
     src_root = repo_root / "src"
     tests_root = repo_root / "tests"
     src_root.mkdir(parents=True, exist_ok=True)
     tests_root.mkdir(parents=True, exist_ok=True)
+    # R1/R2 are opt-in (audit.reconcile_enforce). These detection tests assert
+    # the detector logic, so they run with enforcement ON by default; the
+    # dormant-by-default behaviour is covered by TestReconcileOptIn below.
+    if enforce:
+        cfg = dict(config)
+        audit = dict(cfg.get("audit") or {})
+        audit.setdefault("reconcile_enforce", True)
+        cfg["audit"] = audit
+        config = cfg
     return AuditContext(
         repo_root=repo_root,
         src_root=src_root,
@@ -324,3 +333,42 @@ class TestAC4LeakingThenScrubbed:
         subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True)
         after = detect_r2(_ctx(tmp_path, cfg))
         assert after.count == 0
+
+
+# ---------------------------------------------------------------------------
+# Opt-in: R1/R2 are dormant unless audit.reconcile_enforce is true
+# ---------------------------------------------------------------------------
+
+class TestReconcileOptIn:
+    """R1/R2 ship dormant (default off) so they can land fleet-wide without
+    breaking un-reconciled public repos' CI under --fail-on-findings. They
+    fire only once a repo opts in via audit.reconcile_enforce: true."""
+
+    def test_r1_dormant_without_enforce(self, tmp_path: Path) -> None:
+        console = tmp_path / ".console"
+        console.mkdir()
+        (console / "log.md").write_text(
+            "\n".join(f"line {i}" for i in range(500)) + "\n", encoding="utf-8"
+        )
+        _git_init(tmp_path)
+        # enforce=False → no reconcile_enforce flag → silent despite over-budget
+        assert detect_r1(_ctx(tmp_path, {}, enforce=False)).count == 0
+        # explicit opt-in fires
+        assert detect_r1(_ctx(tmp_path, {"audit": {"reconcile_enforce": True}},
+                             enforce=False)).count == 1
+
+    def test_r2_dormant_without_enforce(self, tmp_path: Path) -> None:
+        artifact = tmp_path / "boundary.json"
+        _write_artifact(artifact, forbidden=[_FAKE_LONG], scrub=[_FAKE_LONG, _FAKE_SHORT])
+        _write_pm(tmp_path)
+        console = tmp_path / ".console"
+        console.mkdir()
+        (console / "log.md").write_text(f"touched {_FAKE_LONG}\n", encoding="utf-8")
+        _git_init(tmp_path)
+        cfg = _base_config(artifact, repo_key="PublicRepo")
+        # enforce=False → no flag → silent despite a real leak
+        assert detect_r2(_ctx(tmp_path, cfg, enforce=False)).count == 0
+        # explicit opt-in fires
+        cfg_on = dict(cfg)
+        cfg_on["audit"] = {**cfg["audit"], "reconcile_enforce": True}
+        assert detect_r2(_ctx(tmp_path, cfg_on, enforce=False)).count == 1
