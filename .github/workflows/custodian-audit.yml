@@ -45,4 +45,4 @@ jobs:
       - name: Run Custodian audit
         run: |
           git config core.hooksPath .hooks
-          custodian-multi --repos . --fail-on-findings --no-color
+          custodian-multi --repos . --fail-on-findings --no-color -v

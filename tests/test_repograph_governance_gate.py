@@ -17,7 +17,7 @@ def _write_boundary_artifact(path: Path) -> None:
         "schema_kind": "boundary_artifact",
         "schema_version": "1.0.0",
         "artifact_kind": "boundary_disclosure_artifact",
-        "source_graph_id": "PrivateManifest",
+        "source_graph_id": "PrivateGraphFixture",
         "source_ref_or_commit": "abc123",
         "generated_at": "2026-05-12T00:00:00Z",
         "forbidden_names": ["PrivateImpl"],
@@ -149,7 +149,7 @@ def test_public_repo_catalog_rejects_private_truth_repo_pages(tmp_path: Path) ->
         "nav:\n"
         "  - Repos:\n"
         "      - Overview: repos/index.md\n"
-        "      - PrivateManifest: repos/privatemanifest.md\n",
+        "      - PrivateGraphFixture: repos/privategraphfixture.md\n",
         encoding="utf-8",
     )
     (repo / "docs" / "governance" / "public-repo-catalog.md").write_text(
@@ -160,7 +160,7 @@ def test_public_repo_catalog_rejects_private_truth_repo_pages(tmp_path: Path) ->
         "# Repository Catalog\n\n## Canonical repos\n\n"
         "| Repo | Role | Notes |\n"
         "| --- | --- | --- |\n"
-        "| [PrivateManifest](privatemanifest.md) | private graph truth | private-truth repo page |\n",
+        "| [PrivateGraphFixture](privategraphfixture.md) | private graph truth | private-truth repo page |\n",
         encoding="utf-8",
     )
     findings: list[Finding] = []
@@ -213,7 +213,7 @@ def test_public_surface_rejects_private_repo_names(tmp_path: Path) -> None:
     repo = tmp_path / "ProtocolWarden.github.io"
     (repo / "docs" / "overview").mkdir(parents=True, exist_ok=True)
     (repo / "README.md").write_text(
-        "# ProtocolWarden\n\nPrivateManifest should not appear here.\n",
+        "# ProtocolWarden\n\nPrivateGraphFixture should not appear here.\n",
         encoding="utf-8",
     )
     (repo / "mkdocs.yml").write_text(
@@ -231,10 +231,10 @@ def test_public_surface_rejects_private_repo_names(tmp_path: Path) -> None:
         "schema_kind": "boundary_artifact",
         "schema_version": "1.0.0",
         "artifact_kind": "boundary_disclosure_artifact",
-        "source_graph_id": "PrivateManifest",
+        "source_graph_id": "PrivateGraphFixture",
         "source_ref_or_commit": "abc123",
         "generated_at": "2026-05-13T00:00:00Z",
-        "forbidden_names": ["PrivateManifest", "VideoFoundry"],
+        "forbidden_names": ["PrivateGraphFixture", "VideoFoundry"],
         "allowed_aliases": [],
         "redacted_entities": [],
         "redaction_rules_applied": [],

@@ -10,7 +10,7 @@ Covers AC1-AC4:
 * AC2 — R1 fires once per over-budget `.console/*.md`, silent under budget,
   suppressed by config.
 * AC3 — R2 fires on a scrub-target name in a public repo's `.console/`,
-  does NOT fire on a non-scrub-target private name (e.g. PrivateManifest),
+  does NOT fire on a non-scrub-target private name (e.g. PrivateGraphFixture),
   is clean with no scrub-target content, and exempts private repos.
 * AC4 — R2 fires on a known-leaking public repo today and is silent once
   the leak is scrubbed.
@@ -74,7 +74,7 @@ def _write_artifact(path: Path, *, forbidden: list[str], scrub: list[str] | None
         "schema_kind": "boundary_artifact",
         "schema_version": "1.0.0",
         "artifact_kind": "boundary_disclosure_artifact",
-        "source_graph_id": "PrivateManifest",
+        "source_graph_id": "PrivateGraphFixture",
         "source_ref_or_commit": "abc123",
         "generated_at": "2026-06-04T00:00:00Z",
         "forbidden_names": forbidden,
@@ -247,7 +247,7 @@ class TestAC3R2ScrubLeak:
         artifact = tmp_path / "boundary.json"
         _write_artifact(
             artifact,
-            forbidden=["PrivateManifest", _FAKE_LONG],
+            forbidden=["PrivateGraphFixture", _FAKE_LONG],
             scrub=[_FAKE_LONG, _FAKE_SHORT] if scrub is None else scrub,
         )
         _write_pm(tmp_path)
@@ -275,8 +275,8 @@ class TestAC3R2ScrubLeak:
         assert detect_r2(_ctx(tmp_path, cfg)).count == 0
 
     def test_private_manifest_name_does_not_fire(self, tmp_path: Path) -> None:
-        # PrivateManifest is forbidden for B1 but NOT a scrub target → R2 silent.
-        cfg = self._setup(tmp_path, "archived to PrivateManifest/archive\n", repo_key="PublicRepo")
+        # PrivateGraphFixture is forbidden for B1 but NOT a scrub target → R2 silent.
+        cfg = self._setup(tmp_path, "archived to PrivateGraphFixture/archive\n", repo_key="PublicRepo")
         assert detect_r2(_ctx(tmp_path, cfg)).count == 0
 
     def test_clean_console_no_scrub_names(self, tmp_path: Path) -> None:

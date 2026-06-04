@@ -109,10 +109,10 @@ def main():
     if args.json:
         out = []
         for repo, result, err in results:
-            if err:
-                out.append({"repo": str(repo), "error": err})
+            if err or result is None:
+                out.append({"repo": str(repo), "error": err or "no result"})
             else:
-                data = json.loads(result.to_json())  # type: ignore[union-attr]
+                data = json.loads(result.to_json())
                 data["repo_path"] = str(repo)
                 out.append(data)
         print(json.dumps(out, indent=2, ensure_ascii=False))

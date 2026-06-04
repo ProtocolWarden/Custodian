@@ -205,7 +205,7 @@ def _check_boundary_artifact_provenance(repo: Path, boundary_artifact: Path, fin
                 severity="high",
                 expected_boundary="valid RepoGraph boundary artifact JSON",
                 observed_violation=f"json decode error: {exc}",
-                recommended_fix="Regenerate artifact from PrivateManifest exporter",
+                recommended_fix="Regenerate artifact with the private-manifest exporter",
             )
         )
         return
@@ -231,7 +231,7 @@ def _check_boundary_artifact_provenance(repo: Path, boundary_artifact: Path, fin
                 severity="high",
                 expected_boundary="artifact includes provenance fields",
                 observed_violation="missing source_graph_id or generated_at",
-                recommended_fix="Generate artifact via PrivateManifest exporter",
+                recommended_fix="Generate artifact with the private-manifest exporter",
             )
         )
     if not data.get("artifact_hash"):
@@ -263,7 +263,7 @@ def _check_boundary_artifact_provenance(repo: Path, boundary_artifact: Path, fin
                     severity="high",
                     expected_boundary="artifact hash matches payload",
                     observed_violation="artifact hash mismatch",
-                    recommended_fix="Regenerate artifact from PrivateManifest exporter",
+                    recommended_fix="Regenerate artifact with the private-manifest exporter",
                 )
             )
 
