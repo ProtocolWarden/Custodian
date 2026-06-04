@@ -37,7 +37,7 @@ def _write_artifact(path: Path, forbidden: list[str]) -> None:
         "schema_kind": "boundary_artifact",
         "schema_version": "1.0.0",
         "artifact_kind": "boundary_disclosure_artifact",
-        "source_graph_id": "PrivateManifest",
+        "source_graph_id": "PrivateGraphFixture",
         "source_ref_or_commit": "abc123",
         "generated_at": "2026-05-13T00:00:00Z",
         "forbidden_names": forbidden,
@@ -61,7 +61,7 @@ class TestB1BoundaryArtifact:
         result = detect_b1(ctx)
         assert result.count == 1
         assert "README.md:1" in result.samples[0]
-        assert "boundary=PrivateManifest@abc123" in result.samples[0]
+        assert "boundary=PrivateGraphFixture@abc123" in result.samples[0]
 
     def test_uses_artifact_env_file(self, tmp_path: Path, monkeypatch) -> None:
         artifact = tmp_path / "boundary.json"

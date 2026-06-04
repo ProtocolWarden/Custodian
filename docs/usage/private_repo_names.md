@@ -43,7 +43,7 @@ Custodian reads `forbidden_names` from a RepoGraph boundary artifact:
 
 ```json
 {
-  "source_graph_id": "PrivateManifest",
+  "source_graph_id": "your-private-manifest",
   "source_ref_or_commit": "abc123",
   "forbidden_names": ["MyPrivateRepo", "myprivaterepo"],
   "allowed_aliases": ["ManagedProjectPublic"],
@@ -115,5 +115,5 @@ audit:
   string explicitly.
 - It does not look inside binary blobs, including images that may
   contain text via OCR. Manage binary leaks separately.
-- It does not generate the boundary artifact itself. `PrivateManifest` does
-  that from RepoGraph identity metadata.
+- It does not generate the boundary artifact itself. The private-manifest repo
+  does that from RepoGraph identity metadata.

@@ -44,7 +44,7 @@ If artifact materialization fails, the workflow fails before the gate runs.
 ## Failure interpretation
 
 - missing boundary artifact: operator or CI setup error
-- malformed artifact: PrivateManifest export or transport error
+- malformed artifact: private-manifest repo export or transport error
 - ownership drift / duplicate vocabulary: RepoGraph or consumer regression
 - legacy path regression: a forbidden compatibility path reappeared
 
@@ -57,6 +57,6 @@ enforcement boundary, not a second enforcement layer.
   in the browseable public repository catalog.
 - Privacy and boundary detectors remain responsible for leakage, forbidden
   names, and artifact validation.
-- Architecture docs may still mention `PrivateManifest`; the catalog policy only
+- Architecture docs may still mention the private-manifest repo; the catalog policy only
   limits first-class public repo pages.
 - The public site exposes current pages only.

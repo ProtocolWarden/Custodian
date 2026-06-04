@@ -16,9 +16,10 @@ R2  (fail-closed) — a §1 *scrub-target* private name (the public-leak
     ``.console/**`` file of a **public** repo (public == this repo's name
     is present in ``platform_manifest.yaml``). This is the original leak
     B1 misses because it default-excludes ``.console/**``. R2 deliberately
-    overrides that exclusion *for scrub-target names only* — ``PrivateManifest``
-    and B1's normal private-repo names keep their existing ``.console/**``
-    exclusion behaviour. MEDIUM, one finding per match (capped at samples).
+    overrides that exclusion *for scrub-target names only* — non-scrub
+    private names (e.g. the private-manifest repo's own name) keep their
+    existing ``.console/**`` exclusion behaviour. MEDIUM, one finding per
+    match (capped at samples).
 
 The scrub-target vocabulary is read from a single source of truth — the
 boundary artifact's ``forbidden_names`` list (with word-boundary
