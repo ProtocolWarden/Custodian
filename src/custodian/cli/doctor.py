@@ -20,6 +20,7 @@ from custodian.audit_kit.detectors.platform_manifest_native import (
     load_platform_manifest_native_detectors,
 )
 from custodian.audit_kit.detectors.workspace import build_workspace_detectors
+from custodian.audit_kit.detectors.reconcile import build_reconcile_detectors
 from custodian.audit_kit.detectors.envvar import build_envvar_detectors
 from custodian.audit_kit.detectors.doc_conventions import build_doc_convention_detectors
 from custodian.audit_kit.detectors.repo_meta import build_repo_meta_detectors
@@ -221,6 +222,7 @@ def main():
                                 + build_cross_repo_detectors()
                                 + build_plumbing_detectors()
                                 + build_workspace_detectors()
+                                + build_reconcile_detectors()
                                 + build_envvar_detectors()
                                 + extra
                                 + native)}
