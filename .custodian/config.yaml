@@ -150,7 +150,7 @@ audit:
       - src/custodian/audit_kit/passes/import_graph.py
       - src/custodian/audit_kit/passes/symbol_index.py
       - src/custodian/audit_kit/passes/tests_forest.py
-      # Plugin protocols are implemented by OC/VF _custodian/ overlays, not tests.
+      # Plugin protocols are implemented by downstream _custodian/ overlays, not tests.
       - src/custodian/plugins/protocols.py
       # SARIF report writer is an optional output format; tested through CLI integration.
       - src/custodian/reports/sarif_report.py

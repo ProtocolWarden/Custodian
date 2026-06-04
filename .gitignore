@@ -16,6 +16,9 @@ __pycache__/
 !.console/backlog.md
 !.console/guidelines.md
 !.console/log.md
+# Reconciliation scaffolding (untracked per console-reconciliation spec §3.1 / Layer C)
+/.console/reconcile.yaml
+/.console/archive/
 CLAUDE.md
 .claude/
 

@@ -78,7 +78,7 @@ status: complete
 | D4 | Unreachable code after unconditional return/raise | MEDIUM | dead_code.py | `ruff` | Yes (MEDIUM) | Ruff `RET508` / `F811` area — verify exact rule | LOW | Ruff has dead-code detection rules; verify coverage of all D4 patterns before retiring |
 | D5 | Dead class (never referenced) | MEDIUM | dead_code.py | `vulture_advisory` | No | Vulture | MEDIUM | Vulture detects unused classes. Non-blocking; string-based factory pattern is a known false positive. |
 | D6 | Class referenced in annotations but never constructed | MEDIUM | dead_code.py | `custodian_policy` (advisory) | No | None | MEDIUM | **No tool equivalent.** Captures partial-pipeline pattern where a DTO is wired into type signatures but the produce-side was never implemented. Retain as advisory — useful for architectural cleanup. See mandatory decision below. |
-| D7 | Dead method parameter | LOW | dead_code.py | `retire` | — | None | HIGH | **Retire.** High noise (keyword-only params cannot be renamed without breaking callers), limited architectural value, and the 35 remaining VF findings are all in this category. Type checkers and normal code review handle this better. See mandatory decision below. |
+| D7 | Dead method parameter | LOW | dead_code.py | `retire` | — | None | HIGH | **Retire.** High noise (keyword-only params cannot be renamed without breaking callers), limited architectural value, and the 35 remaining findings in a private downstream repo are all in this category. Type checkers and normal code review handle this better. See mandatory decision below. |
 
 ---
 
@@ -116,7 +116,7 @@ status: complete
 
 | Code | Description | Severity | Module | Destination | Blocking | Replacement | FP Risk | Migration Notes |
 |---|---|---|---|---|---|---|---|---|
-| A1 | Declarative YAML invariant (max_lines, max_classes, max_functions, forbidden_import, forbidden_import_prefix) | HIGH | structure.py | `custodian_policy` | Yes (HIGH) | `max_*` metrics Custodian-owned; `forbidden_import*` keys are the canonical import-policy layer (replaced custom plugin AST walkers) | LOW | Permanently Custodian-owned. `forbidden_import_prefix` (added) catches both `import foo.bar` and `from foo.bar import x` with one rule — used by OC AI1 and VF VF2/VF4 invariants. |
+| A1 | Declarative YAML invariant (max_lines, max_classes, max_functions, forbidden_import, forbidden_import_prefix) | HIGH | structure.py | `custodian_policy` | Yes (HIGH) | `max_*` metrics Custodian-owned; `forbidden_import*` keys are the canonical import-policy layer (replaced custom plugin AST walkers) | LOW | Permanently Custodian-owned. `forbidden_import_prefix` (added) catches both `import foo.bar` and `from foo.bar import x` with one rule — used by OC AI1 and a private downstream repo's import-direction invariants. |
 
 ---
 
@@ -128,12 +128,15 @@ status: complete
 
 ---
 
-## T-class — Test Shape (2 detectors)
+## T-class — Test Shape (5 detectors)
 
 | Code | Description | Severity | Module | Destination | Blocking | Replacement | FP Risk | Migration Notes |
 |---|---|---|---|---|---|---|---|---|
 | T1 | Source module has no test file | MEDIUM | test_shape.py | `custodian_policy` | No (advisory) | None | HIGHER | Repo-aware check; integration tests produce false positives. Stays as advisory. |
 | T2 | Test function has no assertions | HIGH | test_shape.py | `custodian_policy` | Yes (HIGH) | Ruff `PT` rules cover some pytest assertion patterns; not the "no assertions" case | MEDIUM | No Ruff rule for "test function contains zero assertions." Stays in Custodian. |
+| T6 | Src module never imported by any test file | LOW (advisory) | test_shape.py | `custodian_policy` | No | None | MEDIUM | File-level companion to T1's symbol-level coverage. Builds each src module's dotted name and flags any never referenced by a test `import`/`from`-import (prefix-expanded). Skips `__init__.py` + dunders. No external tool computes import-graph reachability against the *tests* tree. Excludes via `audit.exclude_paths.T6`. |
+| T7 | Src module has no parallel `test_<name>.py` | LOW (advisory) | test_shape.py | `custodian_policy` | No | None | MEDIUM | Convention enforcement. For `src/foo/bar.py` accepts `tests/test_bar.py`, `tests/foo/test_bar.py`, or the same under `tests/{unit,integration,contract,regression}/`. Skips `__init__.py` + dunders. Custom sub-dirs via `audit.t7_test_dirs`; excludes via `audit.exclude_paths.T7`. Pure naming convention — no tool equivalent. |
+| T8 | Test file imports nothing from any src package | LOW (advisory) | test_shape.py | `custodian_policy` | No | None | MEDIUM | Dangling-test detection. Derives top-level src package names, then flags `test_*.py` files whose imports never reach them. Transitive reach via an ancestor `conftest.py` that imports src counts as touching src. `tests/{integration,e2e,smoke}/**` default-exempt (subprocess/HTTP/CLI exercise). Custom exempt via `audit.t8_exempt`; excludes via `audit.exclude_paths.T8`. |
 
 ---
 
@@ -160,6 +163,65 @@ status: complete
 |---|---|---|---|---|---|---|---|---|
 | X1 | Cyclomatic complexity exceeds threshold | MEDIUM | complexity.py | `ruff` | Yes (MEDIUM) | Ruff `C901` (McCabe) | LOW | Exact match. Ruff `mccabe.max-complexity` config replaces `x1_threshold`. |
 | X2 | Too many parameters | LOW | complexity.py | `ruff` | Yes (LOW) | Ruff `PLR0913` | LOW | Exact match. Ruff `pylint.max-args` config replaces `x2_threshold`. |
+
+> **Namespace note:** the `X1`/`X2` codes above belong to `complexity.py`.
+> `cross_repo.py` reuses the `X` prefix for an unrelated *cross-repo drift*
+> family (`X1` public-label reference, `X2` undeclared cross-repo import,
+> `X3` below). They are surfaced under their own detector builder and never
+> collide at runtime; the shared letter is historical. `X3` is documented
+> here because it is the only cross-repo `X` code that reaches a durable
+> design home (X1/X2 cross-repo are covered by the platform-boundary docs).
+
+| Code | Description | Severity | Module | Destination | Blocking | Replacement | FP Risk | Migration Notes |
+|---|---|---|---|---|---|---|---|---|
+| X3 | Doc `.md` file contains a GitHub URL using a stale/legacy repo label (e.g. `github.com/ProtocolWarden/<LegacyName>` when the manifest's canonical URL uses `<CanonicalName>`) | LOW (advisory) | cross_repo.py | `custodian_policy` | No | None | MEDIUM | URL-level companion to the cross-repo X1 string-name drift check. Derives stale→canonical URL pairs from `platform_manifest.yaml` (`github_url` + legacy labels), scans `.md` files, dedupes by (path, line, fragment). No external tool knows the platform's canonical repo URLs. Excludes via `audit.exclude_paths.X3`. |
+
+---
+
+## CV-class — Dynamic Coverage (3 detectors)
+
+Adapter, not native detector. Custodian does **not** run `coverage.py`
+itself — running coverage means running the consumer's production pipeline,
+which is repo-specific. The `CoverageAdapter`
+(`src/custodian/adapters/coverage.py`) instead *ingests* a `coverage.json`
+produced externally (by the consuming repo's own end-to-end hook) and
+normalizes it into the standard `Finding` shape, the same way the Ruff /
+Semgrep / Vulture adapters do. Default **OFF** in the standalone `custodian`
+CLI — opt in via the `tools.coverage` block in `.custodian.yaml`. All three
+codes are `custodian_policy`: no external tool turns raw coverage data into
+actionable per-module / per-function dead-in-production signals tied to the
+audit pipeline.
+
+| Code | Description | Severity | Module | Destination | Blocking | Replacement | FP Risk | Migration Notes |
+|---|---|---|---|---|---|---|---|---|
+| CV1 | Module had 0 of N statements executed during the recorded run — likely dead in production | LOW (advisory) | adapters/coverage.py | `custodian_policy` | No | None | MEDIUM | Emitted per file with `covered_lines == 0` and `num_statements > 0` (empty files / `__init__.py` skipped). A fully-unexecuted module short-circuits CV2/CV3 for that file. Complements static dead-code detectors (D1/D5/Vulture) with *runtime* evidence. FP risk: a module legitimately exercised only by a workload not present in the recorded run. |
+| CV2 | Function never executed during the recorded run | LOW (advisory) | adapters/coverage.py | `custodian_policy` | No | None | MEDIUM | Per-entry in coverage.json's optional `functions` block: `num_statements > 0` and `covered_lines == 0`. Line number taken from the first `missing_lines` entry when available. Only emitted for partially-covered modules (CV1 supersedes for fully-dead ones). FP risk: error/edge-path functions not hit by the recorded scenario. |
+| CV3 | Module percent-covered is below the configured `min_coverage` floor | LOW (advisory) | adapters/coverage.py | `custodian_policy` | No | None | LOW | Only active when `tools.coverage.min_coverage` (0-100) is set — otherwise disabled. Compares each file's `percent_covered` against the floor. Threshold-driven, so FP risk is whatever the operator chooses the floor to be. |
+
+**CV-class summary:** 3 → `custodian_policy`, all advisory, all opt-in via
+`tools.coverage`. The adapter also emits diagnostic findings
+`COVERAGE_JSON_MISSING` / `COVERAGE_JSON_INVALID` (LOW) when the configured
+`json_path` is absent or unparseable, so a misconfigured opt-in fails loud
+but non-blocking rather than silently producing nothing.
+
+---
+
+## R-class — `.console/` Reconciliation Gate (2 detectors)
+
+Layer A of the `.console/` reconciliation design
+([../architecture/console-reconciliation.md](../architecture/console-reconciliation.md),
+spec §2). Always-on, cheap detectors that stop operator `.console/`
+workspaces from re-accumulating two problems silently: unbounded growth
+(R1) and private-name leakage into public tracked files (R2). Module:
+`reconcile.py`. Both are `custodian_policy` (no external tool equivalent).
+
+| Code | Description | Severity | Module | Destination | Blocking | Replacement | FP Risk | Migration Notes |
+|---|---|---|---|---|---|---|---|---|
+| R1 | Tracked `.console/*.md` source file over its line budget (`audit.r1_line_budget`, default 400) — "reconciliation due" | LOW (advisory) | reconcile.py | `custodian_policy` | No | None | LOW | One finding per over-budget file. Counts physical lines. Disable per-repo via `audit.r1_enabled: false`. Advisory signal only; the prune itself is the on-demand `cl reconcile` pass (Layer B). |
+| R2 | A §1 scrub-target private name (the public-leak vocabulary defined in the boundary artifact) in a **public** repo's tracked `.console/**` file | MEDIUM (fail-closed) | reconcile.py | `custodian_policy` | Yes | None | LOW | Public == repo present in `platform_manifest.yaml`. Deliberately overrides B1's `.console/**` default-exclude **for scrub-target names only** — `PrivateManifest` and B1's normal private-repo names keep their existing exclusion. Word-boundary match so detector IDs that embed a scrub token (e.g. `VF2`/`VF4`) are not flagged. Scrub-target set read from the boundary artifact's `scrub_targets` list (single source of truth, §1/AC1) — no second hardcoded copy. Private repos are exempt. |
+
+**R-class summary:** 2 → `custodian_policy` (neither has an external-tool
+equivalent; both are platform-boundary / workspace-hygiene invariants).
 
 ---
 
@@ -227,7 +289,7 @@ The high false-positive rate (dict-registry factories, string-based dispatch) ma
 **Decision: `retire`**
 
 Rationale:
-1. The 35 remaining VF findings are all keyword-only params (after `*`) that cannot be renamed to `_param` without breaking every call site. The detector correctly identifies them but they are unfixable without an API change.
+1. The 35 remaining findings in a private downstream repo are all keyword-only params (after `*`) that cannot be renamed to `_param` without breaking every call site. The detector correctly identifies them but they are unfixable without an API change.
 2. The signal-to-noise ratio is poor: Protocol implementations, framework callbacks, and interface-required params all trigger false positives that require per-function suppression logic.
 3. Type checkers (`ty`/`mypy`) surface unused params through different mechanisms with better context.
 4. Maintenance cost: the `del param` idiom, `@override` skip, `raise NIE` stub skip, and dunder skip all add complexity that will not exist in the new architecture.
@@ -242,7 +304,7 @@ Rationale:
 
 Rationale: Vulture cannot see Pydantic's runtime deserialization. `model_validate()`, `parse_obj()`, and `BaseSettings` environ loading are invisible to static analysis. Custodian's `model_validate_classes` tracking plus transitive expansion across nested models is domain-specific knowledge that belongs here permanently.
 
-The MongoDB fields currently flagged (VF F3=11) are genuine schema fields whose liveness cannot be verified statically — this is an acceptable known gap.
+The MongoDB fields currently flagged in a private downstream repo (F3=11) are genuine schema fields whose liveness cannot be verified statically — this is an acceptable known gap.
 
 **Keep permanently as advisory.**
 
@@ -463,16 +525,16 @@ These detectors were built natively after Phase 0 was complete. All are `custodi
 
 | Code | Description | Severity | Module | Destination | FP Risk | Notes |
 |---|---|---|---|---|---|---|
-| C34 | Commented-out `def`/`class`/decorator definition | LOW | code_health.py | `custodian_policy` | LOW | Regex-based; these patterns are almost never English prose. Found dead commented-out code in VF filter_function.py on first run. |
-| C35 | Bare `# type: ignore` without error-code brackets | LOW | code_health.py | `custodian_policy` | LOW | tokenize-based to avoid string/docstring false positives. Found 23 in VF on first run, all fixed. |
+| C34 | Commented-out `def`/`class`/decorator definition | LOW | code_health.py | `custodian_policy` | LOW | Regex-based; these patterns are almost never English prose. Found dead commented-out code in a private downstream repo on first run. |
+| C35 | Bare `# type: ignore` without error-code brackets | LOW | code_health.py | `custodian_policy` | LOW | tokenize-based to avoid string/docstring false positives. Found 23 in a private downstream repo on first run, all fixed. |
 | C36 | Built-in `open()` in text mode without `encoding=` | LOW | code_health.py | `custodian_policy` | LOW | AST-based; only flags `ast.Name(id="open")` — not `wave.open`, `Image.open`, etc. All repos already clean on first run. |
 
 ### D-class additions
 
 | Code | Description | Severity | Module | Destination | FP Risk | Notes |
 |---|---|---|---|---|---|---|
-| D8 | Function returns value on some paths, implicit-None on others | LOW | dead_code.py | `custodian_policy` | LOW | AST-based with `_all_paths_terminate()` helper. Handles `with`-blocks and `while True:` correctly. Found `_initial_authenticate()` fall-through in VF. |
-| D9 | `try/except` handler whose sole statement is a bare `raise` (no-op) | LOW | dead_code.py | `custodian_policy` | LOW | Only flags single-handler try blocks — multi-handler bare reraises are intentional filtering. Found 2 in VF on first run, both removed. |
+| D8 | Function returns value on some paths, implicit-None on others | LOW | dead_code.py | `custodian_policy` | LOW | AST-based with `_all_paths_terminate()` helper. Handles `with`-blocks and `while True:` correctly. Found `_initial_authenticate()` fall-through in a private downstream repo. |
+| D9 | `try/except` handler whose sole statement is a bare `raise` (no-op) | LOW | dead_code.py | `custodian_policy` | LOW | Only flags single-handler try blocks — multi-handler bare reraises are intentional filtering. Found 2 in a private downstream repo on first run, both removed. |
 
 ### K-class (new class — documentation consistency)
 
@@ -486,7 +548,7 @@ These detectors were built natively after Phase 0 was complete. All are `custodi
 
 | Code | Description | Severity | Module | Destination | FP Risk | Notes |
 |---|---|---|---|---|---|---|
-| A2 | Directory structure invariant violation (declarative YAML) | MEDIUM | structure.py | `custodian_policy` | LOW | Generic version of VF's DDD folder-shape check. Config: `architecture.directory_structure` with glob/required_files/required_dirs/exclude. |
+| A2 | Directory structure invariant violation (declarative YAML) | MEDIUM | structure.py | `custodian_policy` | LOW | Generic version of a private downstream repo's DDD folder-shape check. Config: `architecture.directory_structure` with glob/required_files/required_dirs/exclude. |
 | H1 | Hexagonal architecture layer ordering violation | MEDIUM | structure.py | `custodian_policy` | LOW | Layers declared in `architecture.hex` in order from innermost to outermost; each layer may only import from layers with lower index. More concise than S1's explicit `may_not_import` lists. |
 | N1 | Exception class name does not follow Error/Exception/Warning convention | LOW | naming.py | `custodian_policy` | LOW | AST-based. Flags classes that inherit from `Exception`/`BaseException` but don't end in `Error`, `Exception`, or `Warning`. |
 | T3 | Unconditional `pytest.skip()` without environment gate | LOW | test_shape.py | `custodian_policy` | LOW | Absorbed OC5. Configurable env-gate hints via `audit.t3_env_gate_hints`. |

@@ -212,6 +212,59 @@ def _parse_boundary_artifact_names(payload: dict[str, object]) -> list[str]:
     return [str(item).strip() for item in values if str(item).strip()]
 
 
+def _derive_abbreviations(names) -> list[str]:
+    """Derive word-boundary abbreviations from CamelCase forbidden names.
+
+    Spec §1 mandates a bare word-boundary alias (e.g. ``MR`` for a
+    ``MediaRuntime``-style name) even though the artifact lists only the
+    full CamelCase / ``snake_case`` forms. The alias is the sequence of
+    upper-case initials of a multi-word CamelCase name (``MediaRuntime``
+    → ``MR``); it is *derived*, never a second hardcoded copy, so the
+    artifact stays the single source of truth (AC1). Single-word names
+    and the ``snake_case`` duplicates yield no alias.
+    """
+    out: list[str] = []
+    for name in names:
+        caps = [c for c in name if c.isupper()]
+        if len(caps) >= 2:
+            out.append("".join(caps))
+    return out
+
+
+def load_scrub_targets(config: dict) -> list[str]:
+    """Return the §1 scrub-target vocabulary from the single source of truth.
+
+    The scrub-target set (the "public-leak names" vocabulary) is derived
+    from the *same* boundary artifact B1 already loads — its
+    ``forbidden_names`` list (the one populated key the artifact actually
+    ships). This is deliberately the only place the set is defined; no
+    detector keeps a second hardcoded copy, so changing the artifact
+    changes detection everywhere (AC1), and it matches the key
+    ContextLifecycle's ``cl reconcile`` reads, so both detection paths
+    share one source.
+
+    The full literal names supply CamelCase + ``snake_case`` forms; their
+    word-boundary abbreviations (``MediaRuntime`` → ``MR``, spec §1) are
+    *derived* from those same names rather than hardcoded. An optional
+    ``scrub_targets`` list, when present, overrides the derived set (used
+    by tests to inject a synthetic vocabulary without the real artifact).
+
+    Returns an empty list when no boundary artifact is configured or it
+    cannot be parsed — R-class detectors that depend on it then silently
+    no-op rather than raising.
+    """
+    block = config.get("privacy") or {}
+    payload, _provenance, error = _load_boundary_artifact_payload(block)
+    if error or payload is None:
+        return []
+    override = payload.get("scrub_targets")
+    if isinstance(override, list):
+        values = [str(item).strip() for item in override if str(item).strip()]
+        return _dedupe_preserve_order(values)
+    names = _parse_boundary_artifact_names(payload)
+    return _dedupe_preserve_order([*names, *_derive_abbreviations(names)])
+
+
 def _artifact_provenance(payload: dict[str, object], *, fallback: str) -> str:
     source = payload.get("source_graph_id") or fallback
     ref = payload.get("source_ref_or_commit")

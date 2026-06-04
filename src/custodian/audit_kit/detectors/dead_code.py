@@ -129,8 +129,8 @@ def build_dead_code_detectors() -> list[Detector]:
         Detector("D11", "duplicate function bodies (clone candidates)", "open",
                  detect_d11, LOW, _NEEDS_AST),
         # D3 stays NON-deprecated until ty/mypy is enabled across the major
-        # consumers (currently disabled in OC + VF). When enabled, mark
-        # deprecated=True and let the type checker take over.
+        # consumers (currently disabled in the downstream repos). When enabled,
+        # mark deprecated=True and let the type checker take over.
         Detector("D3", "function never returns normally — missing -> NoReturn", "open",
                  detect_d3, LOW, _NEEDS_AST),
         # ── DEPRECATED — Vulture covers (default-on, min_confidence=80) ──

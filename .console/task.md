@@ -21,7 +21,7 @@ Current state (2026-05-02):
 All 15 refactor phases complete. Custodian self-audit: 0 findings.
 
 Remaining findings across managed repos (as of round 9):
-- VF: A1=1 (WorkflowContext 47 fields, real architectural debt), T1=670 (integration-tested pipeline, intentional), VULTURE=~342, C15=163 (tracked tech debt)
+- A private downstream repo: A1=1 (WorkflowContext 47 fields, real architectural debt), T1=670 (integration-tested pipeline, intentional), VULTURE=~342, C15=163 (tracked tech debt)
 - OC: T1=266 (excluded adapters/entrypoints, monkeypatch-tested)
 - SB: clean
 - CxRP: clean

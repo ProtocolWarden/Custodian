@@ -30,6 +30,15 @@ design notes and usage guides.
 - [usage/platform_manifest_visibility.md](usage/platform_manifest_visibility.md) —
   How PMV detectors validate public PlatformManifest projections against
   forbidden fields, private terms, internal paths, URLs, and unsafe edges.
+- [usage/test_presence.md](usage/test_presence.md) —
+  How the T6/T7/T8 test-presence trio enforce that source modules are imported
+  by a test, have a parallel test file, and that test files reference src.
+- [usage/stale_github_urls.md](usage/stale_github_urls.md) —
+  How the X3 detector flags stale GitHub URLs in docs against the canonical
+  org/repo names derived from `platform_manifest.yaml`.
+- [usage/coverage_adapter.md](usage/coverage_adapter.md) —
+  How the CV1/CV2/CV3 coverage detectors ingest a `coverage.json` to flag
+  unexecuted modules/functions and below-threshold coverage.
 
 ## Operations
 
