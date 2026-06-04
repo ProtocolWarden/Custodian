@@ -36,5 +36,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .[dev]
+      # The repograph-governance-gate tests shell out to ripgrep.
+      - run: sudo apt-get update -q && sudo apt-get install -y -q ripgrep
       - run: pytest -q
       - run: ruff check src
