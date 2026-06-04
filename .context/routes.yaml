@@ -1,0 +1,15 @@
+# Context-injection routing table. glob -> leaf docs, ALL-MATCHES (every matching
+# rule fires). Consumed by .context/.engine/route.py; active only when
+# .context/config.yaml injection.enabled is true.
+engine_compat: ">=0.2 <0.3"   # must satisfy route.py SCHEMA_VERSION
+budget:
+  max_docs_per_edit: 3              # cap injected warm breadth per edit
+  max_cold_surface_per_edit: 5      # cap one-line cold-topic surfacing per edit
+routes:
+  - match: ".github/workflows/**"
+    inject: ["docs/inject/ci-conventions.md"]
+    priority: 10
+
+  - match: ".custodian/*.yaml"
+    inject: ["docs/inject/ci-conventions.md"]
+    priority: 10

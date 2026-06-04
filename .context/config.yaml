@@ -1,0 +1,14 @@
+# Custodian — ContextLifecycle config (injection-only).
+#
+# This repo runs the SLIM warm-injection hook (.claude/hooks/pre_tool_use.sh),
+# not the full ContextGuard stack — no capsule/lease enforcement here. The
+# engine is provisioned by `cl context init`; routes in .context/routes.yaml.
+
+clp_version: "0.2"
+manifest_scope: "public"
+
+# Context injection (warm tier) — targeted rollout 2026-06-04, following the
+# PlatformManifest §7a re-evaluation (route coverage was the limiter; this
+# repo's workflows/custodian-config edits are where the conventions recur).
+injection:
+  enabled: true

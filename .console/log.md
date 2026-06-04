@@ -3,6 +3,10 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+## 2026-06-04 — Warm-injection rollout (ci-conventions leaf doc)
+
+Second consumer of the ContextLifecycle warm-injection engine (after PlatformManifest), per PM's §7a re-evaluation: route coverage was the limiter, and this repo's `.github/workflows/**` / `.custodian/*.yaml` edits are where the fleet conventions (B64 boundary step, venv-guard, fleet-coupled `custodian@main`, plugin_audit_keys, fail-closed config) actually recur. Scaffolded via `cl context init`; deliberate design choice: SLIM injection-only PreToolUse hook (no ContextGuard — never blocks, always exit 0). `docs/inject/ci-conventions.md` is a copy — canonical lives in PlatformManifest. `.gitignore` narrowed so `.claude/` ships (was blanket-ignored). Verified: match emits valid additionalContext, no-match/flag-off inert, audit clean with artifact + B2 fails closed without.
+
 ## 2026-06-04 — Make R1/R2 opt-in (audit.reconcile_enforce, default off)
 
 R1/R2 shipped default-on in #26, which broke the rollout: CI installs `custodian@main`, so the moment #26 merged, every public repo's `custodian-multi --fail-on-findings` started failing on R1 (any `.console` log >400 lines) and R2 (pre-existing leaks) — before those repos were reconciled. Gated both behind `audit.reconcile_enforce` (default **false**): the detectors land fleet-wide but stay dormant until a repo opts in *after* it's reconciled (spec §6 rollout / the deferred-enforcement follow-up). Custodian dogfoods `reconcile_enforce: true` (it was reconciled in the pilot — clean). 23 reconcile tests (+2 opt-in). Verified: PM audit goes 1→0 (R1 dormant) with this gate; Custodian self-audit stays clean (only the pre-existing env W2).
