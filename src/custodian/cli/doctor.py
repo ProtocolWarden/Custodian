@@ -44,6 +44,9 @@ _KNOWN_TOP_LEVEL_KEYS = frozenset({
 })
 _KNOWN_AUDIT_KEYS = frozenset({
     "exclude_paths", "stale_handlers", "common_words",
+    # R1/R2 (.console reconciliation gate) opt-in enforcement toggle,
+    # consumed by audit_kit.detectors.reconcile.
+    "reconcile_enforce",
     "x1_threshold", "x2_threshold", "c29_threshold", "c33_threshold",
     "c13_allowed_paths",
     "t3_env_gate_hints",
