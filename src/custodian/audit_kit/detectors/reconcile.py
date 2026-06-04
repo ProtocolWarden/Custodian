@@ -29,11 +29,18 @@ ContextLifecycle's ``cl reconcile`` reads, so both detection paths share
 one source. Each name is matched on a word boundary so detector IDs that
 embed a scrub token (e.g. ``VF2``/``VF4``) do not trip it.
 
+Both R1 and R2 are **opt-in**: they are silent unless a repo sets
+``audit.reconcile_enforce: true``. Enforcement is a deliberate per-repo step
+taken *after* the repo's ``.console/`` has been reconciled (spec §6) — so the
+detectors can land fleet-wide without breaking every public repo's CI (under
+``--fail-on-findings``) before reconciliation.
+
 Configuration::
 
     audit:
+      reconcile_enforce: true    # OPT-IN: activate R1/R2 (default off)
       r1_line_budget: 400        # R1 threshold (lines), default 400
-      r1_enabled: true           # set false to suppress R1 entirely
+      r1_enabled: true           # set false to suppress R1 even when enforcing
       cross_repo:
         platform_manifest_repo: ../PlatformManifest   # R2 public lookup
     privacy:
@@ -94,6 +101,20 @@ def _audit_block(config: dict) -> dict:
     return block if isinstance(block, dict) else {}
 
 
+def _reconcile_enforced(config: dict) -> bool:
+    """R1/R2 are OPT-IN per repo (default off).
+
+    Enforcement is a deliberate activation step a repo takes *after* its
+    `.console/` has been reconciled (spec §6 rollout): until `cl reconcile`
+    has trimmed the log and scrubbed/archived any leak, R1 (oversized log)
+    and R2 (pre-existing leak) would block CI under `--fail-on-findings`.
+    Shipping them dormant lets the detectors land fleet-wide without breaking
+    every public repo's CI before it has been reconciled. A repo flips
+    `audit.reconcile_enforce: true` once it is clean.
+    """
+    return _audit_block(config).get("reconcile_enforce") is True
+
+
 def _word_pattern(name: str) -> re.Pattern[str]:
     pat = _word_re_cache.get(name)
     if pat is None:
@@ -105,9 +126,12 @@ def _word_pattern(name: str) -> re.Pattern[str]:
 def detect_r1(context: AuditContext) -> DetectorResult:
     """Flag tracked ``.console/*.md`` files over ``audit.r1_line_budget``.
 
-    One finding per over-budget file. Disabled when
+    One finding per over-budget file. Opt-in: silent unless
+    ``audit.reconcile_enforce`` is true; also disabled when
     ``audit.r1_enabled`` is false.
     """
+    if not _reconcile_enforced(context.config):
+        return DetectorResult(count=0, samples=[])
     audit = _audit_block(context.config)
     if audit.get("r1_enabled") is False:
         return DetectorResult(count=0, samples=[])
@@ -165,10 +189,13 @@ def _repo_is_public(context: AuditContext) -> bool:
 def detect_r2(context: AuditContext) -> DetectorResult:
     """Flag scrub-target names in a public repo's tracked ``.console/**``.
 
-    Fail-closed: each match is one finding (samples capped). Silent when
-    the repo is private (not in the manifest) or no scrub-target set is
-    configured. Word-boundary match so ``VF2``/``VF4`` are not flagged.
+    Fail-closed: each match is one finding (samples capped). Opt-in: silent
+    unless ``audit.reconcile_enforce`` is true. Also silent when the repo is
+    private (not in the manifest) or no scrub-target set is configured.
+    Word-boundary match so ``VF2``/``VF4`` are not flagged.
     """
+    if not _reconcile_enforced(context.config):
+        return DetectorResult(count=0, samples=[])
     if not _repo_is_public(context):
         return DetectorResult(count=0, samples=[])
 

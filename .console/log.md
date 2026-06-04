@@ -3,6 +3,10 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+## 2026-06-04 — Make R1/R2 opt-in (audit.reconcile_enforce, default off)
+
+R1/R2 shipped default-on in #26, which broke the rollout: CI installs `custodian@main`, so the moment #26 merged, every public repo's `custodian-multi --fail-on-findings` started failing on R1 (any `.console` log >400 lines) and R2 (pre-existing leaks) — before those repos were reconciled. Gated both behind `audit.reconcile_enforce` (default **false**): the detectors land fleet-wide but stay dormant until a repo opts in *after* it's reconciled (spec §6 rollout / the deferred-enforcement follow-up). Custodian dogfoods `reconcile_enforce: true` (it was reconciled in the pilot — clean). 23 reconcile tests (+2 opt-in). Verified: PM audit goes 1→0 (R1 dormant) with this gate; Custodian self-audit stays clean (only the pre-existing env W2).
+
 ## 2026-06-04 — Add R-class detectors + reconciliation pilot (.console reconciliation spec)
 
 Layer A of the `.console/` reconciliation spec (PlatformManifest/docs/architecture/console-reconciliation-spec.md): new R-class in `audit_kit/detectors/reconcile.py` — R1 (advisory, `.console/*.md` over `r1_line_budget` default 400) and R2 (fail-closed, scrub-target private name in a public repo's tracked `.console/**`; word-boundary so detector IDs like VF2 don't trip). Scrub vocabulary via `load_scrub_targets` reads the single boundary-artifact source (no hardcoded copy). Also closed the 7 doc gaps the reconciliation gate found — T6/T7/T8, X3, CV1/CV2/CV3 — as matrix catalog entries + full usage docs (test_presence/stale_github_urls/coverage_adapter); genericized standalone private-name refs in the matrix + config + dead_code comments to "a private downstream repo" (I2). Pilot prune (via `cl reconcile`): completed log+backlog history moved to the private side, this log trimmed 515→357 and backlog 144→70, CHANGELOG updated. 1110 tests + 20 new R-class tests green. Built via the console-reconciliation workflow; reviewed + verified by hand.
