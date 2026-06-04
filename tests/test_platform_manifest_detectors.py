@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 import sys
 
+import pytest
+
 from custodian.audit_kit.detector import AuditContext
 from custodian.cli.runner import run_repo_audit
 
@@ -16,6 +18,10 @@ if str(_PM_SRC) not in sys.path:
 
 
 def _pmv_detect():
+    # platform_manifest is an optional sibling-repo dependency (its `src/` is
+    # added to sys.path above when a PlatformManifest checkout sits next to
+    # this repo). It is not installed in CI, so skip cleanly when absent.
+    pytest.importorskip("platform_manifest.custodian_native")
     from platform_manifest.custodian_native import detect_pmv1, detect_pmv2
 
     return detect_pmv1, detect_pmv2
@@ -170,6 +176,10 @@ def test_pmv2_flags_relationships_to_private_or_unknown_nodes(tmp_path: Path) ->
 
 
 def test_run_repo_audit_includes_platform_manifest_detectors(tmp_path: Path) -> None:
+    # run_repo_audit loads the PMV detector contributor for real when the
+    # config declares it — needs the optional sibling package, like the
+    # direct-import tests above.
+    pytest.importorskip("platform_manifest.custodian_native")
     (tmp_path / ".custodian").mkdir()
     (tmp_path / ".custodian" / "config.yaml").write_text(
         "repo_key: sample\n"
