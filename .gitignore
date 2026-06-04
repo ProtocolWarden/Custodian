@@ -20,7 +20,8 @@ __pycache__/
 /.console/reconcile.yaml
 /.console/archive/
 CLAUDE.md
-.claude/
+# .claude is tracked (hooks + settings.json — warm-injection rollout); local-only state stays ignored
+.claude/settings.local.json
 
 # Build artifacts
 dist/
