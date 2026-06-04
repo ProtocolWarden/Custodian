@@ -176,6 +176,10 @@ def test_pmv2_flags_relationships_to_private_or_unknown_nodes(tmp_path: Path) ->
 
 
 def test_run_repo_audit_includes_platform_manifest_detectors(tmp_path: Path) -> None:
+    # run_repo_audit loads the PMV detector contributor for real when the
+    # config declares it — needs the optional sibling package, like the
+    # direct-import tests above.
+    pytest.importorskip("platform_manifest.custodian_native")
     (tmp_path / ".custodian").mkdir()
     (tmp_path / ".custodian" / "config.yaml").write_text(
         "repo_key: sample\n"
