@@ -73,7 +73,7 @@ jobs:
 
       - name: Run federated semantic gate
         run: |
-          custodian-repograph-migration-gate \
+          custodian-repograph-governance-gate \
             --repo-root "$WORKSPACE_ROOT" \
             --boundary-artifact "$REPOGRAPH_BOUNDARY_ARTIFACT_FILE" \
             --json-out "$RUNNER_TEMP/repograph-federation.json" \
