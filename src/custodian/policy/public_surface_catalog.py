@@ -23,9 +23,17 @@ PUBLIC_REPO_CATALOG = {
     "SourceRegistry": "sourceregistry.md",
     "PlatformDeployment": "platformdeployment.md",
     "Warehouse": "warehouse.md",
+    "ContextLifecycle": "contextlifecycle.md",
+    "CritiqueExecutor": "critiqueexecutor.md",
+    "DAGExecutor": "dagexecutor.md",
+    "SyncMechanism": "syncmechanism.md",
+    "TeamExecutor": "teamexecutor.md",
 }
 
 PUBLIC_REPO_PAGE_SLUGS = frozenset(PUBLIC_REPO_CATALOG.values())
+
+# Non-repo pages that legitimately live in the site's repos/ nav section.
+PUBLIC_REPO_NAV_EXTRA_PAGES = frozenset({"external-integrations.md"})
 
 
 @dataclass(frozen=True)

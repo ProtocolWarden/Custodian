@@ -12,6 +12,7 @@ from pathlib import Path
 from hashlib import sha256
 
 from custodian.policy.public_surface_catalog import (
+    PUBLIC_REPO_NAV_EXTRA_PAGES,
     PUBLIC_REPO_PAGE_SLUGS,
     allowed_repo_page,
     parse_canonical_repo_catalog,
@@ -32,6 +33,11 @@ PUBLIC_REPOS = [
     "Warehouse",
     "ProtocolWarden.github.io",
     "RepoGraph",
+    "ContextLifecycle",
+    "CritiqueExecutor",
+    "DAGExecutor",
+    "SyncMechanism",
+    "TeamExecutor",
 ]
 
 @dataclass
@@ -103,7 +109,7 @@ def _check_public_repo_catalog(repo: Path, findings: list[Finding]) -> None:
         unexpected = sorted(
             page
             for page in nav_pages
-            if page not in PUBLIC_REPO_PAGE_SLUGS | {"index.md"}
+            if page not in PUBLIC_REPO_PAGE_SLUGS | PUBLIC_REPO_NAV_EXTRA_PAGES | {"index.md"}
         )
         for page in unexpected:
             findings.append(

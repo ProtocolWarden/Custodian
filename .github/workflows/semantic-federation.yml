@@ -56,6 +56,8 @@ jobs:
           rm -rf "$workspace"
           mkdir -p "$workspace"
           cp -R "$GITHUB_WORKSPACE" "$workspace/Custodian"
+          # Keep in sync with PUBLIC_REPOS in cli/repograph_governance_gate.py
+          # (Custodian itself is copied from the checkout above).
           for repo in \
             OperatorConsole \
             OperationsCenter \
@@ -68,7 +70,12 @@ jobs:
             PlatformDeployment \
             Warehouse \
             ProtocolWarden.github.io \
-            RepoGraph
+            RepoGraph \
+            ContextLifecycle \
+            CritiqueExecutor \
+            DAGExecutor \
+            SyncMechanism \
+            TeamExecutor
           do
             git clone --depth 1 "https://github.com/ProtocolWarden/${repo}.git" "$workspace/$repo"
           done
