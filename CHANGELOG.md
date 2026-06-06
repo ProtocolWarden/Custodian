@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- DC9 — index-coverage detector: docs in `doc_conventions.dc9_index_dirs`
+  must be cited from `docs/README.md`. Closes the DC7 escape hatch where a
+  sibling-linked doc is no orphan yet missing from the canonical index.
+  Opt-in (silent when the config key is unset), DC6 precedent.
 - 2026-06-04: reconciled `refactor-phases-0-15` — Refactor master phase list — all 15 phases + S4 detector (history archived).
 - 2026-06-04: reconciled `detectors-t6-t8` — T6/T7/T8 — test-presence detector trio (history archived).
 - 2026-06-04: reconciled `detector-x3-stale-github-url` — X3 — stale GitHub URL in docs (X-series: X1 yaml-scan, X2 cross-repo import, X3) (history archived).

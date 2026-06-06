@@ -110,6 +110,9 @@ def build_doc_convention_detectors() -> list[Detector]:
         Detector("DC8",
                  "README sections out of conventional order",
                  "open", detect_dc8, LOW, frozenset()),
+        Detector("DC9",
+                 "doc in an index-required dir not cited from docs/README.md",
+                 "open", detect_dc9, LOW, frozenset()),
     ]
 
 
@@ -551,3 +554,62 @@ def detect_dc8(ctx: AuditContext) -> DetectorResult:
                 )
                 break  # one finding per out-of-order section is enough
     return DetectorResult(count=len(samples), samples=samples[:_MAX_SAMPLES])
+
+
+# ── DC9: docs missing from the docs/README.md index ──────────────────────────
+
+def detect_dc9(ctx: AuditContext) -> DetectorResult:
+    r"""Flag docs in index-required dirs that ``docs/README.md`` doesn't cite.
+
+    DC7 catches *orphans* (linked from nowhere) — but a doc cited only by a
+    sibling doc still sails past it while staying invisible from the canonical
+    index. For each dir in ``doc_conventions.dc9_index_dirs`` (repo-root
+    relative), every non-README ``.md`` under it must be cited from
+    ``docs/README.md`` via a markdown link or backticked ``docs/...`` path.
+
+    Opt-in (DC6 precedent): silent when ``dc9_index_dirs`` is unset. Silent
+    when ``docs/README.md`` doesn't exist (no index convention to enforce).
+    Honors the DC2/DC5/DC7 exclude patterns.
+    """
+    cfg = _config(ctx)
+    index_dirs = list(cfg.get("dc9_index_dirs") or [])
+    if not index_dirs:
+        return DetectorResult(count=0, samples=[])
+    index_md = ctx.repo_root / "docs" / "README.md"
+    if not index_md.is_file():
+        return DetectorResult(count=0, samples=[])
+    excludes = list(cfg.get("exclude_path_patterns") or _DEFAULT_EXCLUDE_PATTERNS)
+
+    # Paths the index cites: markdown links resolved relative to docs/, plus
+    # backticked repo-root-relative docs/... paths.
+    text = index_md.read_text(encoding="utf-8", errors="replace")
+    referenced: set[str] = set()
+    for m in _MD_LINK_RE.finditer(text):
+        target = (index_md.parent / m.group(1)).resolve()
+        try:
+            referenced.add(target.relative_to(ctx.repo_root.resolve()).as_posix())
+        except ValueError:
+            continue
+    for m in _BACKTICK_PATH_RE.finditer(text):
+        referenced.add(m.group(1))
+
+    samples: list[str] = []
+    count = 0
+    for index_dir in index_dirs:
+        root = ctx.repo_root / index_dir
+        if not root.is_dir():
+            continue
+        for md in sorted(root.rglob("*.md")):
+            rel = md.relative_to(ctx.repo_root)
+            if rel.name.lower() == "readme.md":
+                continue
+            if _is_excluded(rel, excludes):
+                continue
+            if rel.as_posix() not in referenced:
+                count += 1
+                if len(samples) < _MAX_SAMPLES:
+                    samples.append(
+                        f"{rel.as_posix()}: not cited from docs/README.md "
+                        f"(index-required dir {index_dir})"
+                    )
+    return DetectorResult(count=count, samples=samples)

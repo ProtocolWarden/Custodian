@@ -202,7 +202,7 @@ class TestBuild:
     def test_returns_all_detectors(self):
         ds = build_doc_convention_detectors()
         ids = {d.id for d in ds}
-        assert ids == {"DC1", "DC2", "DC3", "DC4", "DC5", "DC6", "DC7", "DC8"}
+        assert ids == {"DC1", "DC2", "DC3", "DC4", "DC5", "DC6", "DC7", "DC8", "DC9"}
 
     def test_all_low_severity(self):
         for d in build_doc_convention_detectors():
@@ -495,3 +495,91 @@ class TestDC8SectionOrdering:
         result = detect_dc8(ctx)
         assert result.count == 1
         assert "Examples" in result.samples[0]
+
+
+# ── DC9 ──────────────────────────────────────────────────────────────────────
+
+
+class TestDC9IndexCoverage:
+    def _repo(self, tmp_path: Path, *, index_text: str) -> Path:
+        arch = tmp_path / "docs" / "architecture"
+        arch.mkdir(parents=True)
+        (tmp_path / "docs" / "README.md").write_text(index_text)
+        (arch / "indexed.md").write_text("# Indexed")
+        (arch / "sibling-only.md").write_text("# Cited only by a sibling")
+        # The DC7 escape hatch this detector exists to close: a sibling link
+        # keeps sibling-only.md from being an orphan, but not from being
+        # missing from the index.
+        (arch / "indexed.md").write_text(
+            "# Indexed\n\nSee [sibling](sibling-only.md).\n"
+        )
+        return tmp_path
+
+    def test_silent_when_config_unset(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc9
+        self._repo(tmp_path, index_text="[i](architecture/indexed.md)")
+        assert detect_dc9(_ctx(tmp_path)).count == 0
+
+    def test_silent_when_no_index_file(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc9
+        (tmp_path / "docs" / "architecture").mkdir(parents=True)
+        (tmp_path / "docs" / "architecture" / "a.md").write_text("# A")
+        ctx = _ctx(tmp_path, {"doc_conventions": {"dc9_index_dirs": ["docs/architecture"]}})
+        assert detect_dc9(ctx).count == 0
+
+    def test_sibling_linked_doc_flagged_when_unindexed(self, tmp_path: Path):
+        """The DC7 gap: sibling-cited but index-absent docs must be flagged."""
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc9
+        self._repo(tmp_path, index_text="See [indexed](architecture/indexed.md).\n")
+        ctx = _ctx(tmp_path, {"doc_conventions": {"dc9_index_dirs": ["docs/architecture"]}})
+        result = detect_dc9(ctx)
+        assert result.count == 1
+        assert "sibling-only.md" in result.samples[0]
+        assert "not cited from docs/README.md" in result.samples[0]
+
+    def test_passes_when_all_indexed_via_link(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc9
+        self._repo(
+            tmp_path,
+            index_text=(
+                "- [indexed](architecture/indexed.md)\n"
+                "- [sibling](architecture/sibling-only.md)\n"
+            ),
+        )
+        ctx = _ctx(tmp_path, {"doc_conventions": {"dc9_index_dirs": ["docs/architecture"]}})
+        assert detect_dc9(ctx).count == 0
+
+    def test_backtick_citation_counts(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc9
+        self._repo(
+            tmp_path,
+            index_text=(
+                "- [indexed](architecture/indexed.md)\n"
+                "- see `docs/architecture/sibling-only.md`\n"
+            ),
+        )
+        ctx = _ctx(tmp_path, {"doc_conventions": {"dc9_index_dirs": ["docs/architecture"]}})
+        assert detect_dc9(ctx).count == 0
+
+    def test_readme_and_excluded_paths_skipped(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc9
+        repo = self._repo(
+            tmp_path,
+            index_text=(
+                "- [indexed](architecture/indexed.md)\n"
+                "- [sibling](architecture/sibling-only.md)\n"
+            ),
+        )
+        arch = repo / "docs" / "architecture"
+        (arch / "README.md").write_text("# section index")        # exempt
+        (arch / "archive").mkdir()
+        (arch / "archive" / "old.md").write_text("# archived")    # excluded
+        ctx = _ctx(tmp_path, {"doc_conventions": {"dc9_index_dirs": ["docs/architecture"]}})
+        assert detect_dc9(ctx).count == 0
+
+    def test_missing_configured_dir_is_silent(self, tmp_path: Path):
+        from custodian.audit_kit.detectors.doc_conventions import detect_dc9
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "README.md").write_text("index")
+        ctx = _ctx(tmp_path, {"doc_conventions": {"dc9_index_dirs": ["docs/nope"]}})
+        assert detect_dc9(ctx).count == 0
