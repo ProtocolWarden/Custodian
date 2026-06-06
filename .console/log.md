@@ -3,6 +3,18 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+## 2026-06-06 — feat: DC9 — index-coverage detector (closes the DC7 README exemption gap)
+
+PlatformManifest's spec audit traced a doc-hygiene bug class DC7 can't see: a doc
+cited by a *sibling* doc is no orphan, yet still missing from the canonical
+docs/README.md index (exactly how PM's contextlifecycle-anchoring.md went
+unindexed — hand-fixed in PM #68). New DC9: for each dir in
+doc_conventions.dc9_index_dirs, every non-README .md must be cited from
+docs/README.md (md link or backtick path). Opt-in like DC6 (silent when unset) so
+the fleet sees zero new findings until a repo enables it; honors the DC2/DC5/DC7
+excludes. Validated against live PM with dc9_index_dirs=[docs/architecture]:
+count 0 (post-#68 state is clean). 7 new tests; suite 1119+7 pass.
+
 ## 2026-06-04 — Warm-injection rollout (ci-conventions leaf doc)
 
 Second consumer of the ContextLifecycle warm-injection engine (after PlatformManifest), per PM's §7a re-evaluation: route coverage was the limiter, and this repo's `.github/workflows/**` / `.custodian/*.yaml` edits are where the fleet conventions (B64 boundary step, venv-guard, fleet-coupled `custodian@main`, plugin_audit_keys, fail-closed config) actually recur. Scaffolded via `cl context init`; deliberate design choice: SLIM injection-only PreToolUse hook (no ContextGuard — never blocks, always exit 0). `docs/inject/ci-conventions.md` is a copy — canonical lives in PlatformManifest. `.gitignore` narrowed so `.claude/` ships (was blanket-ignored). Verified: match emits valid additionalContext, no-match/flag-off inert, audit clean with artifact + B2 fails closed without.
