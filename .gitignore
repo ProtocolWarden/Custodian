@@ -18,6 +18,9 @@ __pycache__/
 !.console/log.md
 # Reconciliation scaffolding (untracked per console-reconciliation spec §3.1 / Layer C)
 /.console/reconcile.yaml
+# Machine-local injection telemetry (engine writes sessions/.telemetry/ on
+# route fires; this repo's .context is otherwise session-less and tracked)
+/.context/sessions/
 /.console/archive/
 CLAUDE.md
 # .claude is tracked (hooks + settings.json — warm-injection rollout); local-only state stays ignored

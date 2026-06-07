@@ -3,6 +3,15 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+## 2026-06-06 — chore: engine refresh — injection telemetry (CL #26/#27)
+
+`cl context init` refresh of .context/.engine/: route.py gains the injection
+telemetry from CL #26 (one JSONL event per surfaced injection to
+sessions/.telemetry/injection.jsonl — but note this repo's .context is
+session-less, so the telemetry dir appears only if/when injections fire here;
+covered by gitignore). cold.py picks up the CLOSED-superseded docstring (CL #27).
+Part of the PM context-management completeness-audit train (PM #74).
+
 ## 2026-06-06 — feat: DC9 — index-coverage detector (closes the DC7 README exemption gap)
 
 PlatformManifest's spec audit traced a doc-hygiene bug class DC7 can't see: a doc
