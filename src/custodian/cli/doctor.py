@@ -47,6 +47,8 @@ _KNOWN_AUDIT_KEYS = frozenset({
     # R1/R2 (.console reconciliation gate) opt-in enforcement toggle,
     # consumed by audit_kit.detectors.reconcile.
     "reconcile_enforce",
+    # R1 per-repo overrides: line-budget threshold and on/off switch.
+    "r1_line_budget", "r1_enabled",
     "x1_threshold", "x2_threshold", "c29_threshold", "c33_threshold",
     "c13_allowed_paths",
     "t3_env_gate_hints",

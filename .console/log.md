@@ -388,3 +388,9 @@ detector class typology is by-design pattern-similar.
 
 _Archived completed history → `/home/dev/Documents/GitHub/PrivateManifest/archive/console/Custodian/log-2026-06-04.md`_
 
+
+## 2026-06-07 — fix(doctor): add r1_enabled / r1_line_budget to known audit keys
+
+r1_enabled and r1_line_budget are valid reconcile-detector overrides (reconcile.py)
+but were absent from _KNOWN_AUDIT_KEYS in doctor.py, causing --strict to exit 1 when
+a repo sets r1_enabled: false. Added both keys alongside reconcile_enforce.
