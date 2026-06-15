@@ -3,6 +3,27 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+## 2026-06-15 — feat: CAP1 — capability invocation.ref integrity detector
+
+New CAP-class detector closing the capability-registry anti-rot gap. RepoGraph
+keeps each capability's `invocation.ref` opaque (it never imports the owning
+repo), so a ref that rots when code is renamed/moved is invisible there. CAP1
+runs in the OWNING repo's audit: loads the registry from the sibling
+PlatformManifest checkout (reusing cross_repo's `_load_manifest_info` for the
+canonical↔repo_id map), selects the capabilities this repo owns, and resolves
+each `invocation.ref` against the repo's own code — dotted module/symbol for
+entrypoint/executor, `[project.scripts]` for cli.
+
+- `audit_kit/detectors/capability_refs.py` + `build_capability_detectors`,
+  registered in cli/runner.py and cli/doctor.py; `capabilities` added to the
+  doctor's known audit-keys; disposition-matrix CAP-class row added.
+- Opt-in / dormant per the fleet-coupled-CI rule: silent unless
+  `audit.capabilities.enforce: true`, `repo_key` set, and the registry is
+  reachable — so shipping it default-installed fails no repo.
+- Tests: tests/test_cap1_detector.py (11). T1/T6 satisfied by direct-import
+  tests; only T7 excluded (flat tests/ layout, same as cross_repo.py). Self-audit
+  clean (0 findings); 1130 pass; ruff/doctor clean.
+
 ## 2026-06-06 — chore: engine refresh — injection telemetry (CL #26/#27)
 
 `cl context init` refresh of .context/.engine/: route.py gains the injection
@@ -342,47 +363,6 @@ Custodian improvements this round: F3 model_validate_classes tracking + transiti
 **VF6 added (2026-05-01):** Detects stage classes (have `run(self, context)` method) under `stages/` that are not referenced in any of the three pipeline wiring files (orchestration/api.py, core/manager.py, stages/system/preflight_bundle.py). Currently returns 0 — all stages correctly wired. Will fire if a new stage file is added but not wired in.
 
 - DC1+DC4 self-fix (2026-05-08, on `fix/dc-class-self-findings`): Added YAML front matter to docs/design/detector_disposition_matrix.md (DC1) and an Architecture section to README.md describing the three-layer runner (native detectors / adapter pass / plugin detectors). DC count goes 2 → 0.
-
-## 2026-05-08 — Custodian self clean (14 → 0)
-
-- Extracted _describe_exc_type() helper for C4/C9 sample rendering — replaces
-  the inline ternary that ty couldn't narrow across ast.Name/ast.Attribute branches.
-- structure.py: capture lineno into a local var when narrowed inside
-  isinstance(Import)/isinstance(ImportFrom) branches — ty doesn't propagate
-  the narrowing outside the branch.
-- test_shape.py: assert isinstance(dec, ast.Call) before _parametrize_case_count
-  (caller invariant from _is_parametrize_decorator).
-- import_graph.py: assert isinstance(stmt, ast.If) under _is_type_checking_guard.
-- code_health.py: assert isinstance(func, ast.Attribute/Name) at sample-emit
-  sites where is_subprocess / is_generic narrowed the type.
-- code_health.py: _flatten_yaml_keys casts dict keys to str (yaml gives object).
-- doc_conventions.py: cast required-fields list elements to str.
-- doctor.py: cast layer dicts to dict[str, Any] at the boundary.
-- config/loader.py: declare yaml: Any via aliased import.
-
-All 10 platform repos now report 0 findings.
-
-
-## 2026-05-08 — CI regression guard
-
-Added .github/workflows/custodian-audit.yml + .hooks/pre-push.
-Both run `custodian-multi --fail-on-findings`. CI is the source of
-truth; pre-push catches regressions before they hit GitHub.
-
-
-## 2026-05-08 — D11: duplicate function bodies
-
-New detector D11 hashes normalised function bodies (AST shape + literal
-types + operator kinds, identifiers stripped) and flags clone groups.
-Configurable thresholds (d11_min_statements, d11_min_lines).
-Tests: tests/test_d11_duplicate_functions.py (6 cases).
-
-Custodian self exempts audit_kit/detectors/** + code_health.py — the
-detector class typology is by-design pattern-similar.
-
-
-## 2026-05-08 — D11 rebased on glob_match
-
 
 ## Archived
 

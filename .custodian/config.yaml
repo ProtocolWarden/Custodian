@@ -206,6 +206,9 @@ audit:
       - src/custodian/audit_kit/detectors/boundary.py
       - src/custodian/audit_kit/detectors/doc_conventions.py
       - src/custodian/audit_kit/detectors/cross_repo.py
+      # CAP1 is exercised by tests/test_cap1_detector.py (flat layout); T1/T6 are
+      # satisfied by direct-import tests of detect_cap1/build_capability_detectors.
+      - src/custodian/audit_kit/detectors/capability_refs.py
       - src/custodian/audit_kit/detectors/architecture_split.py
       - src/custodian/audit_kit/detectors/envvar.py
       - src/custodian/audit_kit/detectors/platform_manifest_native.py
