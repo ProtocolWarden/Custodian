@@ -544,6 +544,12 @@ These detectors were built natively after Phase 0 was complete. All are `custodi
 | K2 | Backtick value on a status/state line not present as string literal in src | LOW | docs.py | `custodian_policy` | MEDIUM | `audit.known_values` suppresses common English words that aren't project-specific enum values. |
 | K3 | Google-style docstring `Args:` section names a parameter not in the function signature | LOW | docs.py | `custodian_policy` | LOW | AST-based. `_GOOGLE_SECTION_HEADERS` prevents `Returns`, `Raises`, `Kwargs`, etc. from being treated as parameter names. Found `policy` → `_policy` drift in OC `explain.py` on first run. |
 
+### CAP-class (new class — capability registry integrity)
+
+| Code | Description | Severity | Module | Destination | FP Risk | Notes |
+|---|---|---|---|---|---|---|
+| CAP1 | Capability `invocation.ref` does not resolve in the owning repo | MEDIUM | capability_refs.py | `custodian_policy` | LOW | Cross-repo anti-rot: loads the capability registry from the sibling PlatformManifest checkout, selects capabilities this repo owns (via the manifest canonical↔repo_id map), and resolves each `invocation.ref` against the repo's own code (dotted module/symbol for entrypoint/executor; `[project.scripts]` for cli). Opt-in/dormant: silent unless `audit.capabilities.enforce: true`, `repo_key` set, and the registry is reachable. RepoGraph keeps the ref opaque by design — CAP1 is where it gets checked. |
+
 ### Other class additions
 
 | Code | Description | Severity | Module | Destination | FP Risk | Notes |

@@ -14,6 +14,7 @@ from custodian.audit_kit.detectors.dead_code import build_dead_code_detectors
 from custodian.audit_kit.detectors.docs import build_docs_detectors
 from custodian.audit_kit.detectors.naming import build_naming_detectors
 from custodian.audit_kit.detectors.boundary import build_boundary_detectors
+from custodian.audit_kit.detectors.capability_refs import build_capability_detectors
 from custodian.audit_kit.detectors.cross_repo import build_cross_repo_detectors
 from custodian.audit_kit.detectors.plumbing import build_plumbing_detectors
 from custodian.audit_kit.detectors.platform_manifest_native import (
@@ -63,6 +64,8 @@ _KNOWN_AUDIT_KEYS = frozenset({
     "t7_test_dirs",
     # X-class cross-repo flow audits (loads PlatformManifest data)
     "cross_repo",
+    # CAP-class capability registry reference integrity (opt-in via enforce)
+    "capabilities",
     # P-class artifact plumbing enforcement
     "plumbing",
     # plugin-extension keys (plugins may declare arbitrary audit sub-keys)
@@ -225,6 +228,7 @@ def main():
                                 + build_doc_convention_detectors()
                                 + build_repo_meta_detectors()
                                 + build_cross_repo_detectors()
+                                + build_capability_detectors()
                                 + build_plumbing_detectors()
                                 + build_workspace_detectors()
                                 + build_reconcile_detectors()

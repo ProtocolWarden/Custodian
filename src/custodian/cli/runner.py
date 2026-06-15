@@ -18,6 +18,7 @@ from custodian.audit_kit.detectors.ghost import build_ghost_detectors
 from custodian.audit_kit.detectors.imports import build_import_detectors
 from custodian.audit_kit.detectors.naming import build_naming_detectors
 from custodian.audit_kit.detectors.boundary import build_boundary_detectors
+from custodian.audit_kit.detectors.capability_refs import build_capability_detectors
 from custodian.audit_kit.detectors.cross_repo import build_cross_repo_detectors
 from custodian.audit_kit.detectors.plumbing import build_plumbing_detectors
 from custodian.audit_kit.detectors.platform_manifest_native import (
@@ -128,6 +129,7 @@ def run_repo_audit(
                   + build_doc_convention_detectors()
                   + build_repo_meta_detectors()
                   + build_cross_repo_detectors()
+                  + build_capability_detectors()
                   + build_plumbing_detectors()
                   + build_workspace_detectors()
                   + build_reconcile_detectors()
