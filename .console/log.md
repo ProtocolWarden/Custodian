@@ -3,6 +3,18 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+## 2026-06-15 — feat: decouple CAP1 from cross_repo + enforce here
+
+CAP1 reused the X-class `cross_repo` config to find the manifest, so turning CAP1
+on silently turned on X1/X2/X3 too (surfaced 3 X2 findings in ContextLifecycle on
+first enable). Decoupled: CAP1 now locates the manifest via its own
+`capabilities.registry_repo` (or `manifest_repo`) pointer, synthesized locally for
+the manifest lookup — the repo's real `cross_repo` (which the X-class detectors
+read) is untouched, so enabling CAP1 enables only CAP1. Falls back to an existing
+`cross_repo` block when present. Custodian dogfoods it: `capabilities.enforce:true`
++ `registry_repo: ../PlatformManifest` (validates repo_health_audit → custodian-multi).
+Tests +2 (registry_repo path resolves / flags). Self-audit clean.
+
 ## 2026-06-15 — feat: CAP1 — capability invocation.ref integrity detector
 
 New CAP-class detector closing the capability-registry anti-rot gap. RepoGraph

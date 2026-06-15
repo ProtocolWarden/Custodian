@@ -166,3 +166,42 @@ def test_silent_when_registry_absent(tmp_path: Path) -> None:
     (data / "platform_manifest.yaml").write_text(_PM_YAML)
     ctx = _ctx(tmp_path, {})
     assert detect_cap1(ctx).count == 0
+
+
+def _ctx_registry_repo(tmp_path: Path, src_files: dict[str, str]) -> AuditContext:
+    """Context that locates the manifest via capabilities.registry_repo only —
+    NO cross_repo block (so the X-class detectors stay off)."""
+    src_dir = tmp_path / "src"
+    src_dir.mkdir(exist_ok=True)
+    for relpath, body in src_files.items():
+        p = src_dir / relpath
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(body)
+    return AuditContext(
+        repo_root=tmp_path,
+        src_root=src_dir,
+        tests_root=tmp_path / "tests",
+        config={
+            "repo_key": "OperationsCenter",
+            "audit": {"capabilities": {"enforce": True, "registry_repo": "PlatformManifest"}},
+        },
+        graph=None,
+        plugin_modules=[],
+    )
+
+
+def test_registry_repo_locates_manifest_without_cross_repo(tmp_path: Path) -> None:
+    # No cross_repo block at all — CAP1 still finds the manifest + registry and
+    # enforces (resolves the owned entrypoint ref).
+    _write_registry(tmp_path)
+    ctx = _ctx_registry_repo(
+        tmp_path,
+        {"operations_center/entrypoints/maintenance/board_unblock.py": "def main(): ...\n"},
+    )
+    assert detect_cap1(ctx).count == 0
+
+
+def test_registry_repo_path_still_flags_broken_ref(tmp_path: Path) -> None:
+    _write_registry(tmp_path)
+    ctx = _ctx_registry_repo(tmp_path, {})  # module absent → rot, via registry_repo path
+    assert detect_cap1(ctx).count == 1

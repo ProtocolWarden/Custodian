@@ -31,11 +31,15 @@ Configuration (opt-in — dormant until enabled)
 
     audit:
       repo_key: OperationsCenter          # identifies this repo in the manifest
-      cross_repo:
-        platform_manifest_repo: ../PlatformManifest
       capabilities:
         enforce: true                      # CAP1 is silent unless this is true
-        registry_path: ../PlatformManifest/src/platform_manifest/data/capabilities.yaml  # optional override
+        registry_repo: ../PlatformManifest # locates registry + manifest; does NOT
+                                           # enable the X-class cross_repo detectors
+        # registry_path: .../capabilities.yaml   # optional direct-file override
+
+An existing ``audit.cross_repo.platform_manifest_repo`` is used if present; a
+repo that only wants CAP1 sets ``capabilities.registry_repo`` instead and the
+X-class detectors stay off.
 
 CAP1 silently skips when not enabled, when ``repo_key`` is absent, when the
 registry or manifest cannot be found, or when this repo owns no capability —
@@ -263,6 +267,25 @@ def _ref_resolves(context: AuditContext, cap: _Capability) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _manifest_cfg(audit_cfg: dict, cap_cfg: dict) -> dict:
+    """Config CAP1 uses to locate the manifest (for the repo_key→repo_id map).
+
+    Prefers an existing ``cross_repo`` block, but a repo can instead point CAP1
+    at the PlatformManifest checkout via ``capabilities.registry_repo`` (or
+    ``manifest_repo``) and keep the X-class cross-repo detectors OFF — enabling
+    CAP1 should not silently enable X1/X2/X3. The synthesized block is local to
+    the manifest lookup; the repo's real ``audit.cross_repo`` (read by the
+    X-class detectors) is never modified.
+    """
+    cross = audit_cfg.get("cross_repo") or {}
+    if cross.get("platform_manifest_repo") or cross.get("platform_manifest_path"):
+        return audit_cfg
+    repo = cap_cfg.get("manifest_repo") or cap_cfg.get("registry_repo")
+    if repo:
+        return {**audit_cfg, "cross_repo": {"platform_manifest_repo": repo}}
+    return audit_cfg
+
+
 def detect_cap1(context: AuditContext) -> DetectorResult:
     audit_cfg = context.config.get("audit") or {}
     cap_cfg = audit_cfg.get("capabilities") or {}
@@ -273,7 +296,7 @@ def detect_cap1(context: AuditContext) -> DetectorResult:
     if not repo_key:
         return DetectorResult(count=0, samples=[])
 
-    info = _load_manifest_info(context.repo_root, audit_cfg)
+    info = _load_manifest_info(context.repo_root, _manifest_cfg(audit_cfg, cap_cfg))
     if info is None:
         return DetectorResult(count=0, samples=[])
 
