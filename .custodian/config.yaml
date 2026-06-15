@@ -11,6 +11,14 @@ audit:
   # in the pilot (log/backlog trimmed, .console scrub-clean), so it dogfoods
   # enforcement: R1 (oversized log) + R2 (private-name leak) now fail-closed here.
   reconcile_enforce: true
+
+  # CAP1 — enforce that the capabilities this repo owns (repo_health_audit) point
+  # at invocation.ref code that resolves here (custodian-multi in [project.scripts]).
+  # registry_repo locates the capability registry + manifest without enabling the
+  # X-class cross_repo detectors.
+  capabilities:
+    enforce: true
+    registry_repo: ../PlatformManifest
   # Terms used as documentation vocabulary (category labels, config key names)
   # that are not Python class/function names — suppress K1/K2 false positives.
   common_words:
