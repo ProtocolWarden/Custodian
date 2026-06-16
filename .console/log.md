@@ -3,45 +3,21 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
-## 2026-06-15 — chore: cwd-safe ContextGuard hook command
+## 2026-06-16 — feat(doctor): config-integrity checks (enforce can't silently vanish)
 
-Hardened `.claude/settings.json` hook command to
-`bash "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre_tool_use.sh"` so it resolves
-regardless of the shell cwd (relative path errored non-blockingly from non-root
-cwd). Fleet-wide fix; canonical CL adapter template hardened in a sibling PR.
-
-## 2026-06-15 — feat: decouple CAP1 from cross_repo + enforce here
-
-CAP1 reused the X-class `cross_repo` config to find the manifest, so turning CAP1
-on silently turned on X1/X2/X3 too (surfaced 3 X2 findings in ContextLifecycle on
-first enable). Decoupled: CAP1 now locates the manifest via its own
-`capabilities.registry_repo` (or `manifest_repo`) pointer, synthesized locally for
-the manifest lookup — the repo's real `cross_repo` (which the X-class detectors
-read) is untouched, so enabling CAP1 enables only CAP1. Falls back to an existing
-`cross_repo` block when present. Custodian dogfoods it: `capabilities.enforce:true`
-+ `registry_repo: ../PlatformManifest` (validates repo_health_audit → custodian-multi).
-Tests +2 (registry_repo path resolves / flags). Self-audit clean.
-
-## 2026-06-15 — feat: CAP1 — capability invocation.ref integrity detector
-
-New CAP-class detector closing the capability-registry anti-rot gap. RepoGraph
-keeps each capability's `invocation.ref` opaque (it never imports the owning
-repo), so a ref that rots when code is renamed/moved is invisible there. CAP1
-runs in the OWNING repo's audit: loads the registry from the sibling
-PlatformManifest checkout (reusing cross_repo's `_load_manifest_info` for the
-canonical↔repo_id map), selects the capabilities this repo owns, and resolves
-each `invocation.ref` against the repo's own code — dotted module/symbol for
-entrypoint/executor, `[project.scripts]` for cli.
-
-- `audit_kit/detectors/capability_refs.py` + `build_capability_detectors`,
-  registered in cli/runner.py and cli/doctor.py; `capabilities` added to the
-  doctor's known audit-keys; disposition-matrix CAP-class row added.
-- Opt-in / dormant per the fleet-coupled-CI rule: silent unless
-  `audit.capabilities.enforce: true`, `repo_key` set, and the registry is
-  reachable — so shipping it default-installed fails no repo.
-- Tests: tests/test_cap1_detector.py (11). T1/T6 satisfied by direct-import
-  tests; only T7 excluded (flat tests/ layout, same as cross_repo.py). Self-audit
-  clean (0 findings); 1130 pass; ruff/doctor clean.
+Two doctor `--strict` checks that catch a gate looking enforced but isn't, without
+touching the audit/CI-red path. (1) **Duplicate-key detection** — `find_duplicate_keys`
+(loader.py) walks the raw YAML node tree via `compose`, so a second `audit:`/
+`capabilities:` block (which `safe_load` silently collapses to last-wins, dropping
+an `enforce: true` or suppression — the PrivateManifest incident) is flagged. (2)
+**enforce-without-locator** — `capabilities.enforce: true` with no `registry_path`/
+`registry_repo`/`cross_repo` locator = enforce-theater (CAP1 can never find the
+registry); flagged. NOT flagged: a sibling locator merely absent in single-repo CI
+(that skip is by design — the capability-refs venue gate covers it; firing there
+would red every owning repo). Verified: all 6 fleet repos still doctor-clean (no
+false positives); negative controls fire. The detector-level "make CAP1 fire on
+registry-not-found" alternative was rejected — it would red owning repos' single-repo
+CI, which skips by design. Survivor #1 from the gate-integrity adversarial pass.
 
 ## 2026-06-06 — chore: engine refresh — injection telemetry (CL #26/#27)
 
@@ -51,30 +27,6 @@ sessions/.telemetry/injection.jsonl — but note this repo's .context is
 session-less, so the telemetry dir appears only if/when injections fire here;
 covered by gitignore). cold.py picks up the CLOSED-superseded docstring (CL #27).
 Part of the PM context-management completeness-audit train (PM #74).
-
-## 2026-06-06 — feat: DC9 — index-coverage detector (closes the DC7 README exemption gap)
-
-PlatformManifest's spec audit traced a doc-hygiene bug class DC7 can't see: a doc
-cited by a *sibling* doc is no orphan, yet still missing from the canonical
-docs/README.md index (exactly how PM's contextlifecycle-anchoring.md went
-unindexed — hand-fixed in PM #68). New DC9: for each dir in
-doc_conventions.dc9_index_dirs, every non-README .md must be cited from
-docs/README.md (md link or backtick path). Opt-in like DC6 (silent when unset) so
-the fleet sees zero new findings until a repo enables it; honors the DC2/DC5/DC7
-excludes. Validated against live PM with dc9_index_dirs=[docs/architecture]:
-count 0 (post-#68 state is clean). 7 new tests; suite 1119+7 pass.
-
-## 2026-06-04 — Warm-injection rollout (ci-conventions leaf doc)
-
-Second consumer of the ContextLifecycle warm-injection engine (after PlatformManifest), per PM's §7a re-evaluation: route coverage was the limiter, and this repo's `.github/workflows/**` / `.custodian/*.yaml` edits are where the fleet conventions (B64 boundary step, venv-guard, fleet-coupled `custodian@main`, plugin_audit_keys, fail-closed config) actually recur. Scaffolded via `cl context init`; deliberate design choice: SLIM injection-only PreToolUse hook (no ContextGuard — never blocks, always exit 0). `docs/inject/ci-conventions.md` is a copy — canonical lives in PlatformManifest. `.gitignore` narrowed so `.claude/` ships (was blanket-ignored). Verified: match emits valid additionalContext, no-match/flag-off inert, audit clean with artifact + B2 fails closed without.
-
-## 2026-06-04 — Make R1/R2 opt-in (audit.reconcile_enforce, default off)
-
-R1/R2 shipped default-on in #26, which broke the rollout: CI installs `custodian@main`, so the moment #26 merged, every public repo's `custodian-multi --fail-on-findings` started failing on R1 (any `.console` log >400 lines) and R2 (pre-existing leaks) — before those repos were reconciled. Gated both behind `audit.reconcile_enforce` (default **false**): the detectors land fleet-wide but stay dormant until a repo opts in *after* it's reconciled (spec §6 rollout / the deferred-enforcement follow-up). Custodian dogfoods `reconcile_enforce: true` (it was reconciled in the pilot — clean). 23 reconcile tests (+2 opt-in). Verified: PM audit goes 1→0 (R1 dormant) with this gate; Custodian self-audit stays clean (only the pre-existing env W2).
-
-## 2026-06-04 — Add R-class detectors + reconciliation pilot (.console reconciliation spec)
-
-Layer A of the `.console/` reconciliation spec (PlatformManifest/docs/architecture/console-reconciliation-spec.md): new R-class in `audit_kit/detectors/reconcile.py` — R1 (advisory, `.console/*.md` over `r1_line_budget` default 400) and R2 (fail-closed, scrub-target private name in a public repo's tracked `.console/**`; word-boundary so detector IDs like VF2 don't trip). Scrub vocabulary via `load_scrub_targets` reads the single boundary-artifact source (no hardcoded copy). Also closed the 7 doc gaps the reconciliation gate found — T6/T7/T8, X3, CV1/CV2/CV3 — as matrix catalog entries + full usage docs (test_presence/stale_github_urls/coverage_adapter); genericized standalone private-name refs in the matrix + config + dead_code comments to "a private downstream repo" (I2). Pilot prune (via `cl reconcile`): completed log+backlog history moved to the private side, this log trimmed 515→357 and backlog 144→70, CHANGELOG updated. 1110 tests + 20 new R-class tests green. Built via the console-reconciliation workflow; reviewed + verified by hand.
 
 ## 2026-05-13 — WorkStation → PlatformDeployment hard cutover
 

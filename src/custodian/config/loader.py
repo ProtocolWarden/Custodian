@@ -86,6 +86,49 @@ def _read_yaml(path: Path) -> dict:
         return yaml.safe_load(f) or {}
 
 
+def find_duplicate_keys(text: str) -> list[str]:
+    """Return dotted paths of keys that appear more than once in the same mapping.
+
+    PyYAML's ``safe_load`` silently keeps the LAST of a duplicate pair, so a second
+    ``audit:`` / ``capabilities:`` block can drop an ``enforce: true`` or a
+    suppression with no error — exactly the PrivateManifest incident where duplicate
+    ``audit:`` keys silently disabled findings. ``compose`` preserves the raw node
+    tree (pre-collapse), so duplicates are visible here even though the loaded dict
+    has already lost them. Returns [] on malformed YAML (a separate concern).
+    """
+    if yaml is None:  # pragma: no cover
+        return []
+    try:
+        root = yaml.compose(text)
+    except yaml.YAMLError:
+        return []
+    # Capture the node classes as locals here (yaml is narrowed non-None in this
+    # scope); the closure below would otherwise see yaml as `Any | None`.
+    mapping_node = yaml.MappingNode
+    sequence_node = yaml.SequenceNode
+    dups: list[str] = []
+
+    def _walk(node: object, prefix: str) -> None:
+        if isinstance(node, mapping_node):
+            seen: set[str] = set()
+            for key_node, val_node in node.value:
+                key = getattr(key_node, "value", None)
+                if not isinstance(key, str):
+                    continue
+                path = f"{prefix}{key}"
+                if key in seen:
+                    dups.append(path)
+                seen.add(key)
+                _walk(val_node, f"{path}.")
+        elif isinstance(node, sequence_node):
+            for i, item in enumerate(node.value):
+                _walk(item, f"{prefix}{i}.")
+
+    if root is not None:
+        _walk(root, "")
+    return dups
+
+
 def _normalize_v0(raw: dict) -> dict:
     """Convert a v0 config to the normalized v1 shape (in-memory only)."""
     audit = raw.get("audit") or {}

@@ -39,6 +39,22 @@ from custodian.audit_kit.result import AuditResult
 from custodian.plugins.loader import load_detectors, load_plugins
 
 
+def config_file_path(repo_root: Path) -> Path | None:
+    """Resolve the .custodian config file (new layout preferred), or None.
+
+    Mirrors load_config's resolution so callers that need the RAW file (e.g. the
+    duplicate-key check, which must see bytes that safe_load has already collapsed)
+    read exactly the file that was loaded.
+    """
+    new_path = repo_root / ".custodian" / "config.yaml"
+    if new_path.exists():
+        return new_path
+    old_path = repo_root / ".custodian.yaml"
+    if old_path.exists():
+        return old_path
+    return None
+
+
 def load_config(repo_root: Path) -> dict:
     # New layout: .custodian/config.yaml — preferred.
     new_path = repo_root / ".custodian" / "config.yaml"
