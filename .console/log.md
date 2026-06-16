@@ -3,6 +3,13 @@
 _Chronological continuity log. Decisions, stop points, what changed and why._
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
+## 2026-06-15 — chore: cwd-safe ContextGuard hook command
+
+Hardened `.claude/settings.json` hook command to
+`bash "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre_tool_use.sh"` so it resolves
+regardless of the shell cwd (relative path errored non-blockingly from non-root
+cwd). Fleet-wide fix; canonical CL adapter template hardened in a sibling PR.
+
 ## 2026-06-15 — feat: decouple CAP1 from cross_repo + enforce here
 
 CAP1 reused the X-class `cross_repo` config to find the manifest, so turning CAP1
