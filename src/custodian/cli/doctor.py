@@ -32,7 +32,8 @@ from custodian.audit_kit.detectors.structure import build_structure_detectors
 from custodian.audit_kit.detectors.stubs import build_stub_detectors
 from custodian.audit_kit.detectors.test_shape import build_test_shape_detectors
 from custodian.cli import colors
-from custodian.cli.runner import load_config
+from custodian.cli.runner import config_file_path, load_config
+from custodian.config.loader import find_duplicate_keys
 from custodian.plugins.loader import load_detectors, load_plugins
 
 _KNOWN_TOP_LEVEL_KEYS = frozenset({
@@ -171,6 +172,44 @@ def _check_config(config: dict, repo: Path, warnings: list[str]) -> list:
             for key in arch:
                 if key not in ("layers", "invariants", "directory_structure"):
                     warnings.append(f"unknown architecture key {key!r} (typo?)")
+
+    # Duplicate keys: PyYAML keeps the LAST of a duplicate pair and silently drops
+    # the earlier one — which can erase an `enforce: true` or a suppression with no
+    # error (the PrivateManifest duplicate-`audit:` incident). Read the raw file
+    # (the loaded dict has already collapsed the duplicates) and flag each.
+    cfg_path = config_file_path(repo)
+    if cfg_path is not None:
+        try:
+            raw = cfg_path.read_text(encoding="utf-8")
+        except OSError:
+            raw = ""
+        for dotted in find_duplicate_keys(raw):
+            warnings.append(
+                f"duplicate key {dotted!r}: YAML keeps only the last; the earlier "
+                "value (and any enforce flag / suppression it held) is silently dropped"
+            )
+
+    # capabilities.enforce with no way to locate the registry = enforce-theater:
+    # CAP1 can never resolve the registry, so it silently skips and reports clean.
+    # (A sibling locator that's merely absent in single-repo CI is NOT flagged here
+    #  — that skip is by design, covered by the capability-refs venue gate.)
+    cap_cfg = audit_cfg.get("capabilities") or {}
+    if isinstance(cap_cfg, dict) and cap_cfg.get("enforce"):
+        cross_cfg = audit_cfg.get("cross_repo") or {}
+        has_locator = (
+            cap_cfg.get("registry_path")
+            or cap_cfg.get("registry_repo")
+            or cap_cfg.get("manifest_repo")
+            or cross_cfg.get("platform_manifest_repo")
+            or cross_cfg.get("platform_manifest_path")
+        )
+        if not has_locator:
+            warnings.append(
+                "capabilities.enforce is true but no registry locator "
+                "(capabilities.registry_path/registry_repo or "
+                "cross_repo.platform_manifest_repo) is configured — CAP1 cannot "
+                "find the registry and silently skips"
+            )
 
     return []
 
