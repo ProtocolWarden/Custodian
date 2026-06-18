@@ -2,6 +2,11 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-06-17 — feat(D12): baseline ratchet (audit.d12_baseline)
+
+D12 reads `audit.d12_baseline` (accepted names) and skips them — a repo enables
+D12 on a backlog with only NEW tested-but-unwired symbols firing. 10 D12 tests.
+
 ## 2026-06-17 — D12 ships OPT-IN (default-off) — was red-walling consumers
 
 D12 (the new tested-but-never-wired detector) was default-ON. Consumers audit

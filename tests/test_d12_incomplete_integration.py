@@ -168,6 +168,31 @@ class TestD12:
         ctx = _ctx(tmp_path, {"mixin.py": src}, {"test_hooks.py": tests})
         assert detect_d12(ctx).count == 0
 
+    def test_baseline_accepts_existing_only_new_fires(self, tmp_path):
+        # The ratchet: a name in audit.d12_baseline is accepted; a NEW unwired
+        # symbol (not baselined) still fires. This is how a repo enables D12 on
+        # a large backlog without blocking — only regressions trip it.
+        src = '''
+            class Q:
+                def get_extraction_health(self):  # pre-existing, baselined
+                    return 1
+                def newly_added_unwired(self):     # new, not baselined
+                    return 2
+        '''
+        tests = '''
+            from src.mixin import Q
+            def test_q():
+                assert Q().get_extraction_health() == 1
+                assert Q().newly_added_unwired() == 2
+        '''
+        ctx = _ctx(
+            tmp_path, {"mixin.py": src}, {"test_q.py": tests},
+            config={"audit": {"d12_baseline": ["get_extraction_health"]}},
+        )
+        result = detect_d12(ctx)
+        assert result.count == 1  # only the new one
+        assert "newly_added_unwired" in result.samples[0]
+
     def test_exclude_path_config(self, tmp_path):
         ctx = _ctx(
             tmp_path,
