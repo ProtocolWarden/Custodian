@@ -2,6 +2,21 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-06-17 — D12 ships OPT-IN (default-off) — was red-walling consumers
+
+D12 (the new tested-but-never-wired detector) was default-ON. Consumers audit
+against Custodian@main (e.g. OperationsCenter's custodian-audit.yml installs
+`custodian @ ...@main`), so the moment D12 merged it ran on EVERY consumer and
+failed their `custodian-multi --fail-on-findings` gate on their existing backlog
+(OC: 161 tested-but-unwired public symbols — a mix of public API not in __all__
+and genuine gaps). A mature repo can't be hard-gated on a 161-deep day-one
+backlog. Flipped D12 to `deprecated=True` — reused purely as the "skipped by
+default, opt-in via --include-deprecated" lever (NOT tool-deprecated; there is no
+Vulture/ty equivalent). Consumers opt in (or this flips back to default-on) after
+they've baselined / burned down the backlog. Detector unchanged + validated;
+1153 tests green. Verified OC audit drops 161 → 0 (only the environmental B2
+remains, which CI satisfies with its boundary artifact).
+
 ## 2026-06-17 — D12 precision: skip pytest_* plugin hooks (FP class)
 
 D12 was flagging `pytest_addoption`/`pytest_configure` and other `pytest_*`
