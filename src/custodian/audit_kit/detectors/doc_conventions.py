@@ -83,6 +83,28 @@ _ADR_NAME_RE = re.compile(r"^\d{4}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
 _IMPL_CONTEXT_RE = re.compile(r"\*\*Files:\*\*|\bImplementation:", re.IGNORECASE)
 _BARE_SYMBOL_RE = re.compile(r"`([_a-z][a-zA-Z0-9_]{4,})\(?\)?`")
 
+# DC10 — claims-INTEGRATED-while-deferring-the-integration. Narrowly the #313
+# self-contradiction: a doc asserts the feature is wired end-to-end / fully
+# integrated, yet the SAME doc still lists the integration (wiring the consumer)
+# as deferred work. Deliberately NOT the broad "complete + next steps" pattern —
+# "Stage 1 complete, Stage 2 next" is legitimate staged work, not a bug.
+_DC10_INTEGRATED_RE = re.compile(
+    r"(?:end[- ]to[- ]end\s+(?:integration|integrated|wired|complete)"
+    r"|fully\s+(?:integrated|wired|end[- ]to[- ]end)"
+    r"|integration\s+complete|wired\s+end[- ]to[- ]end)",
+    re.IGNORECASE,
+)
+_DC10_DEFERS_INTEGRATION_RE = re.compile(
+    r"(?:integration\s+(?:deferred|is\s+deferred|to\s+follow|pending|tracked\s+separately)"
+    r"|defer(?:red)?\s+(?:the\s+)?integration"
+    r"|not\s+yet\s+(?:wired|integrated|called)"
+    r"|wir(?:e|ing)\s+(?:up\s+)?(?:them|it|this|the\s+\w+)\b"
+    r"|update\s+\S+[^\n]*\bto\s+call\s+\w+"
+    r"|stage\s+\d+[^\n]*\b(?:wire|integrat))",
+    re.IGNORECASE,
+)
+_DC10_DEFAULT_GLOBS: tuple[str, ...] = (".console/*.md", "docs/**/*.md")
+
 
 def build_doc_convention_detectors() -> list[Detector]:
     return [
@@ -113,6 +135,15 @@ def build_doc_convention_detectors() -> list[Detector]:
         Detector("DC9",
                  "doc in an index-required dir not cited from docs/README.md",
                  "open", detect_dc9, LOW, frozenset()),
+        # DC10 ships OPT-IN (deprecated=True → skipped by default; enable with
+        # --include-deprecated). NOT tool-deprecated — the flag is reused as the
+        # "off by default" lever so a new heuristic detector doesn't red-wall
+        # consumers that audit against Custodian@main. Catches the planner-level
+        # #313 failure: a doc claiming a feature COMPLETE while the same doc still
+        # lists it as deferred / Next-Steps / Stage-N work.
+        Detector("DC10",
+                 "doc claims COMPLETE while it also lists the same work as deferred/Next-Steps",
+                 "open", detect_dc10, LOW, frozenset(), deprecated=True),
     ]
 
 
@@ -611,5 +642,63 @@ def detect_dc9(ctx: AuditContext) -> DetectorResult:
                     samples.append(
                         f"{rel.as_posix()}: not cited from docs/README.md "
                         f"(index-required dir {index_dir})"
+                    )
+    return DetectorResult(count=count, samples=samples)
+
+
+# ── DC10: claims-complete-while-deferring ────────────────────────────────────
+
+def detect_dc10(ctx: AuditContext) -> DetectorResult:
+    """Flag a doc that claims a feature COMPLETE while the same doc still lists
+    the work as deferred / Next-Steps / Stage-N.
+
+    The planner-level failure behind OperationsCenter#313: the backlog asserted
+    "✅ IMPLEMENTATION COMPLETE & VERIFIED / end-to-end" while a "Next Steps —
+    Stage 5 (Ready to Start)" section listed the integration as still to do. A
+    truly-complete feature has no Ready-to-Start / deferred work for itself.
+
+    Low-FP by construction: the completion claim must be STRONG (``complete &
+    verified`` / ``production-ready`` / ``end-to-end integration`` / ``✅ …
+    complete``), not a bare "done"; and a deferred/Next-Steps marker must also be
+    present in the same file. Scans ``audit.dc10_scan_globs`` (default the
+    .console truth files + docs/), honours ``audit.exclude_paths.DC10`` and an
+    ``audit.dc10_baseline`` ratchet of accepted relative paths.
+    """
+    audit_cfg = ctx.config.get("audit") or {}
+    globs = list(audit_cfg.get("dc10_scan_globs") or _DC10_DEFAULT_GLOBS)
+    excludes = list((audit_cfg.get("exclude_paths") or {}).get("DC10") or [])
+    baseline = set(audit_cfg.get("dc10_baseline") or [])
+
+    seen: set[Path] = set()
+    samples: list[str] = []
+    count = 0
+    for g in globs:
+        for f in sorted(ctx.repo_root.glob(g)):
+            if not f.is_file() or f in seen:
+                continue
+            seen.add(f)
+            try:
+                rel = f.relative_to(ctx.repo_root)
+            except ValueError:
+                continue
+            rel_posix = rel.as_posix()
+            if rel_posix in baseline:
+                continue
+            if excludes and any(glob_match(rel_posix, p) for p in excludes):
+                continue
+            try:
+                text = f.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            cm = _DC10_INTEGRATED_RE.search(text)
+            dm = _DC10_DEFERS_INTEGRATION_RE.search(text)
+            if cm and dm:
+                count += 1
+                if len(samples) < _MAX_SAMPLES:
+                    line = text[: cm.start()].count("\n") + 1
+                    samples.append(
+                        f"{rel_posix}:{line}: claims integrated "
+                        f"({cm.group(0).strip()[:30]!r}) but defers the integration "
+                        f"({dm.group(0).strip()[:40]!r})"
                     )
     return DetectorResult(count=count, samples=samples)

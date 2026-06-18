@@ -202,7 +202,7 @@ class TestBuild:
     def test_returns_all_detectors(self):
         ds = build_doc_convention_detectors()
         ids = {d.id for d in ds}
-        assert ids == {"DC1", "DC2", "DC3", "DC4", "DC5", "DC6", "DC7", "DC8", "DC9"}
+        assert ids == {"DC1", "DC2", "DC3", "DC4", "DC5", "DC6", "DC7", "DC8", "DC9", "DC10"}
 
     def test_all_low_severity(self):
         for d in build_doc_convention_detectors():
@@ -583,3 +583,57 @@ class TestDC9IndexCoverage:
         (tmp_path / "docs" / "README.md").write_text("index")
         ctx = _ctx(tmp_path, {"doc_conventions": {"dc9_index_dirs": ["docs/nope"]}})
         assert detect_dc9(ctx).count == 0
+
+
+# ── DC10: claims-integrated-while-deferring-the-integration ───────────────────
+
+from custodian.audit_kit.detectors.doc_conventions import detect_dc10  # noqa: E402
+
+
+def _write(repo: Path, rel: str, text: str) -> None:
+    p = repo / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text, encoding="utf-8")
+
+
+class TestDC10ClaimsIntegratedWhileDeferring:
+    _313 = (
+        "## Stage 4\n**Status**: ✅ end-to-end integration complete & verified\n\n"
+        "## Next Steps\n**Stage 5 (Ready to Start)**:\n"
+        "- Update haiku_collector_prompt.md STEP 3 to call get_extraction_health()\n"
+    )
+
+    def test_313_self_contradiction_flagged(self, tmp_path: Path):
+        _write(tmp_path, ".console/backlog.md", self._313)
+        assert detect_dc10(_ctx(tmp_path)).count == 1
+
+    def test_not_yet_wired_variant_flagged(self, tmp_path: Path):
+        _write(tmp_path, "docs/design/x.md", "Fully integrated end-to-end.\nNote: the metric is not yet wired into the collector.\n")
+        assert detect_dc10(_ctx(tmp_path)).count == 1
+
+    def test_legit_staged_work_not_flagged(self, tmp_path: Path):
+        # "Stage 1 complete, Stage 2 next" is NOT an integration self-contradiction.
+        _write(tmp_path, ".console/backlog.md", "## Stage 1 ✅ Complete\n## Next Steps\nStage 2: add the API surface\n")
+        assert detect_dc10(_ctx(tmp_path)).count == 0
+
+    def test_integration_claim_only_not_flagged(self, tmp_path: Path):
+        _write(tmp_path, "docs/design/x.md", "The feature is wired end-to-end and shipped. All green.\n")
+        assert detect_dc10(_ctx(tmp_path)).count == 0
+
+    def test_defer_only_not_flagged(self, tmp_path: Path):
+        _write(tmp_path, "docs/design/x.md", "TODO: not yet wired into the collector — tracked separately.\n")
+        assert detect_dc10(_ctx(tmp_path)).count == 0
+
+    def test_non_integration_next_steps_not_flagged(self, tmp_path: Path):
+        _write(tmp_path, ".console/log.md", "Feature done.\n## Next Steps\n- write more docs\n- add a benchmark\n")
+        assert detect_dc10(_ctx(tmp_path)).count == 0
+
+    def test_baseline_accepts_existing(self, tmp_path: Path):
+        _write(tmp_path, ".console/backlog.md", self._313)
+        cfg = {"audit": {"dc10_baseline": [".console/backlog.md"]}}
+        assert detect_dc10(_ctx(tmp_path, cfg)).count == 0
+
+    def test_exclude_path(self, tmp_path: Path):
+        _write(tmp_path, ".console/backlog.md", self._313)
+        cfg = {"audit": {"exclude_paths": {"DC10": [".console/backlog.md"]}}}
+        assert detect_dc10(_ctx(tmp_path, cfg)).count == 0

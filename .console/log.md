@@ -2,6 +2,14 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-06-18 — feat(DC10): claims-integrated-while-deferring detector (opt-in)
+
+The planner-level #313 catch: a doc claims a feature wired end-to-end / fully
+integrated while the SAME doc defers the integration ("not yet wired", "update X
+to call Y()", "integration deferred"). Narrow + low-FP (skips legit "stage N done,
+stage N+1 next"): OC=3, Custodian=0. Opt-in (deprecated=True) + audit.dc10_baseline
+ratchet; doctor knows dc10_baseline/dc10_scan_globs. 8 tests; suite 1162 green.
+
 ## 2026-06-18 — fix(doctor): register d12_baseline as a known audit key
 
 Doctor --strict warned `unknown audit key 'd12_baseline'` (it was added in #44 but
@@ -345,14 +353,12 @@ Part of the PM context-management completeness-audit train (PM #74).
 - X (X1–X2): complexity — ast_forest
 - G (G1): ghost work — symbol_index
 - I (I1): import hygiene — ast_forest
-
 **Analysis passes and what they enable:**
 - import_graph → S1, S2
 - ast_forest → U1-U3, D2-D4, F2, E1-E2, X1-X2, T1, I1, S3, D5 (class list), D6 (class list)
 - call_graph → D1, F1, D5 (reference check), D6 (constructed_names check)
 - symbol_index → G1
 - tests_forest → T1
-
 **D6 constructed_names tracking covers:**
 - `ClassName(...)` — direct constructor call
 - `ClassName[T](...)` — generic parameterized constructor
@@ -360,20 +366,16 @@ Part of the PM context-management completeness-audit train (PM #74).
 - `EnumClass.MEMBER` — enum member access (any Attribute node)
 - `default_factory=ClassName` — keyword argument factory reference
 - `class Child(ClassName):` — base class inheritance
-
 **False-positive risk guide:**
 - LOW: file-local AST (D2, D3, D4, F2, E1, E2, X1, X2, C21, I1)
 - MEDIUM: call_graph (D1, F1, D5, D6) — dynamic dispatch/string-based factories not captured; G1 — CamelCase heuristic
 - HIGHER: T1 — indirect testing via integration tests produces false positives
-
 **Test counts as of 2026-05-01 (round 9):**
 Custodian 393 tests (committed 55282f8). OC 3037 tests. SB 287 tests. a private downstream repo 1660 tests (7 pre-existing failures unchanged).
-
 **Audit totals as of 2026-05-01 (round 9, post-fixes):**
 a private downstream repo ~2024 (estimate), OC 460, SB 41. Total ~2525 (was 2674 round 8 end, -149 this round).
 Round 9 new fixes: a private downstream repo D1 -42 (bulk dead function removal), a private downstream repo D5 -1 (VideoPerformance), a private downstream repo F2 -1 (_BRANDING_MAP), a private downstream repo I1 -1 (contextlib), a private downstream repo D1 -2 files deleted (audit_summary.py, validation.py).
 Custodian improvements this round: F3 model_validate_classes tracking + transitive expansion for nested Pydantic models.
-
 **Native tool migration — completed 2026-05-01 (this session):**
 - OC `tools/audit/architecture_invariants/` — all 4 rule files (import_rules, layer_rules, mutation_rules, scanning_rules) inlined directly into `_custodian/architecture.py` (AI1–AI4). No more try/import wrappers. Directory deleted.
 - a private downstream repo `tools/audit/architecture_invariants/` — all 4 rule files (capability_rules, singleton_rules, config_rules, audit_policy_rules) inlined into `_custodian/detectors.py` (VF1–VF4). import_rules covered by S1 config. Added VF5 (WorkflowContext field count advisory ≥ 20 fields). Directory deleted.
@@ -381,9 +383,7 @@ Custodian improvements this round: F3 model_validate_classes tracking + transiti
 - Custodian self-audit: 64 → 0 findings (C11: timeout= on all 5 adapters; F2: 8 dead regex constants deleted; D1: maintenance_kit/ deleted; F1: replaces field removed; D7: unused context param removed; C29/C1/C6/T1: config exclusions with rationale).
 - SB T1: 3 → 0 (DecisionSink, AdjustmentStoreState, SummaryStats excluded — tested via containing services).
 - a private downstream repo C1: 23 → 0 (per-file exclusions added; all 23 TODOs tracked in .console/backlog.md).
-
 **Current findings (post this session):** Custodian 0, SwitchBoard 0, a private downstream repo 671 (T1=670, VF5=1, VF6=0), OC 266 (T1=266). All HIGH/MED findings are zero across all repos.
-
 **VF6 added (2026-05-01):** Detects stage classes (have `run(self, context)` method) under `stages/` that are not referenced in any of the three pipeline wiring files (orchestration/api.py, core/manager.py, stages/system/preflight_bundle.py). Currently returns 0 — all stages correctly wired. Will fire if a new stage file is added but not wired in.
 
 - DC1+DC4 self-fix (2026-05-08, on `fix/dc-class-self-findings`): Added YAML front matter to docs/design/detector_disposition_matrix.md (DC1) and an Architecture section to README.md describing the three-layer runner (native detectors / adapter pass / plugin detectors). DC count goes 2 → 0.
