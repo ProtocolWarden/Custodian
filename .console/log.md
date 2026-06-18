@@ -19,6 +19,11 @@ wired — the self-review caught it but it shipped anyway; D12 makes that class 
 gap a deterministic finding instead of an LLM-variable review concern. Self-audit
 on Custodian found 6 true positives (tested-but-unwired core/policy functions,
 0 FP in the sample). 8 tests; full suite 1152 green; ruff(src)+ty+doctor clean.
+Those 6 are excluded in `.custodian/config.yaml` (audit.exclude_paths.D12 →
+core/runner, core/finding, policy/filter, policy/architecture) — Custodian's own
+public API surface, WIRE-verdict not bugs; excluded pending a deliberate
+public-API-declaration (`__all__`) pass rather than blocking on the detector that
+introduced them.
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
 ## 2026-06-16 — feat(doctor): config-integrity checks (enforce can't silently vanish)
