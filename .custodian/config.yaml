@@ -232,6 +232,20 @@ audit:
       # share shape — they're a typology. Exclude detector modules from D11.
       - "src/custodian/audit_kit/detectors/**"
       - src/custodian/audit_kit/code_health.py
+    D12:
+      # D12 (public src symbol tested but never called in production) flags
+      # Custodian's own programmatic public API in core/ and policy/
+      # (run_adapters, filter_findings, apply_policy, policy_from_config,
+      # run_architecture_policy, at_least). These are the library's public
+      # entry points — exercised via unit tests as the integration boundary,
+      # not wired into Custodian's own internal run path. Genuine D12 matches
+      # (WIRE verdict: declare in __all__ or wire a caller), not bugs; excluded
+      # pending a deliberate public-API-declaration pass rather than blocking on
+      # the detector that introduced them.
+      - src/custodian/core/runner.py
+      - src/custodian/core/finding.py
+      - src/custodian/policy/filter.py
+      - src/custodian/policy/architecture.py
     T8:
       # Sample-consumer fixtures are deliberately minimal repos used to
       # test the audit pipeline end-to-end; they don't import custodian.
