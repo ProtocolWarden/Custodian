@@ -8,8 +8,9 @@ Ecosystem remediation. Removed never-wired scaffold: core/runner.py, policy/
 filter.py, policy/architecture.py — zero src importers (cross-repo verified),
 superseded by cli/runner.py + detectors/structure.py. Deleted their 4 coupled
 test files; rewrote test_adapter_base.py to cover the LIVE ToolAdapter base +
-find_tool directly (only test-referenced via the orphan pipeline → would trip
-T1). 1119 tests green; ty + audit clean (B2 env only).
+find_tool directly (only test-referenced via orphan pipeline → would trip T1).
+Also removed the now-stale audit.exclude_paths.D12 entries for the deleted files
+(doctor flagged them as stale globs). 1119 tests green; doctor + audit clean.
 
 ## 2026-06-18 — fix(gate): refuse unknown --only ids (close the silent-skip)
 
