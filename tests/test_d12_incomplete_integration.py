@@ -150,6 +150,24 @@ class TestD12:
         ctx = _ctx(tmp_path, {"mixin.py": src}, {"test_api.py": tests})
         assert detect_d12(ctx).count == 0
 
+    def test_pytest_plugin_hooks_skipped(self, tmp_path):
+        # pytest_addoption / pytest_configure are invoked by pytest by name —
+        # no in-repo caller by design, not an integration gap.
+        src = '''
+            def pytest_addoption(parser):
+                parser.addoption("--x")
+            def pytest_configure(config):
+                config.x = 1
+        '''
+        tests = '''
+            from src.mixin import pytest_addoption, pytest_configure
+            def test_hooks():
+                pytest_addoption(object())
+                pytest_configure(object())
+        '''
+        ctx = _ctx(tmp_path, {"mixin.py": src}, {"test_hooks.py": tests})
+        assert detect_d12(ctx).count == 0
+
     def test_exclude_path_config(self, tmp_path):
         ctx = _ctx(
             tmp_path,
