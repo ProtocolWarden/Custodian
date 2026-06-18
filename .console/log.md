@@ -2,6 +2,11 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-06-18 — fix(doctor): register d12_baseline as a known audit key
+
+Doctor --strict warned `unknown audit key 'd12_baseline'` (it was added in #44 but
+not registered). Added it to `_KNOWN_AUDIT_KEYS`. 22 doctor tests; ruff clean.
+
 ## 2026-06-17 — feat(D12): baseline ratchet (audit.d12_baseline)
 
 D12 reads `audit.d12_baseline` (accepted names) and skips them — a repo enables
@@ -320,18 +325,14 @@ Part of the PM context-management completeness-audit train (PM #74).
 | F1 skips dataclasses with serialization methods | to_dict/model_dump/asdict expose all fields indirectly; attribute-level analysis can't see this | 2026-04-30 |
 | T2 recognizes mock assertions and raise AssertionError | mock.assert_called_once() / raise AssertionError(...) are legitimate test mechanisms | 2026-04-30 |
 | C18 excludes f after quote chars | `"f", "h"` list elements matched `f", "` as f-string; add (?<!")(?<!') lookbehinds | 2026-04-30 |
-
 ## Stop Points
-
 - Contract drift (docstring vs signature): needs docstring parser — complex, lower priority
 - Duplicate code detection: needs hash/similarity pass — complex, likely out of scope
 - D1 per-file context: module_functions is a flat set; exclude_paths can't target specific files; fix requires storing (file, name) pairs
 - D1 module attribute monkey-patching: `mod.fn = wrapper` is attribute access, not call; D1 misses this pattern; workaround is __all__
 - C23 regex false positive on docstrings: "shell=True" in docstring text matches; fix requires AST-based C23
 - a private downstream repo D7 35 remaining: all keyword-only params — cannot rename with _ prefix without breaking callers; need to either wire them or accept as known
-
 ## Notes
-
 **Detector class map (70 total: 57 core + 13 OC plugin [OC1–OC9, AI1–AI4]):**
 - C (C1–C33): file-local code health — regex + inline AST; C33=ghost-work density (new)
 - S (S1–S3): cross-file structure — import_graph (S1, S2) + ast_forest (S3)

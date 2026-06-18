@@ -59,6 +59,8 @@ _KNOWN_AUDIT_KEYS = frozenset({
     "f1_exempt", "f3_validate_functions", "f3_exempt",
     # D11 (duplicate-function) tuning
     "d11_min_statements", "d11_min_lines",
+    # D12 (tested-but-never-wired) baseline ratchet: accepted symbol names.
+    "d12_baseline",
     # T8 conftest exempt + integration default
     "t8_exempt", "t8_default_exempt",
     # T7 test-dir hint extension
