@@ -229,14 +229,14 @@ def _run_adapters(result: AuditResult, *, repo_root: Path, config: dict) -> None
     for adapter in adapters:
         tool_id = adapter.name.upper()
         if not adapter.is_available():
-            result.patterns[tool_id] = {
+            result.add_pattern(tool_id, {
                 "description": f"{adapter.name} (not installed)",
                 "status": "skipped",
                 "severity": "low",
                 "source": "adapter",
                 "count": 0,
                 "samples": [f"{adapter.name!r} is not installed — install it to enable findings"],
-            }
+            })
             continue
 
         findings = adapter.run(repo_root, config)
@@ -249,14 +249,14 @@ def _run_adapters(result: AuditResult, *, repo_root: Path, config: dict) -> None
             for f in real[:8]
         ]
         count = len(real)
-        result.patterns[tool_id] = {
+        result.add_pattern(tool_id, {
             "description": f"{adapter.name} findings",
             "status": "open" if count else "pass",
             "severity": "medium",
             "source": "adapter",
             "count": count,
             "samples": samples,
-        }
+        })
         result.total_findings += count
 
 

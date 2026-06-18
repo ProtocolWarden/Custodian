@@ -2,6 +2,21 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-06-18 — fix: pattern-collision masking + content-less B2 message
+
+`run_audit`/`_run_adapters` did `result.patterns[id] = entry`, so when two
+detector families ship the same ID (builtin readme R1/R2 vs reconcile R1/R2,
+plus a repo's custom plugin R1/R2), a later count-0 instance silently
+overwrote an earlier instance that *found something* — while `total_findings`
+(summed separately) still counted it. Net: a "phantom" finding invisible in the
+patterns map/`findings()`. It masked a real OC boundary-leak (R2 scrub-target).
+Added `AuditResult.add_pattern()` that merges on collision (sum count, dedupe
+samples, max severity, flag `collision`) and routed both registration sites
+through it. Zero pass/fail blast radius: `total_findings` is computed identically
+(pre-storage sum); only the visible patterns change — masked findings now show.
+Also: `detect_b2` now distinguishes a *content-less* artifact (provided + parsed,
+zero forbidden_names — a secret/data fix) from *not-provided* (a config fix).
+
 ## 2026-06-18 — cleanup: delete orphan Phase-1/5 scaffold modules
 
 Ecosystem remediation. Removed never-wired scaffold: core/runner.py, policy/
@@ -372,29 +387,12 @@ Part of the PM context-management completeness-audit train (PM #74).
 - X (X1–X2): complexity — ast_forest
 - G (G1): ghost work — symbol_index
 - I (I1): import hygiene — ast_forest
-**Analysis passes and what they enable:**
-- import_graph → S1, S2
-- ast_forest → U1-U3, D2-D4, F2, E1-E2, X1-X2, T1, I1, S3, D5 (class list), D6 (class list)
-- call_graph → D1, F1, D5 (reference check), D6 (constructed_names check)
-- symbol_index → G1
-- tests_forest → T1
-**D6 constructed_names tracking covers:**
-- `ClassName(...)` — direct constructor call
-- `ClassName[T](...)` — generic parameterized constructor
-- `ClassName.method(...)` — classmethod/factory dispatch
-- `EnumClass.MEMBER` — enum member access (any Attribute node)
-- `default_factory=ClassName` — keyword argument factory reference
-- `class Child(ClassName):` — base class inheritance
-**False-positive risk guide:**
-- LOW: file-local AST (D2, D3, D4, F2, E1, E2, X1, X2, C21, I1)
-- MEDIUM: call_graph (D1, F1, D5, D6) — dynamic dispatch/string-based factories not captured; G1 — CamelCase heuristic
-- HIGHER: T1 — indirect testing via integration tests produces false positives
-**Audit totals as of 2026-05-01 (round 9, post-fixes):**
-a private downstream repo ~2024 (estimate), OC 460, SB 41. Total ~2525 (was 2674 round 8 end, -149 this round).
-Custodian improvements this round: F3 model_validate_classes tracking + transitive expansion for nested Pydantic models.
-**Native tool migration — completed 2026-05-01 (this session):**
-- OC `tools/audit/architecture_invariants/` — all 4 rule files (import_rules, layer_rules, mutation_rules, scanning_rules) inlined directly into `_custodian/architecture.py` (AI1–AI4). No more try/import wrappers. Directory deleted.
-- Custodian self-audit: 64 → 0 findings (C11/F2/D1/F1/D7/C29/C1/C6/T1, this session).
+**Analysis passes → detectors:** import_graph → S1/S2; ast_forest → U1-U3,
+D2-D4, F2, E1-E2, X1-X2, T1, I1, S3, D5/D6 (class list); call_graph → D1, F1,
+D5/D6 (reference/constructed_names check); symbol_index → G1; tests_forest → T1.
+**D6 tracks:** direct/generic/classmethod constructor calls, enum access,
+`default_factory=`, base-class inheritance. **False-positive risk:** LOW
+file-local AST; MEDIUM call_graph (dynamic dispatch) + G1; HIGHER T1.
 
 ## Archived
 

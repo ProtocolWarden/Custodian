@@ -134,13 +134,13 @@ def run_audit(
             continue
         detector_result = detector.detect(context)
         total += detector_result.count
-        result.patterns[detector.id] = {
+        result.add_pattern(detector.id, {
             "description": detector.description,
             "status": detector.status,
             "severity": detector.severity,
             "source": detector.source,
             "count": detector_result.count,
             "samples": detector_result.samples,
-        }
+        })
     result.total_findings = total
     return result

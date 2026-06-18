@@ -8,6 +8,12 @@ import json
 
 SCHEMA_VERSION = 1
 
+_SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3}
+
+
+def _severity_rank(severity: str | None) -> int:
+    return _SEVERITY_RANK.get(severity or "low", 1)
+
 
 @dataclass
 class AuditResult:
@@ -16,6 +22,44 @@ class AuditResult:
     scanned_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     patterns: dict = field(default_factory=dict)
     total_findings: int = 0
+
+    def add_pattern(self, code: str, entry: dict) -> None:
+        """Register a detector/adapter result, merging on ID collision.
+
+        Detector IDs are assumed unique, but families can collide by
+        accident — e.g. the builtin ``readme`` and ``reconcile`` detectors
+        both ship ``R1``/``R2``, and a repo's custom plugin may add a third.
+        Plain ``patterns[code] = entry`` then lets a later, count-0 instance
+        silently overwrite an earlier instance that *found something*, while
+        ``total_findings`` (summed independently) still counts it — a
+        "phantom" finding that never appears in the patterns map or
+        ``findings()``. That masking once hid a real boundary-leak (R2)
+        finding. Merge instead so the visible pattern always reflects every
+        instance's count and samples, keeping the map consistent with
+        ``total_findings``.
+
+        Merge rules: sum ``count``, concatenate ``samples`` (deduped,
+        order-preserving), take the highest ``severity``, and mark the entry
+        as a collision so consumers can surface it.
+        """
+        existing = self.patterns.get(code)
+        if existing is None:
+            self.patterns[code] = entry
+            return
+        merged_samples: list = list(existing.get("samples", []))
+        seen = set(merged_samples)
+        for s in entry.get("samples", []):
+            if s not in seen:
+                merged_samples.append(s)
+                seen.add(s)
+        existing["count"] = existing.get("count", 0) + entry.get("count", 0)
+        existing["samples"] = merged_samples
+        if _severity_rank(entry.get("severity")) > _severity_rank(existing.get("severity")):
+            existing["severity"] = entry.get("severity")
+        existing["collision"] = True
+        sources = existing.setdefault("collision_sources", [existing.get("source")])
+        if entry.get("source") not in sources:
+            sources.append(entry.get("source"))
 
     def findings(self) -> list[dict]:
         """Flat list of {code, sample} for every sample across all patterns.

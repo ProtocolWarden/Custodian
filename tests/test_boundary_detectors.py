@@ -98,6 +98,24 @@ class TestB2Required:
         )
         assert result.count == 0
 
+    def test_b2_content_less_artifact_distinct_message(self, tmp_path: Path) -> None:
+        # A provided-but-empty artifact (zero forbidden_names) must report a
+        # distinct "content-less" message pointing at the data, not the generic
+        # "no file provided" config message — they have different fixes.
+        artifact = tmp_path / "boundary.json"
+        _write_artifact(artifact, [])  # valid schema, zero forbidden_names
+        _git_init(tmp_path)
+        result = detect_b2(
+            _ctx(
+                tmp_path,
+                {"privacy": {"require_boundary_artifact": True, "boundary_artifact_file": str(artifact)}},
+            )
+        )
+        assert result.count == 1
+        assert "content-less" in result.samples[0]
+        assert "zero forbidden_names" in result.samples[0]
+        assert "PrivateGraphFixture" in result.samples[0]  # provenance surfaced
+
     def test_invalid_artifact_fails_closed(self, tmp_path: Path) -> None:
         artifact = tmp_path / "boundary.json"
         artifact.write_text("{}", encoding="utf-8")

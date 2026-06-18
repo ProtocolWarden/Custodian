@@ -16,6 +16,38 @@ def test_audit_result_json_round_trip():
     assert data["patterns"]["C1"]["count"] == 1
 
 
+def test_add_pattern_first_write_sets_entry():
+    result = AuditResult()
+    result.add_pattern("C1", {"count": 2, "severity": "low", "source": "builtin", "samples": ["a", "b"]})
+    assert result.patterns["C1"]["count"] == 2
+    assert "collision" not in result.patterns["C1"]
+
+
+def test_add_pattern_collision_merges_and_never_masks():
+    # Two detectors sharing an ID (e.g. builtin readme R2 vs reconcile R2):
+    # the second, count-0 instance must NOT overwrite-to-zero the first's
+    # real finding. Regression test for the phantom-finding masking bug.
+    result = AuditResult()
+    result.add_pattern("R2", {"count": 1, "severity": "medium", "source": "builtin", "samples": ["leak found"]})
+    result.add_pattern("R2", {"count": 0, "severity": "low", "source": "custom", "samples": []})
+    assert result.patterns["R2"]["count"] == 1
+    assert "leak found" in result.patterns["R2"]["samples"]
+    assert result.patterns["R2"]["collision"] is True
+    # The visible pattern count now equals what total_findings would sum.
+    assert sum(p.get("count", 0) for p in result.patterns.values()) == 1
+    # findings() surfaces the previously-masked sample.
+    assert {"code": "R2", "sample": "leak found"} in result.findings()
+
+
+def test_add_pattern_collision_takes_highest_severity_and_dedupes():
+    result = AuditResult()
+    result.add_pattern("R1", {"count": 1, "severity": "low", "source": "builtin", "samples": ["x"]})
+    result.add_pattern("R1", {"count": 1, "severity": "high", "source": "custom", "samples": ["x", "y"]})
+    assert result.patterns["R1"]["count"] == 2
+    assert result.patterns["R1"]["severity"] == "high"
+    assert result.patterns["R1"]["samples"] == ["x", "y"]  # deduped, order-preserving
+
+
 def test_findings_list_empty_when_no_samples():
     result = AuditResult(
         patterns={"C1": {"count": 0, "samples": []}, "C2": {"count": 0, "samples": []}},
