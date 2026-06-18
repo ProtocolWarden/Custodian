@@ -25,10 +25,19 @@ class TestOnlyFilter:
         result = run_repo_audit(FIXTURE_REPO, only={"C1", "C6"})
         assert set(result.patterns.keys()) == {"C1", "C6"}
 
-    def test_only_unknown_code_produces_empty_result(self):
-        result = run_repo_audit(FIXTURE_REPO, only={"ZZNOTREAL"})
-        assert result.patterns == {}
-        assert result.total_findings == 0
+    def test_only_unknown_code_raises_not_silent(self):
+        # Soundness: a gate naming a detector this install does not have (version
+        # skew / typo / removed detector) must FAIL LOUDLY, never filter to an
+        # empty detector set and pass green. This is the silent-skip that let a
+        # stale install disarm the #313 incomplete-integration gate.
+        with pytest.raises(ValueError, match="unknown detector id"):
+            run_repo_audit(FIXTURE_REPO, only={"ZZNOTREAL"})
+
+    def test_only_mixed_known_and_unknown_still_raises(self):
+        # Even if some ids are valid, an unknown one in the set is a misconfigured
+        # gate — refuse rather than silently running a subset.
+        with pytest.raises(ValueError, match="ZZNOTREAL"):
+            run_repo_audit(FIXTURE_REPO, only={"C1", "ZZNOTREAL"})
 
     def test_none_runs_all_detectors(self):
         result_all = run_repo_audit(FIXTURE_REPO, only=None)
@@ -57,7 +66,9 @@ class TestFindingsList:
             assert finding["code"] in {"C1", "C6"}
 
     def test_findings_empty_when_no_samples(self):
-        result = run_repo_audit(FIXTURE_REPO, only={"ZZNOTREAL"})
+        # A1 is a real detector that finds nothing on the clean fixture — use it
+        # (not an unknown id, which now raises) to exercise the empty-findings path.
+        result = run_repo_audit(FIXTURE_REPO, only={"A1"})
         assert result.findings() == []
         data = json.loads(result.to_json())
         assert data["findings"] == []
