@@ -1443,6 +1443,12 @@ def detect_d12(context: AuditContext) -> DetectorResult:
 
     audit_cfg: dict = context.config.get("audit") or {}
     excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("D12") or [])
+    # Baseline ratchet: a repo enabling D12 against a large existing backlog lists
+    # the accepted symbol names in ``audit.d12_baseline``. Those are skipped, so
+    # D12 fires only on NEW tested-but-unwired symbols — the gate catches
+    # regressions (the #313 class) without blocking on the pre-existing backlog,
+    # which is burned down separately (and removed from the baseline as it is).
+    baseline: set[str] = set(audit_cfg.get("d12_baseline") or [])
 
     prod_refs: set[str] = set()
     all_exports: set[str] = set()
@@ -1485,6 +1491,8 @@ def detect_d12(context: AuditContext) -> DetectorResult:
     for name in sorted(defs):
         if name in all_exports:
             continue
+        if name in baseline:
+            continue  # accepted pre-existing backlog (ratchet) — only NEW symbols fire
         if name in prod_refs:
             continue  # wired into production — fine
         if name not in test_refs:
