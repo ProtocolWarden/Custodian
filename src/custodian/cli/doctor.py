@@ -61,6 +61,8 @@ _KNOWN_AUDIT_KEYS = frozenset({
     "d11_min_statements", "d11_min_lines",
     # D12 (tested-but-never-wired) baseline ratchet: accepted symbol names.
     "d12_baseline",
+    # DC10 (claims-integrated-while-deferring) baseline + scan-surface override.
+    "dc10_baseline", "dc10_scan_globs",
     # T8 conftest exempt + integration default
     "t8_exempt", "t8_default_exempt",
     # T7 test-dir hint extension
