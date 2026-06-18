@@ -2,6 +2,15 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-06-18 — fix(gate): refuse unknown --only ids (close the silent-skip)
+
+`run_detectors` filtered `--only` ids with no validation: `--only D12,DC10`
+naming a detector the install lacks (version skew, typo, removed) filtered to an
+EMPTY set and passed green — indistinguishable from "ran clean". Exactly how a
+stale install silently disarmed OC's #313 gate. runner.py now validates `only`
+against built ids and raises on any unknown id; multi.py turns that into a
+non-zero exit. Self-verifying. 2 tests updated (old "unknown→empty" was the bug) + 1 added.
+
 ## 2026-06-18 — feat(DC10): claims-integrated-while-deferring detector (opt-in)
 
 The planner-level #313 catch: a doc claims a feature wired end-to-end / fully
@@ -386,15 +395,6 @@ Custodian improvements this round: F3 model_validate_classes tracking + transiti
 **Current findings (post this session):** Custodian 0, SwitchBoard 0, a private downstream repo 671 (T1=670, VF5=1, VF6=0), OC 266 (T1=266). All HIGH/MED findings are zero across all repos.
 **VF6 added (2026-05-01):** Detects stage classes (have `run(self, context)` method) under `stages/` that are not referenced in any of the three pipeline wiring files (orchestration/api.py, core/manager.py, stages/system/preflight_bundle.py). Currently returns 0 — all stages correctly wired. Will fire if a new stage file is added but not wired in.
 
-- DC1+DC4 self-fix (2026-05-08, on `fix/dc-class-self-findings`): Added YAML front matter to docs/design/detector_disposition_matrix.md (DC1) and an Architecture section to README.md describing the three-layer runner (native detectors / adapter pass / plugin detectors). DC count goes 2 → 0.
-
 ## Archived
 
 _Archived completed history → `/home/dev/Documents/GitHub/PrivateManifest/archive/console/Custodian/log-2026-06-04.md`_
-
-
-## 2026-06-07 — fix(doctor): add r1_enabled / r1_line_budget to known audit keys
-
-r1_enabled and r1_line_budget are valid reconcile-detector overrides (reconcile.py)
-but were absent from _KNOWN_AUDIT_KEYS in doctor.py, causing --strict to exit 1 when
-a repo sets r1_enabled: false. Added both keys alongside reconcile_enforce.

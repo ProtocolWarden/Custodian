@@ -154,6 +154,21 @@ def run_repo_audit(
                   + native)
 
     if only:
+        # Soundness guard: a gate like `--only D12,DC10` that names a detector
+        # the installed Custodian does not have (version skew, a typo, a renamed
+        # or removed detector) would otherwise filter to an EMPTY list and pass
+        # green — indistinguishable from "ran the detector, found nothing". Refuse
+        # loudly instead. (This is exactly how a stale install silently disarmed
+        # the #313 incomplete-integration gate.)
+        known_ids = {d.id for d in detectors}
+        unknown = only - known_ids
+        if unknown:
+            raise ValueError(
+                "--only requested unknown detector id(s): "
+                f"{', '.join(sorted(unknown))}. A gate filtering to an unknown id "
+                "runs zero detectors and passes silently; refusing. Installed "
+                f"detector ids: {', '.join(sorted(known_ids))}"
+            )
         detectors = [d for d in detectors if d.id in only]
 
     context = AuditContext(
