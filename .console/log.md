@@ -2,6 +2,16 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-06-18 — cleanup: delete orphan Phase-1/5 scaffold modules
+
+Ecosystem remediation. Removed never-wired scaffold: core/runner.py, policy/
+filter.py, policy/architecture.py — zero src importers (cross-repo verified),
+superseded by cli/runner.py + detectors/structure.py. Deleted their 4 coupled
+test files; rewrote test_adapter_base.py to cover the LIVE ToolAdapter base +
+find_tool directly (only test-referenced via orphan pipeline → would trip T1).
+Also removed the now-stale audit.exclude_paths.D12 entries for the deleted files
+(doctor flagged them as stale globs). 1119 tests green; doctor + audit clean.
+
 ## 2026-06-18 — fix(gate): refuse unknown --only ids (close the silent-skip)
 
 `run_detectors` filtered `--only` ids with no validation: `--only D12,DC10`
@@ -379,21 +389,12 @@ Part of the PM context-management completeness-audit train (PM #74).
 - LOW: file-local AST (D2, D3, D4, F2, E1, E2, X1, X2, C21, I1)
 - MEDIUM: call_graph (D1, F1, D5, D6) — dynamic dispatch/string-based factories not captured; G1 — CamelCase heuristic
 - HIGHER: T1 — indirect testing via integration tests produces false positives
-**Test counts as of 2026-05-01 (round 9):**
-Custodian 393 tests (committed 55282f8). OC 3037 tests. SB 287 tests. a private downstream repo 1660 tests (7 pre-existing failures unchanged).
 **Audit totals as of 2026-05-01 (round 9, post-fixes):**
 a private downstream repo ~2024 (estimate), OC 460, SB 41. Total ~2525 (was 2674 round 8 end, -149 this round).
-Round 9 new fixes: a private downstream repo D1 -42 (bulk dead function removal), a private downstream repo D5 -1 (VideoPerformance), a private downstream repo F2 -1 (_BRANDING_MAP), a private downstream repo I1 -1 (contextlib), a private downstream repo D1 -2 files deleted (audit_summary.py, validation.py).
 Custodian improvements this round: F3 model_validate_classes tracking + transitive expansion for nested Pydantic models.
 **Native tool migration — completed 2026-05-01 (this session):**
 - OC `tools/audit/architecture_invariants/` — all 4 rule files (import_rules, layer_rules, mutation_rules, scanning_rules) inlined directly into `_custodian/architecture.py` (AI1–AI4). No more try/import wrappers. Directory deleted.
-- a private downstream repo `tools/audit/architecture_invariants/` — all 4 rule files (capability_rules, singleton_rules, config_rules, audit_policy_rules) inlined into `_custodian/detectors.py` (VF1–VF4). import_rules covered by S1 config. Added VF5 (WorkflowContext field count advisory ≥ 20 fields). Directory deleted.
-- a private downstream repo workflow context guardrails (`workflow_context_guardrails.py`, `check_workflow_context_guardrails.py`, `workflow_context_ownership.json`) moved to `tools/audit/workflow_context/` — still needed as a standalone tool that requires a pre-generated context map.
-- Custodian self-audit: 64 → 0 findings (C11: timeout= on all 5 adapters; F2: 8 dead regex constants deleted; D1: maintenance_kit/ deleted; F1: replaces field removed; D7: unused context param removed; C29/C1/C6/T1: config exclusions with rationale).
-- SB T1: 3 → 0 (DecisionSink, AdjustmentStoreState, SummaryStats excluded — tested via containing services).
-- a private downstream repo C1: 23 → 0 (per-file exclusions added; all 23 TODOs tracked in .console/backlog.md).
-**Current findings (post this session):** Custodian 0, SwitchBoard 0, a private downstream repo 671 (T1=670, VF5=1, VF6=0), OC 266 (T1=266). All HIGH/MED findings are zero across all repos.
-**VF6 added (2026-05-01):** Detects stage classes (have `run(self, context)` method) under `stages/` that are not referenced in any of the three pipeline wiring files (orchestration/api.py, core/manager.py, stages/system/preflight_bundle.py). Currently returns 0 — all stages correctly wired. Will fire if a new stage file is added but not wired in.
+- Custodian self-audit: 64 → 0 findings (C11/F2/D1/F1/D7/C29/C1/C6/T1, this session).
 
 ## Archived
 

@@ -21,7 +21,7 @@ _(none)_
 **Phase 2** ✅ Ruff adapter — JSON parsing, severity prefix map, 23 tests (b5794a0)
 **Phase 3** ✅ Deprecated detector flags, --skip-deprecated CLI flag (b5794a0)
 **Phase 4** ✅ Semgrep adapter — JSON output parsing, 23 tests (3d8a3cb)
-**Phase 5** ✅ Policy layer — apply_policy(), architecture boundary checks (f69db99)
+**Phase 5** ⛔ Policy layer (apply_policy / architecture boundary, f69db99) — REMOVED 2026-06-18 as orphan scaffold; superseded by cli/runner.py + detectors/structure.py, never wired into the live path
 **Phase 6** ✅ ty adapter (concise format) + mypy adapter (fallback), 28 tests (541e374)
 **Phase 7** ✅ Vulture adapter — advisory dead-code, confidence threshold, 18 tests (7187d04)
 **Phase 8** ✅ Codemod base — Codemod ABC, run_codemods(), custodian-fix CLI (ebcd026)
