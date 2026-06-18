@@ -142,8 +142,17 @@ def build_dead_code_detectors() -> list[Detector]:
                  detect_d10, LOW, _NEEDS_AST),
         Detector("D11", "duplicate function bodies (clone candidates)", "open",
                  detect_d11, LOW, _NEEDS_AST),
+        # D12 ships OPT-IN (deprecated=True → skipped by default, run with
+        # --include-deprecated). NOT tool-deprecated — there is no Vulture/ty
+        # equivalent; the flag is reused purely as the "off by default" lever.
+        # Rationale: a mature codebase carries a large existing backlog of
+        # tested-but-unwired public symbols (OperationsCenter: 161), so a
+        # default-ON D12 instantly red-walls every consumer that audits against
+        # Custodian@main. Consumers opt in (or flip this to default-on) once
+        # they've baselined / burned down that backlog. The detector is real and
+        # validated — it just must not break consumers on day one.
         Detector("D12", "public src symbol tested but never called in production (incomplete integration)", "open",
-                 detect_d12, LOW, _NEEDS_AST_AND_TF),
+                 detect_d12, LOW, _NEEDS_AST_AND_TF, deprecated=True),
         # D3 stays NON-deprecated until ty/mypy is enabled across the major
         # consumers (currently disabled in the downstream repos). When enabled,
         # mark deprecated=True and let the type checker take over.
