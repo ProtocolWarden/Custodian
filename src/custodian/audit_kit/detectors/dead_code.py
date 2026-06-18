@@ -71,9 +71,10 @@ D12 A public src function/method REFERENCED BY TESTS but NEVER by production
     forest split is what makes it low-FP.  This is the failure that shipped
     OperationsCenter#313: ``get_extraction_health()`` was defined and unit-
     tested but its STEP-3 caller never called it.  Skips private/dunder,
-    ``test_*``, decorated defs (CLI commands, @property, fixtures, routes,
-    validators, @abstractmethod — all framework/runtime-invoked), ``__all__``
-    exports, and entry-point names.  Exclude paths via ``audit.exclude_paths.D12``.
+    ``test_*``, ``pytest_*`` plugin hooks, decorated defs (CLI commands,
+    @property, fixtures, routes, validators, @abstractmethod — all
+    framework/runtime-invoked), ``__all__`` exports, and entry-point names.
+    Exclude paths via ``audit.exclude_paths.D12``.
 
 F1  ``@dataclass`` fields never accessed as attributes anywhere in the
     codebase.  Uses the call-graph pass to collect all attribute accesses.
@@ -1453,6 +1454,12 @@ def detect_d12(context: AuditContext) -> DetectorResult:
                 continue
             name = node.name
             if name.startswith("_") or name.startswith("test"):
+                continue
+            # pytest plugin hooks (pytest_addoption, pytest_configure,
+            # pytest_collection_modifyitems, …) are invoked by pytest's plugin
+            # system BY NAME — there is no in-repo caller by design, so they are
+            # never an integration gap.
+            if name.startswith("pytest_"):
                 continue
             if name in _NEVER_DEAD:
                 continue

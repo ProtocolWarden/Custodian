@@ -2,6 +2,15 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-06-17 — D12 precision: skip pytest_* plugin hooks (FP class)
+
+D12 was flagging `pytest_addoption`/`pytest_configure` and other `pytest_*`
+functions — pytest plugin hooks invoked by pytest's plugin system BY NAME, so
+there is no in-repo caller by design (not an integration gap). Added a
+`pytest_*` skip alongside the existing `test_*` skip. Found during the
+OperationsCenter D12 triage (176 → 171 findings after the fix). 9 D12 tests
+(added pytest-hook-skipped); ruff+ty clean.
+
 ## 2026-06-17 — feat(D12): incomplete-integration detector (tested but never wired)
 
 New `D12` in `dead_code.py`: a public src function/method REFERENCED BY TESTS but
