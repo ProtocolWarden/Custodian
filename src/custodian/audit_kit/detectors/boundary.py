@@ -398,9 +398,25 @@ def detect_b2(context: AuditContext) -> DetectorResult:
         return DetectorResult(count=1, samples=[provenance])
     if not require or names:
         return DetectorResult(count=0, samples=[])
-    samples = [
-        "privacy.require_boundary_artifact=true but no "
-        "boundary artifact file was provided via privacy.boundary_artifact_file "
-        f"or ${_ARTIFACT_FILE_ENV}"
-    ]
+    # require=true, zero usable names, and no load error. Distinguish the two
+    # ways this happens so the operator knows where to look: a content-less
+    # artifact (provided + parsed, but its forbidden_names list was empty) vs
+    # nothing provided at all. The first is a *secret/data* problem (the
+    # artifact resolved but carries no boundary names — e.g. a stale or empty
+    # disclosure export); the second is a *config* problem. Conflating them
+    # sent operators hunting for a missing file when the file was present but
+    # empty.
+    if provenance:  # a real artifact loaded (provenance is its source id), but yielded no names
+        samples = [
+            "privacy.require_boundary_artifact=true and a boundary artifact was "
+            f"provided ({provenance}), but it contains zero forbidden_names — the "
+            "artifact is content-less (regenerate the disclosure export so it lists "
+            "the private boundary names)"
+        ]
+    else:
+        samples = [
+            "privacy.require_boundary_artifact=true but no "
+            "boundary artifact file was provided via privacy.boundary_artifact_file "
+            f"or ${_ARTIFACT_FILE_ENV}"
+        ]
     return DetectorResult(count=1, samples=samples)
