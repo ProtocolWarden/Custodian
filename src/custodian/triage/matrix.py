@@ -30,7 +30,7 @@ class Verdict(str, Enum):
 # Detector ID buckets — keep in sync with the docs matrix.
 _UNCALLED   = frozenset({"D1", "D5", "F1", "F2", "VULTURE"})
 _STUB_BODY  = frozenset({"U1", "U2", "U3", "D3"})
-_UNWIRED    = frozenset({"D6", "U4", "VF6"})
+_UNWIRED    = frozenset({"D6", "U4", "VF6", "D12"})
 _BLOAT      = frozenset({"C29"})
 _NOISE      = frozenset({"C33"})
 _DEAD_TEXT  = frozenset({"C34", "G1", "C8"})

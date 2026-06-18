@@ -63,6 +63,18 @@ D10 An ``async def`` function that never uses ``await`` anywhere in its
     Skips ``__aenter__`` / ``__aexit__`` / ``__aiter__`` / ``__anext__``
     (async protocol dunders that are async by contract).
 
+D12 A public src function/method REFERENCED BY TESTS but NEVER by production
+    code — the "built it + tested it but never wired it in" signal.  This is
+    *incomplete integration*, not dead code: a symbol with no references
+    anywhere is dead (Vulture's job, D1/D5); a symbol referenced only by tests
+    is an unfinished feature whose consumer was never updated.  The src/tests
+    forest split is what makes it low-FP.  This is the failure that shipped
+    OperationsCenter#313: ``get_extraction_health()`` was defined and unit-
+    tested but its STEP-3 caller never called it.  Skips private/dunder,
+    ``test_*``, decorated defs (CLI commands, @property, fixtures, routes,
+    validators, @abstractmethod — all framework/runtime-invoked), ``__all__``
+    exports, and entry-point names.  Exclude paths via ``audit.exclude_paths.D12``.
+
 F1  ``@dataclass`` fields never accessed as attributes anywhere in the
     codebase.  Uses the call-graph pass to collect all attribute accesses.
     Conservative: only flags fields whose name does not appear in any
@@ -101,6 +113,7 @@ _NEVER_DEAD = frozenset({
 
 
 _NEEDS_CG_AND_AST = frozenset({"call_graph", "ast_forest"})
+_NEEDS_AST_AND_TF = frozenset({"ast_forest", "tests_forest"})
 
 
 def build_dead_code_detectors() -> list[Detector]:
@@ -128,6 +141,8 @@ def build_dead_code_detectors() -> list[Detector]:
                  detect_d10, LOW, _NEEDS_AST),
         Detector("D11", "duplicate function bodies (clone candidates)", "open",
                  detect_d11, LOW, _NEEDS_AST),
+        Detector("D12", "public src symbol tested but never called in production (incomplete integration)", "open",
+                 detect_d12, LOW, _NEEDS_AST_AND_TF),
         # D3 stays NON-deprecated until ty/mypy is enabled across the major
         # consumers (currently disabled in the downstream repos). When enabled,
         # mark deprecated=True and let the type checker take over.
@@ -1370,5 +1385,99 @@ def detect_d11(context: AuditContext) -> DetectorResult:
             samples.append(
                 f"{head[0]}:{head[1]}: {head[2]}() — duplicate body "
                 f"({len(sites)} sites: {others})"
+            )
+    return DetectorResult(count=count, samples=samples)
+
+
+# ── D12: tested but never wired into production (incomplete integration) ──────
+
+
+def _referenced_names_in_tree(tree: ast.Module) -> set[str]:
+    """Every name a tree could reference a symbol by — Name loads + Attribute attrs.
+
+    Conservative on purpose: any mention (a call ``foo()``, an attribute call
+    ``x.foo()``, a bare reference ``foo`` / ``x.foo``, a callback pass) clears
+    the symbol. We only want to flag symbols that production never mentions
+    *at all*.
+    """
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            names.add(node.id)
+        elif isinstance(node, ast.Attribute):
+            names.add(node.attr)
+    return names
+
+
+def detect_d12(context: AuditContext) -> DetectorResult:
+    """Flag public src functions/methods referenced by tests but never by production.
+
+    The "built it + tested it but never wired it in" signal — incomplete
+    integration. A public def in src that a test exercises but that no
+    production (src) file ever references is a likely unfinished feature whose
+    consumer was never updated (OperationsCenter#313: ``get_extraction_health``
+    defined + tested, STEP-3 caller never wired). The src/tests forest split is
+    what keeps this low-FP: a symbol referenced *nowhere* is dead code (D1/D5,
+    Vulture); a symbol referenced *only by tests* is an integration gap.
+
+    Skips: private/dunder (``_``-prefix), ``test_*``, decorated defs (CLI
+    commands, @property, fixtures, routes, validators, @abstractmethod,
+    @overload — framework/runtime-invoked), ``__all__`` exports, and
+    ``_NEVER_DEAD`` entry-point names. Exclude paths via
+    ``audit.exclude_paths.D12``.
+    """
+    if (context.graph is None
+            or context.graph.ast_forest is None
+            or context.graph.tests_forest is None):
+        return DetectorResult(count=0, samples=[])
+
+    audit_cfg: dict = context.config.get("audit") or {}
+    excludes: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("D12") or [])
+
+    prod_refs: set[str] = set()
+    all_exports: set[str] = set()
+    defs: dict[str, tuple[str, int]] = {}  # name → (rel_path, lineno) of first def
+
+    for path, tree, _src in context.graph.ast_forest.items():
+        # Production references and __all__ exports are collected from EVERY src
+        # file (even excluded ones) — being referenced in an excluded file still
+        # means the symbol is wired in. Only DEFINITIONS honor the exclude list.
+        prod_refs |= _referenced_names_in_tree(tree)
+        all_exports |= _module_all_exports(tree)
+
+        rel = path.relative_to(context.repo_root)
+        if excludes and any(glob_match(rel.as_posix(), g) for g in excludes):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            name = node.name
+            if name.startswith("_") or name.startswith("test"):
+                continue
+            if name in _NEVER_DEAD:
+                continue
+            if node.decorator_list:  # framework/runtime-invoked — never an in-repo caller
+                continue
+            defs.setdefault(name, (str(rel), node.lineno))
+
+    test_refs: set[str] = set()
+    for _path, tree, _src in context.graph.tests_forest.items():
+        test_refs |= _referenced_names_in_tree(tree)
+
+    samples: list[str] = []
+    count = 0
+    for name in sorted(defs):
+        if name in all_exports:
+            continue
+        if name in prod_refs:
+            continue  # wired into production — fine
+        if name not in test_refs:
+            continue  # referenced nowhere → dead code (D1/D5/Vulture), not an integration gap
+        count += 1
+        if len(samples) < _MAX_SAMPLES:
+            rel, lineno = defs[name]
+            samples.append(
+                f"{rel}:{lineno}: {name}() — tested but never called in production "
+                f"(incomplete integration)"
             )
     return DetectorResult(count=count, samples=samples)

@@ -1,6 +1,24 @@
 # Log
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
+
+## 2026-06-17 — feat(D12): incomplete-integration detector (tested but never wired)
+
+New `D12` in `dead_code.py`: a public src function/method REFERENCED BY TESTS but
+NEVER by production code — the "built it + tested it but never wired it in"
+signal. Uses the `ast_forest` (src) + `tests_forest` (tests) split: a symbol
+referenced nowhere is dead code (D1/D5/Vulture); referenced *only by tests* is an
+integration gap. Low-FP by construction — skips private/dunder, `test_*`,
+decorated defs (CLI commands, @property, fixtures, routes, validators,
+@abstractmethod — framework-invoked), `__all__` exports, entry-point names; a
+production reference in ANY src file (even an excluded one) clears the symbol.
+LOW severity, WIRE verdict (added to triage `_UNWIRED`), exclude via
+`audit.exclude_paths.D12`. Motivated by OperationsCenter#313, which auto-merged
+with `get_extraction_health()` defined + unit-tested but its STEP-3 caller never
+wired — the self-review caught it but it shipped anyway; D12 makes that class of
+gap a deterministic finding instead of an LLM-variable review concern. Self-audit
+on Custodian found 6 true positives (tested-but-unwired core/policy functions,
+0 FP in the sample). 8 tests; full suite 1152 green; ruff(src)+ty+doctor clean.
 _Not a task tracker — that's backlog.md. Keep entries concise and dated._
 
 ## 2026-06-16 — feat(doctor): config-integrity checks (enforce can't silently vanish)
