@@ -1,3 +1,15 @@
+## 2026-06-20 — feat: INJ1 prompt-injection signature detector
+
+New audit_kit detector (HARNESS_TRUST_HARDENING §2.2.6, the outer INJ layer):
+detect_inj1 scans tracked text for invisible/bidi control characters (the
+unambiguous injection/homoglyph-smuggling signal). Mirrors the boundary-detector
+shape; wired into the runner as deprecated=True so it is SKIPPED by the default
+gate (opt-in via --only INJ1 --include-deprecated) — a repo's own injection-
+handling code must not red the fleet-wide audit. Reports codepoint+position only
+(never surrounding text, D-INJ-3); legitimate handlers opt out via a
+custodian:allow-invisible-chars content marker; \u escapes so it never
+self-triggers. 7 tests; full suite 1126 passed.
+
 # Log
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
@@ -366,34 +378,5 @@ Part of the PM context-management completeness-audit train (PM #74).
 | call_graph scans tests_root as extra_roots | F1/D1 false positives for fields/functions used in tests but not in src; extra_roots contribute only usages, not definitions | 2026-04-30 |
 | F1 skips dataclasses with serialization methods | to_dict/model_dump/asdict expose all fields indirectly; attribute-level analysis can't see this | 2026-04-30 |
 | T2 recognizes mock assertions and raise AssertionError | mock.assert_called_once() / raise AssertionError(...) are legitimate test mechanisms | 2026-04-30 |
-| C18 excludes f after quote chars | `"f", "h"` list elements matched `f", "` as f-string; add (?<!")(?<!') lookbehinds | 2026-04-30 |
-## Stop Points
-- Contract drift (docstring vs signature): needs docstring parser — complex, lower priority
-- Duplicate code detection: needs hash/similarity pass — complex, likely out of scope
-- D1 per-file context: module_functions is a flat set; exclude_paths can't target specific files; fix requires storing (file, name) pairs
-- D1 module attribute monkey-patching: `mod.fn = wrapper` is attribute access, not call; D1 misses this pattern; workaround is __all__
-- C23 regex false positive on docstrings: "shell=True" in docstring text matches; fix requires AST-based C23
-- a private downstream repo D7 35 remaining: all keyword-only params — cannot rename with _ prefix without breaking callers; need to either wire them or accept as known
-## Notes
-**Detector class map (70 total: 57 core + 13 OC plugin [OC1–OC9, AI1–AI4]):**
-- C (C1–C33): file-local code health — regex + inline AST; C33=ghost-work density (new)
-- S (S1–S3): cross-file structure — import_graph (S1, S2) + ast_forest (S3)
-- A (A1): architecture invariants — declarative YAML max_lines/max_classes/max_functions/forbidden_import (new)
-- U (U1–U3): unimplemented stubs — ast_forest
-- D (D1–D7): dead code — D7=dead method params (new); D5/D6=dead classes (ast_forest+call_graph)
-- F (F1–F3): dead fields/constants — F3=Pydantic BaseModel field liveness (new)
-- E (E1–E2): annotation gaps — ast_forest
-- T (T1–T2): test shape — T1 uses ast_forest+tests_forest, T2 direct scan
-- X (X1–X2): complexity — ast_forest
-- G (G1): ghost work — symbol_index
-- I (I1): import hygiene — ast_forest
-**Analysis passes → detectors:** import_graph → S1/S2; ast_forest → U1-U3,
-D2-D4, F2, E1-E2, X1-X2, T1, I1, S3, D5/D6 (class list); call_graph → D1, F1,
-D5/D6 (reference/constructed_names check); symbol_index → G1; tests_forest → T1.
-**D6 tracks:** direct/generic/classmethod constructor calls, enum access,
-`default_factory=`, base-class inheritance. **False-positive risk:** LOW
-file-local AST; MEDIUM call_graph (dynamic dispatch) + G1; HIGHER T1.
 
-## Archived
-
-_Archived completed history → `/home/dev/Documents/GitHub/PrivateManifest/archive/console/Custodian/log-2026-06-04.md`_
+*(older entries archived for the R1 400-line budget)*
