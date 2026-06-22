@@ -2,7 +2,9 @@
 # Copyright (C) 2026 ProtocolWarden
 from __future__ import annotations
 
+import logging
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 import yaml
@@ -38,6 +40,33 @@ from custodian.audit_kit.detectors.test_shape import build_test_shape_detectors
 from custodian.adapters.registry import get_enabled_adapters
 from custodian.audit_kit.result import AuditResult
 from custodian.plugins.loader import load_detectors, load_plugins
+
+
+logger = logging.getLogger(__name__)
+
+
+def _warn_detector_id_collisions(detectors: list) -> None:
+    """Log a warning for every detector id registered by more than one detector.
+
+    Colliding ids merge under one entry whose displayed title is just the first
+    detector's, so the finding can be misattributed. Naming the colliding sources
+    here makes the collision fixable at the source (rename the custom detector)."""
+    by_id: dict[str, list] = defaultdict(list)
+    for d in detectors:
+        by_id[d.id].append(d)
+    for did, group in sorted(by_id.items()):
+        if len(group) > 1:
+            srcs = "; ".join(
+                f"{getattr(d, 'source', '?')}:{d.description}" for d in group
+            )
+            logger.warning(
+                "detector-id collision on %r: %d detectors register it, so their "
+                "findings merge under one (mis-labeled) title. Rename to disambiguate. "
+                "Sources: %s",
+                did,
+                len(group),
+                srcs,
+            )
 
 
 def config_file_path(repo_root: Path) -> Path | None:
@@ -154,6 +183,14 @@ def run_repo_audit(
                   + build_envvar_detectors()
                   + extra
                   + native)
+
+    # Surface detector-ID collisions at LOAD time. Detector families (builtin
+    # `readme` vs `reconcile`) and custom plugins can register the same id; those
+    # findings then merge under ONE id whose displayed title is just the first-
+    # registered detector's — silently MISATTRIBUTING the finding (the .console
+    # `task.md` violation that surfaced as "README first H1" and wedged a
+    # consumer's goal lane). Warn loudly so the collision is fixable at the source.
+    _warn_detector_id_collisions(detectors)
 
     if only:
         # Soundness guard: a gate like `--only D12,DC10` that names a detector

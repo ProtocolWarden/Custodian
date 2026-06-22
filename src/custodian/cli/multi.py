@@ -8,6 +8,7 @@ import os
 import sys
 from pathlib import Path
 
+from custodian.audit_kit.result import collision_note
 from custodian.cli import colors
 from custodian.cli.runner import run_repo_audit
 
@@ -194,7 +195,10 @@ def _print_verbose(results: list) -> None:
             sev_key = pat.get("severity", "medium")
             sev = _SEV_LABEL.get(sev_key, "    ").strip()
             sev_colored = colors.severity_color(sev_key, f"[{sev}]")
-            print(f"  {sev_colored} [{code}] {pat['description']} — {pat['count']} finding(s)")
+            print(
+                f"  {sev_colored} [{code}] {pat['description']} — {pat['count']} finding(s)"
+                f"{collision_note(pat)}"
+            )
             for sample in pat.get("samples", [])[:5]:
                 print(f"        {sample}")
         print()
