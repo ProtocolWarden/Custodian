@@ -88,3 +88,24 @@ class AuditResult:
         d = asdict(self)
         d["findings"] = self.findings()
         return json.dumps(d, indent=2, sort_keys=True, ensure_ascii=False)
+
+
+def collision_note(pattern: dict) -> str:
+    """A short marker for a finding whose detector-id collided with another's.
+
+    When two detectors share an id (e.g. the builtin ``readme`` R2 and a repo's
+    custom ``.console`` R2), ``AuditResult.add_pattern`` merges them under one
+    entry whose displayed ``description`` is just the FIRST-registered detector's —
+    so the finding can be silently MISATTRIBUTED (a ``.console/task.md`` violation
+    shown as "README first H1 …"). This surfaces the collision in the output so a
+    reader knows the title may not match the finding and should read the samples.
+
+    Returns ``""`` for a non-colliding pattern."""
+    if not pattern.get("collision"):
+        return ""
+    sources = [str(s) for s in (pattern.get("collision_sources") or []) if s]
+    where = ", ".join(sources) if sources else "multiple detectors"
+    return (
+        f"  [⚠ DETECTOR-ID COLLISION across: {where} — the title above is only the "
+        "first-registered detector's; the real finding may be a different one, see samples]"
+    )

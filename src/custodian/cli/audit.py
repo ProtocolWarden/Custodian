@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 
+from custodian.audit_kit.result import collision_note
 from custodian.cli import colors
 from custodian.cli.runner import run_repo_audit
 
@@ -47,6 +48,7 @@ def _human_summary(result) -> str:
             sev_colored = colors.severity_color(sev_key, f"[{sev}]")
             lines.append(
                 f"  {sev_colored} [{code}] {pat['description']} — {pat['count']} finding(s)"
+                f"{collision_note(pat)}"
             )
             for sample in pat.get("samples", [])[:3]:
                 lines.append(f"        {sample}")
