@@ -274,6 +274,13 @@ def test_c32_skips_token_endpoint_name(tmp_path):
     assert detect_c32(ctx).count == 0
 
 
+def test_c32_skips_punctuation_only_value(tmp_path):
+    # A token-stripping charset: the name contains "token" but the value is
+    # pure punctuation — no alphanumeric entropy, so it cannot be a secret.
+    ctx = _ctx(tmp_path, "_TOKEN_STRIP = \".,!?;:'()-\"\n")
+    assert detect_c32(ctx).count == 0
+
+
 # ── C33: ghost-work comment density ──────────────────────────────────────────
 
 class TestC33:

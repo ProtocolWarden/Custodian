@@ -1,3 +1,13 @@
+## 2026-07-10 — fix(c32): reject punctuation-only values as credentials
+
+C32 (hardcoded credential) fired a HIGH false positive on a downstream repo's
+`_TOKEN_STRIP = ".,!?;:\"'()—-"` — the name contains "token" so `_is_credential_name`
+matched, and the punctuation value passed `_is_real_credential` (not a placeholder,
+not a URL, not ALL_CAPS). A real secret carries alphanumeric entropy; a value with
+zero alphanumeric characters can never be a credential. Added that guard to
+`_is_real_credential` + a regression test (`test_c32_skips_punctuation_only_value`).
+12 C32 tests pass.
+
 ## 2026-06-20 — feat: INJ1 prompt-injection signature detector
 
 New audit_kit detector (HARNESS_TRUST_HARDENING §2.2.6, the outer INJ layer):

@@ -677,6 +677,11 @@ def _is_real_credential(value: str) -> bool:
     """Return True if value looks like an actual credential (not a placeholder)."""
     if not value or len(value) < 4:
         return False
+    # A real secret carries alphanumeric entropy; a punctuation/symbol-only
+    # string (e.g. a token-stripping charset ".,!?;:") cannot be a credential,
+    # even when the variable name contains a credential word like "token".
+    if not any(c.isalnum() for c in value):
+        return False
     if _PLACEHOLDER_RE.search(value):
         return False
     # URL values are not credentials
