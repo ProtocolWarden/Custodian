@@ -63,6 +63,7 @@ K5  Broken relative documentation link — a markdown link whose target is a
 from __future__ import annotations
 
 import ast as _ast
+from dataclasses import dataclass
 import re
 from pathlib import Path
 
@@ -75,18 +76,30 @@ from custodian.audit_kit.detector import (
 )
 
 _MAX_SAMPLES = 8
+_NEEDS_AST = frozenset({"ast_forest"})
+_NEEDS_BOTH = frozenset({"ast_forest", "tests_forest"})
+_DOC_INDEX_CACHE: dict[tuple[int, int], "_DocIndex"] = {}
+
+
+@dataclass(frozen=True)
+class _DocIndex:
+    defined_symbols: set[str]
+    field_symbols: set[str]
+    event_symbols: set[str]
+    string_literals: set[str]
+    tests_defined_symbols: set[str]
 
 
 def build_docs_detectors() -> list[Detector]:
     return [
         Detector("K1", "doc references a symbol not found in src (phantom symbol)", "open",
-                 detect_k1, LOW),
+                 detect_k1, LOW, _NEEDS_BOTH),
         Detector("K2", "doc cites a value not present as string literal in src (value drift)", "open",
-                 detect_k2, LOW),
+                 detect_k2, LOW, _NEEDS_AST),
         Detector("K3", "docstring Args section names parameter not in function signature (param drift)", "open",
-                 detect_k3, LOW),
+                 detect_k3, LOW, _NEEDS_AST),
         Detector("K4", "docstring Args type does not match signature annotation (type drift)", "open",
-                 detect_k4, LOW),
+                 detect_k4, LOW, _NEEDS_AST),
         Detector("K5", "doc link points at a repo-relative path that does not exist (broken link)", "open",
                  detect_k5, LOW),
     ]
@@ -144,6 +157,57 @@ def _build_src_text(context: AuditContext) -> tuple[str, str]:
     return src_text, tests_text
 
 
+def _doc_index(context: AuditContext) -> _DocIndex:
+    graph = context.graph
+    ast_forest = None if graph is None else graph.ast_forest
+    tests_forest = None if graph is None else graph.tests_forest
+    cache_key = (id(ast_forest), id(tests_forest))
+    cached = _DOC_INDEX_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    defined_symbols: set[str] = set()
+    field_symbols: set[str] = set()
+    event_symbols: set[str] = set()
+    string_literals: set[str] = set()
+    tests_defined_symbols: set[str] = set()
+
+    if ast_forest is not None:
+        for _path, tree, _src in ast_forest.items():
+            for node in _ast.walk(tree):
+                if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef)):
+                    defined_symbols.add(node.name)
+                elif isinstance(node, _ast.AnnAssign) and isinstance(node.target, _ast.Name):
+                    field_symbols.add(node.target.id)
+                elif isinstance(node, _ast.Constant) and isinstance(node.value, str):
+                    string_literals.add(node.value)
+                elif isinstance(node, _ast.Dict):
+                    for key, value in zip(node.keys, node.values, strict=False):
+                        if (
+                            isinstance(key, _ast.Constant)
+                            and key.value == "event"
+                            and isinstance(value, _ast.Constant)
+                            and isinstance(value.value, str)
+                        ):
+                            event_symbols.add(value.value)
+
+    if tests_forest is not None:
+        for _path, tree, _src in tests_forest.items():
+            for node in _ast.walk(tree):
+                if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef)):
+                    tests_defined_symbols.add(node.name)
+
+    index = _DocIndex(
+        defined_symbols=defined_symbols,
+        field_symbols=field_symbols,
+        event_symbols=event_symbols,
+        string_literals=string_literals,
+        tests_defined_symbols=tests_defined_symbols,
+    )
+    _DOC_INDEX_CACHE[cache_key] = index
+    return index
+
+
 _DEFERRED_WORDS = ("deferred", "out of scope", "not yet implemented", "future:", "deprecated")
 _IMPL_MARKER_RE = re.compile(
     r"\*\*Files:\*\*|\bImplementation:|see\s+`|defined in `|"
@@ -166,19 +230,17 @@ def detect_k1(context: AuditContext) -> DetectorResult:
     common_words: set[str] = set(audit_cfg.get("common_words") or [])
     stale_handlers: set[str] = set(audit_cfg.get("stale_handlers") or [])
 
-    src_text, tests_text = _build_src_text(context)
+    index = _doc_index(context)
 
     def _exists(name: str) -> bool:
         if name in common_words or name in stale_handlers:
             return True
-        if re.search(rf"\b(def|class)\s+{re.escape(name)}\b", src_text):
-            return True
-        if re.search(rf"^\s+{re.escape(name)}\s*:\s*[A-Za-z]", src_text, re.MULTILINE):
-            return True
-        if re.search(rf"\b(def|class)\s+{re.escape(name)}\b", tests_text):
-            return True
-        # Exists as a quoted string literal in src (e.g. dict key, enum value, config key)
-        return bool(re.search(rf"""['"]{re.escape(name)}['"]""", src_text))
+        return (
+            name in index.defined_symbols
+            or name in index.field_symbols
+            or name in index.tests_defined_symbols
+            or name in index.string_literals
+        )
 
     seen: dict[str, tuple[Path, int]] = {}
     for f in _doc_files(context.repo_root, audit_cfg):
@@ -237,7 +299,7 @@ def detect_k2(context: AuditContext) -> DetectorResult:
     extra_known: set[str] = {v.lower() for v in (audit_cfg.get("known_values") or [])}
     known_values = _DEFAULT_KNOWN_VALUES | extra_known
 
-    src_text, _ = _build_src_text(context)
+    index = _doc_index(context)
 
     seen: dict[str, tuple[Path, int]] = {}
     for f in _doc_files(context.repo_root, audit_cfg):
@@ -252,11 +314,11 @@ def detect_k2(context: AuditContext) -> DetectorResult:
                 name = m.group(1)
                 if name in seen or name.lower() in known_values:
                     continue
-                if re.search(rf"""['"]{re.escape(name)}['"]""", src_text):
-                    continue
-                if re.search(rf"^\s+{re.escape(name)}\s*:\s*[A-Za-z]", src_text, re.MULTILINE):
-                    continue
-                if re.search(rf"\b(def|class)\s+{re.escape(name)}\b", src_text):
+                if (
+                    name in index.string_literals
+                    or name in index.field_symbols
+                    or name in index.defined_symbols
+                ):
                     continue
                 seen[name] = (f, i)
 
@@ -371,17 +433,24 @@ def detect_k3(context: AuditContext) -> DetectorResult:
     samples: list[str] = []
     count = 0
 
-    for path in _py_files(context, "K3"):
+    if context.graph is None or context.graph.ast_forest is None:
+        file_iter = []
+        for path in _py_files(context, "K3"):
+            try:
+                raw = path.read_text(encoding="utf-8")
+                tree = _ast.parse(raw)
+            except (OSError, UnicodeDecodeError, SyntaxError):
+                continue
+            file_iter.append((path, tree))
+    else:
+        file_iter = [(path, tree) for path, tree, _src in context.graph.ast_forest.items()]
+
+    for path, tree in file_iter:
         if globs:
             from custodian.audit_kit.code_health import _glob_to_regex
             rel_str = path.relative_to(context.repo_root).as_posix()
             if any(_glob_to_regex(g).match(rel_str) for g in globs):
                 continue
-        try:
-            raw = path.read_text(encoding="utf-8")
-            tree = _ast.parse(raw)
-        except (OSError, UnicodeDecodeError, SyntaxError):
-            continue
         rel = path.relative_to(context.repo_root).as_posix()
 
         for node in _ast.walk(tree):
@@ -549,17 +618,24 @@ def detect_k4(context: AuditContext) -> DetectorResult:
     samples: list[str] = []
     count = 0
 
-    for path in _py_files(context, "K4"):
+    if context.graph is None or context.graph.ast_forest is None:
+        file_iter = []
+        for path in _py_files(context, "K4"):
+            try:
+                raw = path.read_text(encoding="utf-8")
+                tree = _ast.parse(raw)
+            except (OSError, UnicodeDecodeError, SyntaxError):
+                continue
+            file_iter.append((path, tree))
+    else:
+        file_iter = [(path, tree) for path, tree, _src in context.graph.ast_forest.items()]
+
+    for path, tree in file_iter:
         if globs:
             from custodian.audit_kit.code_health import _glob_to_regex
             rel_str = path.relative_to(context.repo_root).as_posix()
             if any(_glob_to_regex(g).match(rel_str) for g in globs):
                 continue
-        try:
-            raw = path.read_text(encoding="utf-8")
-            tree = _ast.parse(raw)
-        except (OSError, UnicodeDecodeError, SyntaxError):
-            continue
         rel = path.relative_to(context.repo_root).as_posix()
 
         for node in _ast.walk(tree):

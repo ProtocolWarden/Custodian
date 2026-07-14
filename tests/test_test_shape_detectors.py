@@ -9,6 +9,7 @@ from pathlib import Path
 from custodian.audit_kit.detector import AnalysisGraph, AuditContext
 from custodian.audit_kit.detectors.test_shape import detect_t2
 from custodian.audit_kit.passes.ast_forest import AstForest
+from custodian.audit_kit.passes.tests_forest import build_tests_forest
 
 
 def _write_test_file(src: str, tmp_path: Path, name: str = "test_example.py") -> None:
@@ -19,13 +20,14 @@ def _write_test_file(src: str, tmp_path: Path, name: str = "test_example.py") ->
 
 def _ctx(tmp_path: Path) -> AuditContext:
     (tmp_path / "src").mkdir(parents=True, exist_ok=True)
+    tests_root = tmp_path / "tests"
     return AuditContext(
         repo_root=tmp_path,
         src_root=tmp_path / "src",
-        tests_root=tmp_path / "tests",
+        tests_root=tests_root,
         config={},
         plugin_modules=[],
-        graph=AnalysisGraph(ast_forest=AstForest()),
+        graph=AnalysisGraph(ast_forest=AstForest(), tests_forest=build_tests_forest(tests_root)),
     )
 
 

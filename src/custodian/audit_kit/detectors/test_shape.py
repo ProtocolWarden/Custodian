@@ -74,6 +74,7 @@ from custodian.audit_kit.glob_match import glob_match
 
 _MAX_SAMPLES = 8
 _NEEDS_TF = frozenset({"ast_forest", "tests_forest"})
+_NEEDS_TESTS_ONLY = frozenset({"tests_forest"})
 
 
 def build_test_shape_detectors() -> list[Detector]:
@@ -81,19 +82,19 @@ def build_test_shape_detectors() -> list[Detector]:
         Detector("T1", "public src symbol with no reference in tests", "open",
                  detect_t1, LOW, _NEEDS_TF),
         Detector("T2", "test function with no assert statement", "open",
-                 detect_t2, LOW),
+                 detect_t2, LOW, _NEEDS_TESTS_ONLY),
         Detector("T3", "unconditional pytest.skip without environment gate", "open",
-                 detect_t3, LOW),
+                 detect_t3, LOW, _NEEDS_TESTS_ONLY),
         Detector("T4", "pytest fixture defined but never requested by any test or fixture", "open",
-                 detect_t4, LOW),
+                 detect_t4, LOW, _NEEDS_TESTS_ONLY),
         Detector("T5", "pytest.mark.parametrize with a single test case — should be a plain test", "open",
-                 detect_t5, LOW),
+                 detect_t5, LOW, _NEEDS_TESTS_ONLY),
         Detector("T6", "src module is never imported by any test file", "open",
                  detect_t6, LOW, _NEEDS_TF),
         Detector("T7", "src module has no parallel test file under tests/", "open",
                  detect_t7, LOW),
         Detector("T8", "test file imports nothing from any src package", "open",
-                 detect_t8, LOW),
+                 detect_t8, LOW, _NEEDS_TESTS_ONLY),
     ]
 
 
@@ -169,6 +170,12 @@ def _parse_test_files(tests_root: Path) -> list[tuple[Path, ast.Module]]:
     return results
 
 
+def _iter_test_files(context: AuditContext) -> list[tuple[Path, ast.Module, str]]:
+    if context.graph is not None and context.graph.tests_forest is not None:
+        return list(context.graph.tests_forest.items())
+    return [(path, tree, "") for path, tree in _parse_test_files(context.tests_root)]
+
+
 # ── T1 ────────────────────────────────────────────────────────────────────────
 
 def _t1_excluded_paths(context: AuditContext) -> set[str]:
@@ -239,7 +246,7 @@ def detect_t2(context: AuditContext) -> DetectorResult:
     samples: list[str] = []
     count = 0
 
-    for path, tree in _parse_test_files(context.tests_root):
+    for path, tree, _src in _iter_test_files(context):
         rel = path.relative_to(context.repo_root)
         rel_posix = rel.as_posix()
         if t2_excludes and any(glob_match(rel_posix, excl) for excl in t2_excludes):
@@ -280,12 +287,9 @@ def detect_t3(context: AuditContext) -> DetectorResult:
 
     samples: list[str] = []
     count = 0
-    for path, _tree in _parse_test_files(context.tests_root):
+    for path, _tree, src in _iter_test_files(context):
         rel = path.relative_to(context.repo_root).as_posix()
-        try:
-            lines = path.read_text(encoding="utf-8").splitlines()
-        except OSError:
-            continue
+        lines = src.splitlines() if src else path.read_text(encoding="utf-8").splitlines()
         for i, line in enumerate(lines, 1):
             stripped = line.lstrip()
             is_call = "pytest.skip(" in line
@@ -348,9 +352,9 @@ def detect_t4(context: AuditContext) -> DetectorResult:
     # Pass 2: collect all parameter names across test functions and fixtures
     requested_names: set[str] = set()
 
-    all_files: list[tuple[Path, ast.Module]] = _parse_test_files(context.tests_root)
+    all_files = _iter_test_files(context)
 
-    for path, tree in all_files:
+    for path, tree, _src in all_files:
         rel_str = path.relative_to(context.repo_root).as_posix()
         if globs and any(PurePosixPath(rel_str).match(g) for g in globs):
             continue
@@ -429,7 +433,7 @@ def detect_t5(context: AuditContext) -> DetectorResult:
     count = 0
     samples: list[str] = []
 
-    for path, tree in _parse_test_files(context.tests_root):
+    for path, tree, _src in _iter_test_files(context):
         rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -675,7 +679,7 @@ def _file_touches_src(tree: ast.AST, src_packages: set[str]) -> bool:
 
 
 def _conftest_dirs_touching_src(
-    tests_root: Path, src_packages: set[str],
+    context: AuditContext, src_packages: set[str],
 ) -> set[Path]:
     """Return dir paths whose conftest.py (or any ancestor's conftest.py)
     imports a src package.
@@ -685,10 +689,8 @@ def _conftest_dirs_touching_src(
     tests under it implicitly exercise src — they're not dangling.
     """
     touching: set[Path] = set()
-    for conftest in tests_root.rglob("conftest.py"):
-        try:
-            tree = ast.parse(conftest.read_text(encoding="utf-8", errors="replace"))
-        except (OSError, SyntaxError):
+    for conftest, tree, _src in _iter_test_files(context):
+        if conftest.name != "conftest.py":
             continue
         if _file_touches_src(tree, src_packages):
             touching.add(conftest.parent.resolve())
@@ -734,11 +736,11 @@ def detect_t8(context: AuditContext) -> DetectorResult:
     if not src_packages:
         return DetectorResult(count=0, samples=[])
 
-    conftest_dirs = _conftest_dirs_touching_src(context.tests_root, src_packages)
+    conftest_dirs = _conftest_dirs_touching_src(context, src_packages)
 
     samples: list[str] = []
     count = 0
-    for path, tree in _parse_test_files(context.tests_root):
+    for path, tree, _src in _iter_test_files(context):
         if path.name == "conftest.py" or path.name == "__init__.py":
             continue
         rel = path.relative_to(context.repo_root)
