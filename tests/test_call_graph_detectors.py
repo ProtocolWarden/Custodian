@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import textwrap
 from pathlib import Path
+from unittest.mock import patch
 
 from custodian.audit_kit.detector import AnalysisGraph, AuditContext
 from custodian.audit_kit.detectors.dead_code import detect_d1, detect_f1
-from custodian.audit_kit.passes.call_graph import build_call_graph
+from custodian.audit_kit.passes.call_graph import _collect_usages_only, build_call_graph
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -85,6 +86,39 @@ class TestCallGraph:
         """, tmp_path)
         cg = build_call_graph(tmp_path / "src")
         assert "my_decorator" in cg.decorated_names
+
+    def test_collect_usages_only_walks_tree_once(self):
+        tree = __import__("ast").parse(
+            textwrap.dedent(
+                """
+                class Child(Base):
+                    pass
+
+                Foo.model_validate(payload)
+                obj.run()
+                value = obj.field
+                """
+            )
+        )
+        walk_calls = 0
+        import ast
+
+        real_walk = ast.walk
+
+        def _counting_walk(node):
+            nonlocal walk_calls
+            walk_calls += 1
+            return real_walk(node)
+
+        with patch("custodian.audit_kit.passes.call_graph.ast.walk", side_effect=_counting_walk):
+            cg = build_call_graph(Path("/tmp/does-not-matter"))
+            _collect_usages_only(tree, cg)
+
+        assert walk_calls == 1
+        assert "Base" in cg.constructed_names
+        assert "run" in cg.called_attrs
+        assert "field" in cg.accessed_attrs
+        assert "Foo" in cg.model_validate_classes
 
 
 # ── D1 tests ──────────────────────────────────────────────────────────────────
