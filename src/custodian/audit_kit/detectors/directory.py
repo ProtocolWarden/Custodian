@@ -36,7 +36,9 @@ fnmatch, so ``**`` matches any number of path components.
 """
 from __future__ import annotations
 
-from pathlib import PurePosixPath
+import os
+from collections.abc import Iterator
+from pathlib import Path, PurePosixPath
 
 from custodian.audit_kit.detector import (
     AuditContext, Detector, DetectorResult, MEDIUM,
@@ -67,6 +69,39 @@ def _glob_match_dir(rel_dir: str, glob: str) -> bool:
     as of Python 3.12 when anchored with a leading ``src/...`` segment.
     """
     return PurePosixPath(rel_dir).match(glob)
+
+
+def _iter_candidate_dirs(repo_root: Path) -> Iterator[Path]:
+    """Directories under *repo_root*, skipping generated/hidden trees.
+
+    Uses ``os.walk`` with in-place pruning rather than ``Path.rglob`` because
+    rglob cannot prune. It descends into every directory and yields the whole
+    subtree, so a hidden directory was only skipped AFTER its contents had
+    already been walked and stat'd — and the stat is what failed.
+
+    Observed 2026-07-26: HuggingFace stores hub snapshots as symlinks into
+    ``blobs/``, created inside Linux containers. Stat'ing one from Windows
+    raises ``OSError`` (WinError 1920, "cannot be accessed by the system"),
+    and because that happened during the walk it aborted the ENTIRE audit
+    before any detector produced a finding — a repo with a model cache could
+    not be audited at all. Pruning also matches this detector's stated intent
+    ("skip generated/hidden directories") and is faster: nothing under
+    ``.git``, ``.venv`` or a multi-GB cache is ever a directory-structure
+    candidate.
+
+    Entries that still raise while walking are skipped rather than fatal,
+    consistent with how the caller already treats ``iterdir()`` failures.
+    """
+    def _on_error(_exc: OSError) -> None:
+        return None  # unreadable subtree: skip it, never abort the audit
+
+    for dirpath, dirnames, _ in os.walk(repo_root, onerror=_on_error):
+        dirnames[:] = sorted(
+            d for d in dirnames
+            if not d.startswith(".") and not d.startswith("__")
+        )
+        for name in dirnames:
+            yield Path(dirpath) / name
 
 
 def detect_d1(context: AuditContext) -> DetectorResult:
@@ -102,12 +137,7 @@ def detect_d1(context: AuditContext) -> DetectorResult:
             continue
 
         # Walk all directories under repo_root and match against glob
-        for candidate in sorted(repo_root.rglob("*")):
-            if not candidate.is_dir():
-                continue
-            # Skip generated/hidden directories
-            if candidate.name.startswith("__") or candidate.name.startswith("."):
-                continue
+        for candidate in _iter_candidate_dirs(repo_root):
             try:
                 rel = candidate.relative_to(repo_root).as_posix()
             except ValueError:
