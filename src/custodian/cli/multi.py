@@ -32,6 +32,7 @@ def main():
     custodian-multi ... --fail-on-findings         → exit 1 if any repo has findings
     custodian-multi ... --min-severity high        → pass filter to each sub-audit
     """
+    colors.ensure_printable_console()
     parser = argparse.ArgumentParser(
         description="Run Custodian audit across multiple repos and summarise"
     )

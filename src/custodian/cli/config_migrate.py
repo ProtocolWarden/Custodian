@@ -9,6 +9,7 @@ from pathlib import Path
 
 import yaml
 
+from custodian.cli import colors
 from custodian.config.loader import config_summary, migrate_v0_to_v1, _read_yaml
 
 
@@ -18,6 +19,7 @@ def main():
     custodian-config migrate           → migrate .custodian.yaml to v1 (dry-run)
     custodian-config migrate --apply   → write migrated config
     """
+    colors.ensure_printable_console()
     parser = argparse.ArgumentParser(description="Inspect or migrate .custodian.yaml")
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     sub = parser.add_subparsers(dest="cmd")

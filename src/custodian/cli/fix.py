@@ -7,6 +7,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from custodian.cli import colors
 from custodian.cli.runner import run_repo_audit
 from custodian.codemods.base import run_codemods
 
@@ -24,6 +25,7 @@ def main():
     custodian-fix --repo /path/to/repo  → fix that repo
     custodian-fix --only F401,E722      → only fix these rule codes
     """
+    colors.ensure_printable_console()
     parser = argparse.ArgumentParser(description="Apply automated codemods to Custodian findings")
     parser.add_argument("--repo", type=Path, default=Path.cwd(),
                         help="Repository root (default: cwd)")
