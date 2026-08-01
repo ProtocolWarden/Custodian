@@ -12,10 +12,12 @@ import json
 import sys
 from pathlib import Path
 
+from custodian.cli import colors
 from custodian.triage import triage_result
 
 
 def main() -> None:
+    colors.ensure_printable_console()
     parser = argparse.ArgumentParser(
         prog="custodian-triage",
         description="Group audit findings into per-file action recommendations.",

@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import sys
 
+from custodian.cli import colors
+
 
 _COMMANDS = {
     "audit":   "custodian.cli.audit:main",
@@ -45,6 +47,7 @@ Run `custodian <command> --help` for command-specific options.
 
 
 def main() -> None:
+    colors.ensure_printable_console()
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
         print(_HELP)
         return

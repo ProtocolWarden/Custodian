@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Console encoding could crash a completed run on Windows.**
+  `custodian-multi --verbose` died with `UnicodeEncodeError` *after* every repo
+  had been audited, discarding the findings the operator asked for: the
+  per-repo report prints box-drawing and em-dash glyphs, which a cp1252 console
+  cannot encode. Eight of the nine `console_scripts` carry em-dash or arrow
+  characters in help text or output, so every one of them could fail the same
+  way when invoked directly — only `custodian-repograph-governance-gate` is
+  pure ASCII. All eight now call `colors.ensure_printable_console()`, which
+  prefers UTF-8 and falls back to replacing unencodable characters. Formatting
+  can no longer fail a run that otherwise succeeded.
+
 ### Added
 
 - DC9 — index-coverage detector: docs in `doc_conventions.dc9_index_dirs`

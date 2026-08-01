@@ -85,6 +85,7 @@ def main():
     custodian-audit --fail-on-findings        → exit 1 if any findings
     custodian-audit --list-detectors          → list all available detector IDs
     """
+    colors.ensure_printable_console()
     parser = argparse.ArgumentParser(description="Run a Custodian audit on a repo")
     parser.add_argument("--repo", type=Path, default=Path.cwd(),
                         help="Repository root containing .custodian.yaml (default: cwd)")

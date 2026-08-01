@@ -224,6 +224,7 @@ def main():
                                and all declared paths/plugins/detectors resolve
     custodian-doctor --strict → exit non-zero on any warning
     """
+    colors.ensure_printable_console()
     parser = argparse.ArgumentParser(description="Verify a Custodian consumer setup")
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--strict", action="store_true")

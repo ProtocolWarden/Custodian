@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from custodian.cli import colors
 from custodian.cli.runner import run_repo_audit
 
 
@@ -17,6 +18,7 @@ def main():
     custodian-report --format all         → all three formats
     custodian-report --output-dir ./out   → custom output directory
     """
+    colors.ensure_printable_console()
     parser = argparse.ArgumentParser(description="Generate Custodian findings reports")
     parser.add_argument("--repo", type=Path, default=Path.cwd(),
                         help="Repository root (default: cwd)")
