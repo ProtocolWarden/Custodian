@@ -33,11 +33,69 @@ class SemgrepAdapter(ToolAdapter):
 
     name = "semgrep"
 
-    def __init__(self, configs: list[str] | None = None) -> None:
+    #: Where the repo is mounted inside the container. Targets and configs are
+    #: passed *relative* to it, so semgrep emits repo-relative result paths.
+    _MOUNT = "/src"
+
+    def __init__(
+        self,
+        configs: list[str] | None = None,
+        docker: bool = False,
+        image: str = "semgrep/semgrep:latest",
+        timeout: int = 120,
+    ) -> None:
         self._configs = configs or []
+        self._docker = docker
+        self._image = image
+        self._timeout = timeout
 
     def is_available(self) -> bool:
+        if self._docker:
+            return find_tool("docker") is not None
         return find_tool("semgrep") is not None
+
+    def _docker_cmd(
+        self, repo_path: Path, configs: list[str], src_root: Path
+    ) -> list[str]:
+        """Build a ``docker run`` invocation equivalent to the native call.
+
+        Native semgrep does not work on every host. On Windows ``semgrep-core``
+        fails rule validation outright (``RPC subprocess exited with code 1``)
+        *and* semgrep still exits 0, so an authored rule set silently never
+        executes while the config keeps asserting it does. Running the official
+        image sidesteps the platform question entirely.
+
+        Paths are passed **relative to the mount**, which also fixes result
+        paths: semgrep echoes back the form it was given, so relative targets
+        yield repo-relative result paths on every platform.
+
+        Raises:
+            ValueError: if a rules dir or the source root lies outside the repo,
+                since only the repo is mounted.
+        """
+        repo_root = repo_path.resolve()
+
+        def _rel(p: Path | str) -> str:
+            try:
+                return Path(p).resolve().relative_to(repo_root).as_posix()
+            except ValueError:
+                raise ValueError(
+                    f"semgrep docker mode cannot reach a path outside the repo: {p} "
+                    f"(only {repo_root} is mounted). Move the rules under the repo, "
+                    "or set docker: false for this adapter."
+                ) from None
+
+        cmd = [
+            find_tool("docker") or "docker", "run", "--rm",
+            "-v", f"{repo_root.as_posix()}:{self._MOUNT}",
+            "-w", self._MOUNT,
+            self._image,
+            "semgrep", "--json", "--quiet", "--metrics=off",
+        ]
+        for cfg in configs:
+            cmd += ["--config", _rel(cfg)]
+        cmd.append(_rel(src_root))
+        return cmd
 
     def run(self, repo_path: Path, config: dict) -> list[Finding]:
         src_root = repo_path / config.get("src_root", "src")
@@ -67,10 +125,23 @@ class SemgrepAdapter(ToolAdapter):
             for cfg in configs
         ]
 
-        cmd = [find_tool("semgrep") or "semgrep", "--json", "--quiet"]
-        for cfg in configs:
-            cmd += ["--config", cfg]
-        cmd.append(str(src_root))
+        if self._docker:
+            try:
+                cmd = self._docker_cmd(repo_path, configs, src_root)
+            except ValueError as exc:
+                return [Finding(
+                    tool=self.name,
+                    rule="TOOL_ERROR",
+                    severity=LOW,
+                    path=None,
+                    line=None,
+                    message=str(exc),
+                )]
+        else:
+            cmd = [find_tool("semgrep") or "semgrep", "--json", "--quiet"]
+            for cfg in configs:
+                cmd += ["--config", cfg]
+            cmd.append(str(src_root))
 
         try:
             proc = subprocess.run(
@@ -78,10 +149,19 @@ class SemgrepAdapter(ToolAdapter):
                 capture_output=True,
                 text=True,
                 cwd=repo_path,
-                timeout=120,
+                timeout=self._timeout,
             )
         except FileNotFoundError:
             return [Finding.tool_unavailable(self.name)]
+        except subprocess.TimeoutExpired:
+            return [Finding(
+                tool=self.name,
+                rule="TOOL_ERROR",
+                severity=LOW,
+                path=None,
+                line=None,
+                message=f"semgrep timed out after {self._timeout}s",
+            )]
 
         raw = proc.stdout.strip()
         if not raw:
