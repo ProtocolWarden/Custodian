@@ -56,7 +56,7 @@ def _glob_to_regex(glob: str) -> re.Pattern[str]:
     return re.compile("\\A" + "".join(out) + "\\Z")
 
 
-def _norm_rel(rel_path: str | Path) -> str:
+def _norm_rel(rel_path: str | PurePath) -> str:
     """Normalise a repo-relative path to POSIX form for glob matching.
 
     Config globs are always written with forward slashes (``src/config/**``),
@@ -74,7 +74,7 @@ def _norm_rel(rel_path: str | Path) -> str:
     return rel_path.replace("\\", "/")
 
 
-def _matches_any(rel_path: str | Path, globs: list[str]) -> bool:
+def _matches_any(rel_path: str | PurePath, globs: list[str]) -> bool:
     norm = _norm_rel(rel_path)
     return any(_glob_to_regex(g).match(norm) for g in globs)
 
