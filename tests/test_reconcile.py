@@ -122,9 +122,10 @@ def _base_config(artifact: Path, *, repo_key: str | None) -> dict:
 # Registration
 # ---------------------------------------------------------------------------
 
-def test_r1_r2_registered() -> None:
+def test_rc1_rc2_registered() -> None:
+    """RC-, not R-: readme.py owns R1..R6 and these collided with R1/R2 there."""
     ids = {d.id for d in build_reconcile_detectors()}
-    assert ids == {"R1", "R2"}
+    assert ids == {"RC1", "RC2"}
 
 
 # ---------------------------------------------------------------------------

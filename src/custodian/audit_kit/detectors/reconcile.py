@@ -76,8 +76,13 @@ _word_re_cache: dict[str, re.Pattern[str]] = {}
 
 def build_reconcile_detectors() -> list[Detector]:
     return [
+        # RC-, not R-: readme.py owns a contiguous R1..R6 family, and these two
+        # collided with R1/R2 there. Colliding ids merge under one entry whose
+        # displayed title is only the first-registered detector's, so a
+        # ".console over budget" finding was reported as "README.md missing at
+        # repo root" — actively misleading anyone triaging by title.
         Detector(
-            "R1",
+            "RC1",
             "tracked .console/*.md source file exceeds its line budget "
             "(reconciliation due)",
             "open",
@@ -86,7 +91,7 @@ def build_reconcile_detectors() -> list[Detector]:
             frozenset(),
         ),
         Detector(
-            "R2",
+            "RC2",
             "scrub-target private name in a public repo's tracked "
             ".console/** file",
             "open",
@@ -134,10 +139,15 @@ def detect_r1(context: AuditContext) -> DetectorResult:
     if not _reconcile_enforced(context.config):
         return DetectorResult(count=0, samples=[])
     audit = _audit_block(context.config)
-    if audit.get("r1_enabled") is False:
+    # The detector is RC1 as of the R-collision fix; `rc1_*` is the preferred
+    # config spelling and `r1_*` stays honoured so existing repo configs keep
+    # working. Renaming an id should not silently disable a consumer's opt-out.
+    if audit.get("rc1_enabled", audit.get("r1_enabled")) is False:
         return DetectorResult(count=0, samples=[])
 
-    budget = audit.get("r1_line_budget", _DEFAULT_R1_LINE_BUDGET)
+    budget = audit.get(
+        "rc1_line_budget", audit.get("r1_line_budget", _DEFAULT_R1_LINE_BUDGET)
+    )
     try:
         budget = int(budget)
     except (TypeError, ValueError):
