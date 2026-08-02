@@ -28,9 +28,11 @@ import re
 from pathlib import Path
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW,
+    LOW,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
-
 
 _READ_LIMIT = 80  # lines — opening section only
 _MAX_SAMPLES = 4

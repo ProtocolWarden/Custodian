@@ -45,14 +45,14 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW, MEDIUM,
+    LOW,
+    MEDIUM,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
-
-if TYPE_CHECKING:
-    pass
 
 _MAX_SAMPLES = 8
 _NEEDS = frozenset({"ast_forest"})

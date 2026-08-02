@@ -48,10 +48,10 @@ from pathlib import Path
 from typing import Any
 
 from custodian.audit_kit.detector import (
+    MEDIUM,
     AuditContext,
     Detector,
     DetectorResult,
-    MEDIUM,
 )
 
 _MAX_SAMPLES = 8

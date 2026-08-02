@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from custodian.core.finding import Finding, _SEVERITY_ORDER
+from custodian.core.finding import _SEVERITY_ORDER, Finding
 
 _SEV_BADGE: dict[str, str] = {
     "critical": "🔴 CRITICAL",

@@ -30,8 +30,7 @@ import subprocess
 from pathlib import Path
 
 from custodian.adapters.base import ToolAdapter, find_tool
-from custodian.core.finding import Finding, HIGH, LOW, MEDIUM
-
+from custodian.core.finding import HIGH, LOW, MEDIUM, Finding
 
 _DEFAULT_GLOBS: tuple[str, ...] = ("README.md", "docs/**/*.md")
 _DEFAULT_TIMEOUT = 60

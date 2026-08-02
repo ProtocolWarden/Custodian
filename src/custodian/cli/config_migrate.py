@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 
 from custodian.cli import colors
-from custodian.config.loader import config_summary, migrate_v0_to_v1, _read_yaml
+from custodian.config.loader import _read_yaml, config_summary, migrate_v0_to_v1
 
 
 def main():

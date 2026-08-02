@@ -25,9 +25,9 @@ from __future__ import annotations
 
 import difflib
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Sequence
 
 from custodian.core.finding import Finding
 

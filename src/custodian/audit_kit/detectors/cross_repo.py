@@ -46,10 +46,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW,
+    LOW,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
 from custodian.audit_kit.glob_match import glob_match
-
 
 _MAX_SAMPLES = 8
 

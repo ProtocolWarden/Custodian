@@ -6,8 +6,9 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
+
 from custodian.adapters.base import ToolAdapter, find_tool
-from custodian.core.finding import Finding, HIGH, MEDIUM, LOW
+from custodian.core.finding import HIGH, LOW, MEDIUM, Finding
 
 # ty concise output: path:line:col: level[rule-id] message
 _LINE_RE = re.compile(

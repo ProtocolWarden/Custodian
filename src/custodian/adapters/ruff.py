@@ -7,8 +7,9 @@ import json
 import os
 import subprocess
 from pathlib import Path
+
 from custodian.adapters.base import ToolAdapter, find_tool
-from custodian.core.finding import Finding, HIGH, MEDIUM, LOW
+from custodian.core.finding import HIGH, LOW, MEDIUM, Finding
 
 # Longest-prefix-first severity table.  First match wins.
 # Covers Ruff rule namespaces as of 0.x.

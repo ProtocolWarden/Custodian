@@ -14,8 +14,9 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
+
 from custodian.adapters.base import ToolAdapter, find_tool
-from custodian.core.finding import Finding, LOW
+from custodian.core.finding import LOW, Finding
 
 # path:line: unused <type> 'name' (N% confidence)
 _LINE_RE = re.compile(

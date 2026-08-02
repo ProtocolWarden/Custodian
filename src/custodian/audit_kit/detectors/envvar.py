@@ -17,7 +17,7 @@ import ast
 import re
 from pathlib import Path
 
-from custodian.audit_kit.detector import AuditContext, Detector, DetectorResult, LOW
+from custodian.audit_kit.detector import LOW, AuditContext, Detector, DetectorResult
 
 _SYSTEM_VARS: frozenset[str] = frozenset({
     # Standard Unix

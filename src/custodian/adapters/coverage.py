@@ -27,13 +27,13 @@ opt in via .custodian.yaml or by enabling at invocation time.
 """
 from __future__ import annotations
 
-from custodian.audit_kit.glob_match import glob_match
 import json
 from pathlib import Path
 from typing import Any, ClassVar
 
 from custodian.adapters.base import ToolAdapter
-from custodian.core.finding import Finding, LOW
+from custodian.audit_kit.glob_match import glob_match
+from custodian.core.finding import LOW, Finding
 
 
 class CoverageAdapter(ToolAdapter):

@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 from custodian.adapters.base import ToolAdapter, find_tool
-from custodian.core.finding import Finding, HIGH, MEDIUM, LOW
+from custodian.core.finding import HIGH, LOW, MEDIUM, Finding
 
 # Semgrep severity strings → canonical severity
 _SEMGREP_SEVERITY: dict[str, str] = {

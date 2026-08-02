@@ -42,10 +42,13 @@ import ast as _ast
 import re
 from pathlib import Path
 
-from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW,
-)
 from custodian.audit_kit.code_health import _py_files
+from custodian.audit_kit.detector import (
+    LOW,
+    AuditContext,
+    Detector,
+    DetectorResult,
+)
 
 _MAX_SAMPLES = 8
 

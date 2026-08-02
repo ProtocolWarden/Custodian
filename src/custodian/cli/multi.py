@@ -101,7 +101,7 @@ def main():
                 skip_deprecated=skip_deprecated,
             )
             results.append((repo, result, None))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             results.append((repo, None, str(exc)))
             errors.append(repo)
 

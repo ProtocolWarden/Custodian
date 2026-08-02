@@ -24,7 +24,10 @@ import ast
 import re
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW,
+    LOW,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
 
 _MAX_SAMPLES = 8
@@ -60,6 +63,7 @@ def detect_n1(context: AuditContext) -> DetectorResult:
     globs: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("N1") or [])
 
     from pathlib import PurePosixPath
+
     from custodian.audit_kit.code_health import _py_files
 
     samples: list[str] = []

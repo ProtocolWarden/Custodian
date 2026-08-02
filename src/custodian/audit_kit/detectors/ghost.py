@@ -28,7 +28,10 @@ from __future__ import annotations
 import re
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW,
+    LOW,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
 
 _MAX_SAMPLES = 8

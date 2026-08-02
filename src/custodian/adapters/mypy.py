@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 from custodian.adapters.base import ToolAdapter, find_tool
-from custodian.core.finding import Finding, HIGH, MEDIUM, LOW
+from custodian.core.finding import HIGH, LOW, MEDIUM, Finding
 
 # mypy: path:line:col: level: message  [code]
 _LINE_RE = re.compile(

@@ -43,16 +43,18 @@ B2  Boundary artifact is required but no boundary source is
 """
 from __future__ import annotations
 
+import json
 import subprocess
 from hashlib import sha256
-import json
 from pathlib import Path
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, MEDIUM,
+    MEDIUM,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
 from custodian.audit_kit.glob_match import glob_match
-
 
 _MAX_SAMPLES = 8
 _ARTIFACT_FILE_ENV = "REPOGRAPH_BOUNDARY_ARTIFACT_FILE"

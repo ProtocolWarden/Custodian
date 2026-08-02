@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import re
 
-from custodian.audit_kit.detector import AuditContext, Detector, DetectorResult, MEDIUM, LOW
+from custodian.audit_kit.detector import LOW, MEDIUM, AuditContext, Detector, DetectorResult
 
 _REQUIRED_CONSOLE_FILES = ("task.md", "guidelines.md", "backlog.md", "log.md")
 

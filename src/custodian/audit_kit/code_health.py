@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path, PurePath
 import re
+from pathlib import Path, PurePath
 
-from custodian.audit_kit.detector import AuditContext, Detector, DetectorResult, HIGH, MEDIUM, LOW
+from custodian.audit_kit.detector import HIGH, LOW, MEDIUM, AuditContext, Detector, DetectorResult
 from custodian.audit_kit.glob_match import glob_match
 
 

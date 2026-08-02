@@ -53,10 +53,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from custodian.audit_kit.detector import (
+    MEDIUM,
     AuditContext,
     Detector,
     DetectorResult,
-    MEDIUM,
 )
 from custodian.audit_kit.detectors.cross_repo import _load_manifest_info
 

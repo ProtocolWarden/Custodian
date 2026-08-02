@@ -111,15 +111,15 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW, MEDIUM,
+    LOW,
+    MEDIUM,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
 from custodian.audit_kit.glob_match import glob_match
-
-if TYPE_CHECKING:
-    pass
 
 _MAX_SAMPLES = 8
 _NEEDS = frozenset({"import_graph"})

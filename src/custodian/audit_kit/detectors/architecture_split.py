@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from custodian.audit_kit.detector import AuditContext, Detector, DetectorResult, MEDIUM
+from custodian.audit_kit.detector import MEDIUM, AuditContext, Detector, DetectorResult
 
 
 def build_architecture_split_detectors() -> list[Detector]:

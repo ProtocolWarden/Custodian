@@ -41,7 +41,10 @@ from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, MEDIUM,
+    MEDIUM,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
 
 _MAX_SAMPLES = 8

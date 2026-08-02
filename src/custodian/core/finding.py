@@ -41,7 +41,7 @@ class Finding:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Finding":
+    def from_dict(cls, d: dict) -> Finding:
         return cls(
             tool=str(d["tool"]),
             rule=str(d["rule"]),
@@ -52,7 +52,7 @@ class Finding:
         )
 
     @staticmethod
-    def tool_unavailable(tool_name: str) -> "Finding":
+    def tool_unavailable(tool_name: str) -> Finding:
         return Finding(
             tool=tool_name,
             rule="TOOL_UNAVAILABLE",

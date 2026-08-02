@@ -29,9 +29,11 @@ from __future__ import annotations
 import re
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW,
+    LOW,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
-
 
 _CHANGELOG_H1_RE = re.compile(
     r"^#\s+changelog\b", re.IGNORECASE | re.MULTILINE,
