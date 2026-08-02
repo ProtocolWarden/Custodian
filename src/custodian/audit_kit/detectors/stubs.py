@@ -40,6 +40,13 @@ U4  Protocol implementation gap — a concrete class inherits from a Protocol
     class itself (not inherited from further bases).  Excludes abstract
     subclasses (themselves Protocols or ABC subclasses), ``@overload``
     stubs, and ``__init__``/``__new__`` (not part of a Protocol interface).
+
+    Methods the class inherits from its **non-Protocol** bases count as
+    implemented — Python resolves those through the MRO, so
+    ``class Impl(ConcreteBase, SomeProtocol)`` is complete when
+    ``ConcreteBase`` supplies the method.  Resolution is name-based across the
+    scanned tree, so a base defined outside it contributes nothing; that
+    direction under-reports inherited methods rather than inventing them.
 """
 from __future__ import annotations
 
@@ -116,6 +123,34 @@ def _is_ellipsis_only(stmt: ast.stmt) -> bool:
     return (isinstance(stmt, ast.Expr)
             and isinstance(stmt.value, ast.Constant)
             and stmt.value.value is ...)
+
+
+def _base_names(node: ast.ClassDef) -> set[str]:
+    """Base-class names for a ClassDef, as written (``Name`` or ``a.b`` attr)."""
+    names: set[str] = set()
+    for base in node.bases:
+        if isinstance(base, ast.Name):
+            names.add(base.id)
+        elif isinstance(base, ast.Attribute):
+            names.add(base.attr)
+    return names
+
+
+def _import_aliases(tree: ast.Module) -> dict[str, str]:
+    """Map local alias -> original name for ``import X as Y`` in this module.
+
+    A base written as an alias (``from m import Impl as _Base``) otherwise
+    resolves to nothing, because classes are indexed by their real name. That
+    is the common shape when a class is re-bound to avoid a name clash with the
+    subclass it is being mixed into.
+    """
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for a in node.names:
+                if a.asname:
+                    aliases[a.asname] = a.name.rsplit(".", 1)[-1]
+    return aliases
 
 
 def _protocol_classes(tree: ast.Module) -> set[str]:
@@ -360,13 +395,24 @@ def detect_u4(context: AuditContext) -> DetectorResult:
 
     exclude_globs = _exclude_globs(context, "U4")
 
-    # Pass 1: collect all Protocol classes and their required methods across all files
+    # Pass 1: collect all Protocol classes and their required methods across all
+    # files, plus every class's own methods and bases so pass 2 can resolve what
+    # a class inherits. Without the latter, `class Foo(ConcreteBase, SomeProto)`
+    # is reported as missing methods that ConcreteBase supplies — a false
+    # positive on any legitimate mixin.
     protocol_methods: dict[str, set[str]] = {}  # protocol_name → {method_names}
+    class_methods: dict[str, set[str]] = {}     # class_name → own method names
+    class_bases: dict[str, set[str]] = {}       # class_name → base class names
     for _path, tree, _src in context.graph.ast_forest.items():
         proto_names = _protocol_classes(tree)
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
+            class_methods.setdefault(node.name, set()).update(
+                n.name for n in ast.walk(node)
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+            )
+            class_bases.setdefault(node.name, set()).update(_base_names(node))
             if node.name in proto_names:
                 methods = _protocol_method_names(node)
                 if methods:  # only track Protocols that actually declare methods
@@ -374,6 +420,28 @@ def detect_u4(context: AuditContext) -> DetectorResult:
 
     if not protocol_methods:
         return DetectorResult(count=0, samples=[])
+
+    def _inherited_methods(start_bases: set[str]) -> set[str]:
+        """Methods reachable through the class's non-Protocol ancestors.
+
+        Name-based and best-effort: the AST cannot resolve imports, so a base
+        defined outside the scanned tree contributes nothing. That direction is
+        safe — it can only under-report inherited methods, never invent them.
+        """
+        found: set[str] = set()
+        seen: set[str] = set()
+        queue = [b for b in start_bases if b not in protocol_methods]
+        while queue:
+            base = queue.pop()
+            if base in seen:
+                continue
+            seen.add(base)
+            found |= class_methods.get(base, set())
+            queue.extend(
+                b for b in class_bases.get(base, set())
+                if b not in seen and b not in protocol_methods
+            )
+        return found
 
     # Pass 2: find concrete subclasses and check for gaps
     samples: list[str] = []
@@ -386,6 +454,7 @@ def detect_u4(context: AuditContext) -> DetectorResult:
         rel = path.relative_to(context.repo_root)
 
         this_file_protocols = _protocol_classes(tree)
+        file_aliases = _import_aliases(tree)
 
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
@@ -395,13 +464,11 @@ def detect_u4(context: AuditContext) -> DetectorResult:
             if node.name in protocol_methods:
                 continue  # also a protocol defined elsewhere (same name)
 
-            # Collect base class names
-            base_names: set[str] = set()
-            for base in node.bases:
-                if isinstance(base, ast.Name):
-                    base_names.add(base.id)
-                elif isinstance(base, ast.Attribute):
-                    base_names.add(base.attr)
+            base_names: set[str] = _base_names(node)
+            # Resolve `import X as Y` so an aliased base is matched by its real
+            # name. Both spellings are kept: the alias may itself be a class
+            # defined in this file.
+            base_names |= {file_aliases[b] for b in base_names if b in file_aliases}
 
             # Check if it's itself a Protocol or ABC (abstract — skip)
             if "Protocol" in base_names or "ABC" in base_names or "ABCMeta" in base_names:
@@ -411,11 +478,14 @@ def detect_u4(context: AuditContext) -> DetectorResult:
             for proto_name, required in protocol_methods.items():
                 if proto_name not in base_names:
                     continue
-                # Collect methods defined anywhere in this class body
+                # Methods defined in this class body, plus anything reachable
+                # through its non-Protocol ancestors — Python resolves those
+                # through the MRO, so they are not missing.
                 defined: set[str] = {
                     n.name for n in ast.walk(node)
                     if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
                 }
+                defined |= _inherited_methods(base_names)
                 missing = required - defined
                 if missing:
                     count += 1
