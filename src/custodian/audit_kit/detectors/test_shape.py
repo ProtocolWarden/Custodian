@@ -349,7 +349,7 @@ def detect_t4(context: AuditContext) -> DetectorResult:
     all_files: list[tuple[Path, ast.Module]] = _parse_test_files(context.tests_root)
 
     for path, tree in all_files:
-        rel_str = str(path.relative_to(context.repo_root))
+        rel_str = path.relative_to(context.repo_root).as_posix()
         if globs and any(PurePosixPath(rel_str).match(g) for g in globs):
             continue
         for node in ast.walk(tree):

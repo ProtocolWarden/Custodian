@@ -67,7 +67,7 @@ def detect_n1(context: AuditContext) -> DetectorResult:
 
     for path in _py_files(context, "N1"):
         if globs:
-            rel = str(path.relative_to(context.repo_root))
+            rel = path.relative_to(context.repo_root).as_posix()
             if any(PurePosixPath(rel).match(g) for g in globs):
                 continue
         try:
@@ -140,7 +140,7 @@ def detect_n2(context: AuditContext) -> DetectorResult:
     candidates: list = []
     if tests_root.is_dir():
         for path in tests_root.rglob("*.py"):
-            rel_str = str(path.relative_to(context.repo_root))
+            rel_str = path.relative_to(context.repo_root).as_posix()
             if globs and any(PurePosixPath(rel_str).match(g) for g in globs):
                 continue
             # Only flag functions in files that look like test files, not
