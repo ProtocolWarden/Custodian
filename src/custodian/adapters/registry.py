@@ -10,6 +10,20 @@ Schema:
       ty: false           # faster type-checker from Astral
       vulture: true       # dead-code detection
       semgrep: false      # custom pattern rules (needs rules/ dir)
+
+Semgrep also accepts a dict form::
+
+    tools:
+      semgrep:
+        configs: [.custodian/rules/semgrep]
+        docker: true                      # run the official image, not a local binary
+        image: semgrep/semgrep:latest     # optional pin
+        timeout: 180                      # optional, seconds
+
+``docker: true`` exists because native semgrep does not run on every host —
+on Windows ``semgrep-core`` fails rule validation while semgrep still exits 0,
+so an authored rule set silently never executes. Rules and source must live
+inside the repo, since only the repo is mounted.
 """
 from __future__ import annotations
 
@@ -49,7 +63,17 @@ def get_enabled_adapters(config: dict) -> list[ToolAdapter]:
             configs = semgrep_cfg.get("configs") or []
             if not isinstance(configs, list):
                 configs = []
-            result.append(SemgrepAdapter(configs=configs))
+            # `docker: true` runs the official image instead of a local
+            # binary. Needed on hosts where native semgrep cannot run at all
+            # (Windows: semgrep-core fails rule validation, yet exits 0, so
+            # the rules silently never execute).
+            image = semgrep_cfg.get("image")
+            result.append(SemgrepAdapter(
+                configs=configs,
+                docker=bool(semgrep_cfg.get("docker", False)),
+                image=image if isinstance(image, str) else "semgrep/semgrep:latest",
+                timeout=int(semgrep_cfg.get("timeout", 120)),
+            ))
         else:
             result.append(SemgrepAdapter())
 
