@@ -1,3 +1,27 @@
+## 2026-08-02 — fix(u4): count methods inherited from non-Protocol bases
+
+U4 collected the implementing class's own body only, so the ordinary mixin
+shape `class Impl(ConcreteBase, SomeProtocol)` was reported as a Protocol gap
+even though Python resolves the method through the MRO. Any consumer using
+inheritance to avoid duplicating a method body hit it.
+
+Found from the other direction: a consumer removed a copy-pasted probe body by
+inheriting from the class that already had it, D11 went down by one, and U4
+went up by one for the same edit.
+
+Two parts. Pass 1 now indexes every class's own methods and bases, and pass 2
+walks the non-Protocol ancestor chain. Then, because the base was written
+`from m import OpenCVResolutionProbe as _DomainProbe`, name-based lookup still
+missed it — classes are indexed by real name, so aliased bases resolved to
+nothing. `_import_aliases` maps local alias -> original per module.
+
+Resolution stays name-based and best-effort: a base outside the scanned tree
+contributes nothing, which under-reports inherited methods rather than
+inventing them. A test covers that direction explicitly so the limitation is
+not mistaken for a bug later.
+
+6 new tests; suite 1153 -> 1159, failures unchanged at 16.
+
 ## 2026-08-02 — fix(ci): clear the 98 ruff findings that gated both CI jobs
 
 `main` had been red since 2026-07-26 and both failures were one cause: the
