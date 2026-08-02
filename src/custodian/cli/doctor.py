@@ -50,6 +50,9 @@ _KNOWN_AUDIT_KEYS = frozenset({
     # consumed by audit_kit.detectors.reconcile.
     "reconcile_enforce",
     # R1 per-repo overrides: line-budget threshold and on/off switch.
+    # rc1_* is the current spelling (the detector was renamed R1 -> RC1 to end
+    # a collision with readme.py's R1); r1_* stays accepted for existing configs.
+    "rc1_line_budget", "rc1_enabled",
     "r1_line_budget", "r1_enabled",
     "x1_threshold", "x2_threshold", "c29_threshold", "c33_threshold",
     "c13_allowed_paths",
