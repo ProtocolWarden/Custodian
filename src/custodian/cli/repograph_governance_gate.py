@@ -56,6 +56,9 @@ def _rg(repo: Path, pattern: str) -> list[str]:
         capture_output=True,
         text=True,
         timeout=30,
+        # Parse the output regardless of exit status; a non-zero
+        # code is handled per-adapter, not by raising.
+        check=False,
     )
     if proc.returncode not in (0, 1):
         raise RuntimeError(proc.stderr.strip() or f"rg failed for {repo}")

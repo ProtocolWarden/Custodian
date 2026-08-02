@@ -96,8 +96,9 @@ class MarkdownlintAdapter(ToolAdapter):
         is_cli2 = binary.endswith("markdownlint-cli2")
         cmd: list[str] = [binary]
         if self._config:
-            cmd += (["--config", self._config] if is_cli2
-                    else ["--config", self._config])
+            # Both CLIs spell this the same way; the branch used to fork here
+            # on is_cli2 with two identical arms.
+            cmd += ["--config", self._config]
         # Output flag.
         if is_cli2:
             cmd.append("--no-globs")  # we'll pass paths verbatim
@@ -114,6 +115,9 @@ class MarkdownlintAdapter(ToolAdapter):
                 cwd=repo_path,
                 env=env,
                 timeout=self._timeout,
+                # Parse the output regardless of exit status; a non-zero
+                # code is handled per-adapter, not by raising.
+                check=False,
             )
         except FileNotFoundError:
             return [Finding.tool_unavailable(self.name)]

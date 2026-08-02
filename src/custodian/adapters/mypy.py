@@ -63,6 +63,9 @@ class MypyAdapter(ToolAdapter):
                 text=True,
                 cwd=repo_path,
                 timeout=120,
+                # Parse the output regardless of exit status; a non-zero
+                # code is handled per-adapter, not by raising.
+                check=False,
             )
         except FileNotFoundError:
             return [Finding.tool_unavailable(self.name)]

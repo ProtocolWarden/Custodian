@@ -48,7 +48,7 @@ def parse_canonical_repo_catalog(text: str) -> list[RepoCatalogEntry]:
     in_catalog = False
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped.startswith("## Core platform repos") or stripped.startswith("## Canonical repos"):
+        if stripped.startswith(("## Core platform repos", "## Canonical repos")):
             in_catalog = True
             continue
         if in_catalog and stripped.startswith("## "):

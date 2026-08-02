@@ -1,3 +1,35 @@
+## 2026-08-02 — fix(ci): clear the 98 ruff findings that gated both CI jobs
+
+`main` had been red since 2026-07-26 and both failures were one cause: the
+`test` job failed on `ruff check src`, and the `audit` job failed because those
+same 98 ruff findings are what `--fail-on-findings` counted. Two red jobs, one
+fix.
+
+Cleared by autofix where safe (38 I001, 30 SIM102/SIM103, ISC004, PIE810,
+UP037) plus explicit `check=False` on the seven adapter `subprocess.run` calls,
+which documents that adapters parse output regardless of exit status. RUF034
+turned out to be a real bug rather than style: both arms of the markdownlint
+`--config` ternary were identical.
+
+12 SIM102 sites keep a `# noqa` carrying its reason — 8 verified per-site as
+exceeding the 100-char limit when combined, 4 because a comment between the two
+conditions documents the inner test. Reasons were checked programmatically, not
+asserted.
+
+The vulture fix (#57) then started surfacing this repo's own dead code, which
+would have failed the audit in ruff's place. `_block_terminates` was genuinely
+unused and was deleted rather than whitelisted — that is what the detector is
+for. The other six are Protocol members, dataclass fields written at
+construction and read via serialisation, and dynamically-loaded test fixtures;
+they extend `.vulture_whitelist.py` with a reason each.
+
+Note for future work: `--make-whitelist` emits bare *references*
+(`plugin_modules`), not assignments. An assignment in a whitelist file is
+itself flagged as an unused variable.
+
+Verified: ruff clean, vulture clean, suite unchanged at 1153 passed / 16
+pre-existing Windows-only failures, audit 0 findings under CI conditions.
+
 ## 2026-07-10 — fix(c32): reject punctuation-only values as credentials
 
 C32 (hardcoded credential) fired a HIGH false positive on a downstream repo's

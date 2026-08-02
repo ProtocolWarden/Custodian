@@ -79,8 +79,8 @@ def _detect_w2_hooks_wiring(ctx: AuditContext) -> DetectorResult:
     return DetectorResult(
         count=1,
         samples=[
-            ".hooks/pre-commit exists but core.hooksPath is not set — "
-            "run: git config core.hooksPath .hooks"
+            (".hooks/pre-commit exists but core.hooksPath is not set — "
+            "run: git config core.hooksPath .hooks")
         ],
     )
 
@@ -98,8 +98,8 @@ def _detect_w3_hook_content(ctx: AuditContext) -> DetectorResult:
     return DetectorResult(
         count=1,
         samples=[
-            ".hooks/pre-commit exists but contains no .console/log.md enforcement — "
-            "add a log.md staged check or the hook is not guarding session records"
+            (".hooks/pre-commit exists but contains no .console/log.md enforcement — "
+            "add a log.md staged check or the hook is not guarding session records")
         ],
     )
 
@@ -142,8 +142,8 @@ def _detect_w5_env_example(ctx: AuditContext) -> DetectorResult:
     return DetectorResult(
         count=1,
         samples=[
-            ".gitignore excludes .env but .env.example is missing — "
-            "add .env.example to document the required env vars"
+            (".gitignore excludes .env but .env.example is missing — "
+            "add .env.example to document the required env vars")
         ],
     )
 
@@ -158,8 +158,8 @@ def _detect_w6_hook_required(ctx: AuditContext) -> DetectorResult:
     return DetectorResult(
         count=1,
         samples=[
-            ".console/ is present (managed workspace) but .hooks/pre-commit is missing — "
-            "add a pre-commit hook and run: git config core.hooksPath .hooks"
+            (".console/ is present (managed workspace) but .hooks/pre-commit is missing — "
+            "add a pre-commit hook and run: git config core.hooksPath .hooks")
         ],
     )
 

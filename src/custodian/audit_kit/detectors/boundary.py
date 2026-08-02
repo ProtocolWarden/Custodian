@@ -410,15 +410,15 @@ def detect_b2(context: AuditContext) -> DetectorResult:
     # empty.
     if provenance:  # a real artifact loaded (provenance is its source id), but yielded no names
         samples = [
-            "privacy.require_boundary_artifact=true and a boundary artifact was "
+            ("privacy.require_boundary_artifact=true and a boundary artifact was "
             f"provided ({provenance}), but it contains zero forbidden_names — the "
             "artifact is content-less (regenerate the disclosure export so it lists "
-            "the private boundary names)"
+            "the private boundary names)")
         ]
     else:
         samples = [
-            "privacy.require_boundary_artifact=true but no "
+            ("privacy.require_boundary_artifact=true but no "
             "boundary artifact file was provided via privacy.boundary_artifact_file "
-            f"or ${_ARTIFACT_FILE_ENV}"
+            f"or ${_ARTIFACT_FILE_ENV}")
         ]
     return DetectorResult(count=1, samples=samples)

@@ -182,7 +182,7 @@ def detect_n2(context: AuditContext) -> DetectorResult:
             name = node.name
             if name.startswith("_"):
                 continue  # private helper
-            if name.startswith("test_") or name.startswith("pytest_"):
+            if name.startswith(("test_", "pytest_")):
                 continue  # correctly named
             if name in _PYTEST_HOOKS:
                 continue

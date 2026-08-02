@@ -122,7 +122,7 @@ def _has_assertion_mechanism(node: ast.AST) -> bool:
         # raise AssertionError(...) — explicit fail as assertion
         if isinstance(child, ast.Raise) and child.exc is not None:
             exc = child.exc
-            if isinstance(exc, ast.Call) and isinstance(exc.func, ast.Name):
+            if isinstance(exc, ast.Call) and isinstance(exc.func, ast.Name):  # noqa: SIM102 (combined line would exceed the line limit)
                 if exc.func.id == "AssertionError":
                     return True
         if not isinstance(child, ast.Call):
@@ -133,12 +133,11 @@ def _has_assertion_mechanism(node: ast.AST) -> bool:
         attr = func.attr
         value = func.value
         # pytest.raises / pytest.warns / pytest.deprecated_call
-        if isinstance(value, ast.Name) and value.id == "pytest":
-            if attr in _PYTEST_ASSERTION_ATTRS:
-                return True
+        if isinstance(value, ast.Name) and value.id == "pytest" and attr in _PYTEST_ASSERTION_ATTRS:
+            return True
         # self.assertX / self.failX (unittest)
-        if isinstance(value, ast.Name) and value.id == "self":
-            if attr.startswith("assert") or attr.startswith("fail"):
+        if isinstance(value, ast.Name) and value.id == "self":  # noqa: SIM102 (combined line would exceed the line limit)
+            if attr.startswith(("assert", "fail")):
                 return True
         # mock.assert_called_once() / mock.assert_not_called() / etc.
         if any(attr.startswith(p) for p in _MOCK_ASSERT_PREFIXES):

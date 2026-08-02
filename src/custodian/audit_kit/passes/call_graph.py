@@ -154,7 +154,7 @@ def _collect_from_module(tree: ast.Module, cg: CallGraph) -> None:
                     break
         if isinstance(stmt, ast.Assign):
             for target in stmt.targets:
-                if isinstance(target, ast.Name) and target.id == "__all__":
+                if isinstance(target, ast.Name) and target.id == "__all__":  # noqa: SIM102 (combined line would exceed the line limit)
                     if isinstance(stmt.value, (ast.List, ast.Tuple)):
                         for elt in stmt.value.elts:
                             if isinstance(elt, ast.Constant) and isinstance(elt.value, str):

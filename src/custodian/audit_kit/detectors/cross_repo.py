@@ -249,9 +249,7 @@ def _scan_paths(
             return False
         if set(p.parts) & _SKIP_PARTS:
             return False
-        if skip_roots and _is_under_skip(p, skip_roots):
-            return False
-        return True
+        return not (skip_roots and _is_under_skip(p, skip_roots))
 
     return [p for p in out if _ok(p)]
 
@@ -271,9 +269,7 @@ def _python_src_paths(
             return False
         if set(p.parts) & _SKIP_PARTS:
             return False
-        if skip_roots and _is_under_skip(p, skip_roots):
-            return False
-        return True
+        return not (skip_roots and _is_under_skip(p, skip_roots))
 
     return [p for p in out if _ok(p)]
 
@@ -290,9 +286,7 @@ def _markdown_paths(
             return False
         if set(p.parts) & _SKIP_PARTS:
             return False
-        if skip_roots and _is_under_skip(p, skip_roots):
-            return False
-        return True
+        return not (skip_roots and _is_under_skip(p, skip_roots))
 
     return [p for p in out if _ok(p)]
 

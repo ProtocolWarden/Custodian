@@ -183,7 +183,7 @@ def _collect_json_keys_in_functions(
         # Check if this function body contains path_fragment as a string constant
         has_fragment = False
         for child in ast.walk(node):
-            if isinstance(child, ast.Constant) and isinstance(child.value, str):
+            if isinstance(child, ast.Constant) and isinstance(child.value, str):  # noqa: SIM102 (combined line would exceed the line limit)
                 if path_fragment in child.value:
                     has_fragment = True
                     break
