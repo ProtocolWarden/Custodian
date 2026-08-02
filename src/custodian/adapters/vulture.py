@@ -60,20 +60,22 @@ class VultureAdapter(ToolAdapter):
 
         min_conf = config.get("vulture_min_confidence", self._min_confidence)
 
-        cmd = [
-            find_tool("vulture") or "vulture",
-            str(src_root),
-            f"--min-confidence={min_conf}",
-        ]
+        # Every PATH must precede the options. vulture's argparse rejects a
+        # positional that follows `--min-confidence=`, exiting 2 with an empty
+        # stdout — which used to read as "no dead code" (see the returncode
+        # check below). Collect the paths first, then append the flags.
+        paths = [str(src_root)]
 
         # Include tests so vulture can see call sites for public API functions
         if tests_root.exists():
-            cmd.append(str(tests_root))
+            paths.append(str(tests_root))
 
         # If a whitelist file exists in the repo, include it
         whitelist = repo_path / ".vulture_whitelist.py"
         if whitelist.exists():
-            cmd.append(str(whitelist))
+            paths.append(str(whitelist))
+
+        cmd = [find_tool("vulture") or "vulture", *paths, f"--min-confidence={min_conf}"]
 
         try:
             proc = subprocess.run(
@@ -85,6 +87,24 @@ class VultureAdapter(ToolAdapter):
             )
         except FileNotFoundError:
             return [Finding.tool_unavailable(self.name)]
+
+        # vulture exits 0 with no findings, 3 when it HAS findings. Anything
+        # else (2 = bad arguments) means it never analysed anything — and an
+        # empty stdout would otherwise be indistinguishable from a clean repo,
+        # so the adapter would report `status: pass` for a tool that never ran.
+        if proc.returncode not in (0, 3) and not proc.stdout.strip():
+            detail = (proc.stderr or "").strip().splitlines()
+            return [Finding(
+                tool=self.name,
+                rule="TOOL_ERROR",
+                severity=LOW,
+                path=None,
+                line=None,
+                message=(
+                    f"vulture exited {proc.returncode} without output: "
+                    f"{detail[-1] if detail else 'no stderr'}"
+                ),
+            )]
 
         findings: list[Finding] = []
         for raw_line in proc.stdout.splitlines():

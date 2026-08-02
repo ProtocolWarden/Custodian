@@ -32,7 +32,10 @@ class TestVultureAdapterRun:
         proc = MagicMock()
         proc.stdout = "\n".join(stdout_lines)
         proc.stderr = ""
-        proc.returncode = 1
+        # Mirror vulture's real exit codes: 3 when it found dead code, 0 when
+        # clean. 1 and 2 mean it errored, and the adapter now reports those as
+        # TOOL_ERROR rather than as an empty (falsely clean) result.
+        proc.returncode = 3 if stdout_lines else 0
         with patch("subprocess.run", return_value=proc):
             return VultureAdapter().run(tmp_path, config or {})
 
