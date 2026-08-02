@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path
+from pathlib import Path, PurePath
 import re
 
 from custodian.audit_kit.detector import AuditContext, Detector, DetectorResult, HIGH, MEDIUM, LOW
@@ -56,8 +56,27 @@ def _glob_to_regex(glob: str) -> re.Pattern[str]:
     return re.compile("\\A" + "".join(out) + "\\Z")
 
 
-def _matches_any(rel_path: str, globs: list[str]) -> bool:
-    return any(_glob_to_regex(g).match(rel_path) for g in globs)
+def _norm_rel(rel_path: str | Path) -> str:
+    """Normalise a repo-relative path to POSIX form for glob matching.
+
+    Config globs are always written with forward slashes (``src/config/**``),
+    but on Windows ``Path.relative_to()`` stringifies with backslashes
+    (``src\\config\\api_toggles.py``). Matching one against the other silently
+    fails, so every ``exclude_paths`` entry in every consumer repo becomes a
+    no-op — adjudicated exemptions re-report as findings and the audit reports
+    debt the repo already decided was fine.
+
+    Normalising here rather than at each call site keeps the invariant in one
+    place: **glob matching always operates on POSIX-style relative paths.**
+    """
+    if isinstance(rel_path, PurePath):
+        return rel_path.as_posix()
+    return rel_path.replace("\\", "/")
+
+
+def _matches_any(rel_path: str | Path, globs: list[str]) -> bool:
+    norm = _norm_rel(rel_path)
+    return any(_glob_to_regex(g).match(norm) for g in globs)
 
 
 def _exclude_globs(context: AuditContext, detector_id: str) -> list[str]:
@@ -90,7 +109,7 @@ def _py_files(context: AuditContext, detector_id: str | None = None) -> list[Pat
     repo_root = context.repo_root
     kept: list[Path] = []
     for p in paths:
-        rel = str(p.relative_to(repo_root))
+        rel = p.relative_to(repo_root).as_posix()
         if _matches_any(rel, globs):
             continue
         kept.append(p)
@@ -817,7 +836,7 @@ def detect_c13(context: AuditContext) -> DetectorResult:
     samples: list[str] = []
     count = 0
     for path in _py_files(context, "C13"):
-        rel = str(path.relative_to(context.repo_root))
+        rel = path.relative_to(context.repo_root).as_posix()
         if _matches_any(rel, allowed_globs):
             continue
         try:

@@ -307,7 +307,7 @@ def detect_d6(context: AuditContext) -> DetectorResult:
 
     for path, tree, _src in context.graph.ast_forest.items():
         if d6_globs:
-            rel_str = str(path.relative_to(context.repo_root))
+            rel_str = path.relative_to(context.repo_root).as_posix()
             from pathlib import PurePosixPath
             if any(PurePosixPath(rel_str).match(g) for g in d6_globs):
                 continue
@@ -1041,7 +1041,7 @@ def detect_d8(context: AuditContext) -> DetectorResult:
     count = 0
 
     for path, tree, _src in context.graph.ast_forest.items():
-        rel_str = str(path.relative_to(context.repo_root))
+        rel_str = path.relative_to(context.repo_root).as_posix()
         if exclude_globs and any(_glob_to_regex(g).match(rel_str) for g in exclude_globs):
             continue
 
@@ -1099,7 +1099,7 @@ def detect_d9(context: AuditContext) -> DetectorResult:
     count = 0
 
     for path, tree, _src in context.graph.ast_forest.items():
-        rel_str = str(path.relative_to(context.repo_root))
+        rel_str = path.relative_to(context.repo_root).as_posix()
         if exclude_globs and any(_glob_to_regex(g).match(rel_str) for g in exclude_globs):
             continue
         rel = path.relative_to(context.repo_root)

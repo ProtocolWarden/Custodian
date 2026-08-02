@@ -349,7 +349,7 @@ def detect_k3(context: AuditContext) -> DetectorResult:
     for path in _py_files(context, "K3"):
         if globs:
             from custodian.audit_kit.code_health import _glob_to_regex
-            rel_str = str(path.relative_to(context.repo_root))
+            rel_str = path.relative_to(context.repo_root).as_posix()
             if any(_glob_to_regex(g).match(rel_str) for g in globs):
                 continue
         try:
@@ -527,7 +527,7 @@ def detect_k4(context: AuditContext) -> DetectorResult:
     for path in _py_files(context, "K4"):
         if globs:
             from custodian.audit_kit.code_health import _glob_to_regex
-            rel_str = str(path.relative_to(context.repo_root))
+            rel_str = path.relative_to(context.repo_root).as_posix()
             if any(_glob_to_regex(g).match(rel_str) for g in globs):
                 continue
         try:

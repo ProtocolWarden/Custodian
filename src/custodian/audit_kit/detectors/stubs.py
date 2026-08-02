@@ -191,7 +191,7 @@ def _scan_functions(
         if globs:
             from pathlib import PurePosixPath
             for path in context.graph.ast_forest.trees:
-                rel = str(path.relative_to(context.repo_root))
+                rel = path.relative_to(context.repo_root).as_posix()
                 if any(PurePosixPath(rel).match(g) for g in globs):
                     excluded_paths.add(str(path))
 
@@ -391,7 +391,7 @@ def detect_u4(context: AuditContext) -> DetectorResult:
     count = 0
 
     for path, tree, _src in context.graph.ast_forest.items():
-        rel_str = str(path.relative_to(context.repo_root))
+        rel_str = path.relative_to(context.repo_root).as_posix()
         if exclude_globs and any(_glob_to_regex(g).match(rel_str) for g in exclude_globs):
             continue
         rel = path.relative_to(context.repo_root)
