@@ -9,28 +9,28 @@ from pathlib import Path
 from custodian.audit_kit.code_health import build_code_health_detectors
 from custodian.audit_kit.detectors.annotations import build_annotation_detectors
 from custodian.audit_kit.detectors.architecture_split import build_architecture_split_detectors
-from custodian.audit_kit.detectors.complexity import build_complexity_detectors
-from custodian.audit_kit.detectors.dead_code import build_dead_code_detectors
-from custodian.audit_kit.detectors.docs import build_docs_detectors
-from custodian.audit_kit.detectors.naming import build_naming_detectors
 from custodian.audit_kit.detectors.boundary import build_boundary_detectors
 from custodian.audit_kit.detectors.capability_refs import build_capability_detectors
+from custodian.audit_kit.detectors.complexity import build_complexity_detectors
 from custodian.audit_kit.detectors.cross_repo import build_cross_repo_detectors
-from custodian.audit_kit.detectors.plumbing import build_plumbing_detectors
+from custodian.audit_kit.detectors.dead_code import build_dead_code_detectors
+from custodian.audit_kit.detectors.doc_conventions import build_doc_convention_detectors
+from custodian.audit_kit.detectors.docs import build_docs_detectors
+from custodian.audit_kit.detectors.envvar import build_envvar_detectors
+from custodian.audit_kit.detectors.ghost import build_ghost_detectors
+from custodian.audit_kit.detectors.imports import build_import_detectors
+from custodian.audit_kit.detectors.naming import build_naming_detectors
 from custodian.audit_kit.detectors.platform_manifest_native import (
     load_platform_manifest_native_detectors,
 )
-from custodian.audit_kit.detectors.workspace import build_workspace_detectors
-from custodian.audit_kit.detectors.reconcile import build_reconcile_detectors
-from custodian.audit_kit.detectors.envvar import build_envvar_detectors
-from custodian.audit_kit.detectors.doc_conventions import build_doc_convention_detectors
-from custodian.audit_kit.detectors.repo_meta import build_repo_meta_detectors
-from custodian.audit_kit.detectors.ghost import build_ghost_detectors
-from custodian.audit_kit.detectors.imports import build_import_detectors
+from custodian.audit_kit.detectors.plumbing import build_plumbing_detectors
 from custodian.audit_kit.detectors.readme import build_readme_detectors
+from custodian.audit_kit.detectors.reconcile import build_reconcile_detectors
+from custodian.audit_kit.detectors.repo_meta import build_repo_meta_detectors
 from custodian.audit_kit.detectors.structure import build_structure_detectors
 from custodian.audit_kit.detectors.stubs import build_stub_detectors
 from custodian.audit_kit.detectors.test_shape import build_test_shape_detectors
+from custodian.audit_kit.detectors.workspace import build_workspace_detectors
 from custodian.cli import colors
 from custodian.cli.runner import config_file_path, load_config
 from custodian.config.loader import find_duplicate_keys

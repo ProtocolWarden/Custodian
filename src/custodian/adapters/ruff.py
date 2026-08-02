@@ -7,8 +7,9 @@ import json
 import os
 import subprocess
 from pathlib import Path
+
 from custodian.adapters.base import ToolAdapter, find_tool
-from custodian.core.finding import Finding, HIGH, MEDIUM, LOW
+from custodian.core.finding import HIGH, LOW, MEDIUM, Finding
 
 # Longest-prefix-first severity table.  First match wins.
 # Covers Ruff rule namespaces as of 0.x.
@@ -89,6 +90,9 @@ class RuffAdapter(ToolAdapter):
                 cwd=repo_path,
                 env=env,
                 timeout=120,
+                # Parse the output regardless of exit status; a non-zero
+                # code is handled per-adapter, not by raising.
+                check=False,
             )
         except FileNotFoundError:
             return [Finding.tool_unavailable(self.name)]

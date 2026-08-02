@@ -48,15 +48,14 @@ so it ships dormant and never fails a repo that has not opted in.
 from __future__ import annotations
 
 import ast
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from custodian.audit_kit.detector import (
+    MEDIUM,
     AuditContext,
     Detector,
     DetectorResult,
-    MEDIUM,
 )
 from custodian.audit_kit.detectors.cross_repo import _load_manifest_info
 
@@ -200,7 +199,7 @@ def _has_top_level_symbol(module_file: Path, symbol: str) -> bool:
             for target in node.targets:
                 if isinstance(target, ast.Name) and target.id == symbol:
                     return True
-        elif isinstance(node, ast.AnnAssign):
+        elif isinstance(node, ast.AnnAssign):  # noqa: SIM102 (inner condition is documented separately)
             if isinstance(node.target, ast.Name) and node.target.id == symbol:
                 return True
     return False
@@ -238,13 +237,7 @@ def _resolve_cli(repo_root: Path, ref: str) -> bool:
     pyproject = repo_root / "pyproject.toml"
     if not pyproject.is_file():
         return False
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:  # pragma: no cover
-        try:
-            import tomli as tomllib  # type: ignore[no-redef]
-        except ImportError:
-            return False
+    import tomllib
     try:
         data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
     except (OSError, ValueError):

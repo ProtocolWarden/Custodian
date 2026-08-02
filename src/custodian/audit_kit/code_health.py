@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path, PurePath
 import re
+from pathlib import Path, PurePath
 
-from custodian.audit_kit.detector import AuditContext, Detector, DetectorResult, HIGH, MEDIUM, LOW
+from custodian.audit_kit.detector import HIGH, LOW, MEDIUM, AuditContext, Detector, DetectorResult
 from custodian.audit_kit.glob_match import glob_match
 
 
@@ -707,9 +707,7 @@ def _is_real_credential(value: str) -> bool:
     if value.startswith(("http://", "https://", "ftp://")):
         return False
     # ALL_CAPS values are env-var names pointing to where the secret lives
-    if _ENV_VAR_RE.match(value):
-        return False
-    return True
+    return not _ENV_VAR_RE.match(value)
 
 
 def detect_c32(context: AuditContext) -> DetectorResult:
@@ -1218,7 +1216,7 @@ def detect_c36(context: AuditContext) -> DetectorResult:
                     mode_node = kw.value
                     break
             # Binary modes don't need encoding=
-            if isinstance(mode_node, ast.Constant) and isinstance(mode_node.value, str):
+            if isinstance(mode_node, ast.Constant) and isinstance(mode_node.value, str):  # noqa: SIM102 (combined line would exceed the line limit)
                 if "b" in mode_node.value:
                     continue
             if not _is_text_open_mode(mode_node):
@@ -1287,7 +1285,7 @@ def detect_c37(context: AuditContext) -> DetectorResult:
 
     # Collect leaf key names in the audit section, skip exclude_paths (generic runner key)
     candidate_keys: list[str] = []
-    for k in audit_section.keys():
+    for k in audit_section:
         if k == "exclude_paths":
             continue
         candidate_keys.append(k)
@@ -1540,9 +1538,8 @@ class _JsonDumpsVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        if self._is_json_dumps(node):
-            if not self._has_ensure_ascii_false(node):
-                self.hits.append(node.lineno)
+        if self._is_json_dumps(node) and not self._has_ensure_ascii_false(node):
+            self.hits.append(node.lineno)
         self.generic_visit(node)
 
     def _is_json_dumps(self, node: ast.Call) -> bool:
@@ -1556,9 +1553,7 @@ class _JsonDumpsVisitor(ast.NodeVisitor):
         ):
             return True
         # from json import dumps; dumps(...)
-        if self._dumps_imported and isinstance(func, ast.Name) and func.id == "dumps":
-            return True
-        return False
+        return bool(self._dumps_imported and isinstance(func, ast.Name) and func.id == "dumps")
 
     @staticmethod
     def _has_ensure_ascii_false(node: ast.Call) -> bool:

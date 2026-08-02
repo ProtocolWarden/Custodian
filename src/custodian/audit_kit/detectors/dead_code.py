@@ -97,7 +97,11 @@ import re
 from pathlib import Path
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW, MEDIUM,
+    LOW,
+    MEDIUM,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
 from custodian.audit_kit.glob_match import glob_match
 
@@ -672,10 +676,6 @@ def _is_terminal(stmt: ast.stmt) -> bool:
     return isinstance(stmt, (ast.Return, ast.Raise, ast.Break, ast.Continue))
 
 
-def _block_terminates(body: list[ast.stmt]) -> bool:
-    return bool(body) and _is_terminal(body[-1])
-
-
 def _stmts_of(stmt: ast.stmt) -> list[list[ast.stmt]]:
     """Return all nested statement lists within stmt (excluding function/class bodies)."""
     if isinstance(stmt, ast.If):
@@ -701,9 +701,7 @@ def _is_noreturn_call(stmt: ast.stmt) -> bool:
     func = stmt.value.func
     if isinstance(func, ast.Name) and func.id in {"exit", "quit"}:
         return True
-    if isinstance(func, ast.Attribute) and func.attr in {"exit", "_exit"}:
-        return True
-    return False
+    return bool(isinstance(func, ast.Attribute) and func.attr in {"exit", "_exit"})
 
 
 def _is_noreturn_terminal(stmt: ast.stmt) -> bool:
@@ -771,9 +769,7 @@ def _is_annotated_noreturn(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool
         return False
     if isinstance(ann, ast.Name) and ann.id in {"NoReturn", "Never"}:
         return True
-    if isinstance(ann, ast.Attribute) and ann.attr in {"NoReturn", "Never"}:
-        return True
-    return False
+    return bool(isinstance(ann, ast.Attribute) and ann.attr in {"NoReturn", "Never"})
 
 
 def _has_return_in_scope(stmts: list[ast.stmt]) -> bool:
@@ -888,7 +884,7 @@ def _private_constant_defs(tree: ast.Module) -> dict[str, ast.AST]:
             for target in stmt.targets:
                 if isinstance(target, ast.Name) and _PRIVATE_CAPS.match(target.id):
                     defs[target.id] = target
-        elif isinstance(stmt, ast.AnnAssign):
+        elif isinstance(stmt, ast.AnnAssign):  # noqa: SIM102 (inner condition is documented separately)
             if isinstance(stmt.target, ast.Name) and _PRIVATE_CAPS.match(stmt.target.id):
                 defs[stmt.target.id] = stmt.target
     return defs
@@ -993,9 +989,7 @@ def _is_annotated_none(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
         return False
     if isinstance(ann, ast.Constant) and ann.value is None:
         return True
-    if isinstance(ann, ast.Name) and ann.id == "None":
-        return True
-    return False
+    return bool(isinstance(ann, ast.Name) and ann.id == "None")
 
 
 def _value_returns_in_scope(stmts: list[ast.stmt]) -> list[ast.Return]:
@@ -1169,7 +1163,7 @@ def _is_stub_body(body: list[ast.stmt]) -> bool:
             return True
         if isinstance(s, ast.Raise):
             return True  # raise NotImplementedError
-        if isinstance(s, ast.Return):
+        if isinstance(s, ast.Return):  # noqa: SIM102 (combined line would exceed the line limit)
             if s.value is None or (isinstance(s.value, ast.Constant) and s.value.value is None):
                 return True
     return False
@@ -1468,7 +1462,7 @@ def detect_d12(context: AuditContext) -> DetectorResult:
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
             name = node.name
-            if name.startswith("_") or name.startswith("test"):
+            if name.startswith(("_", "test")):
                 continue
             # pytest plugin hooks (pytest_addoption, pytest_configure,
             # pytest_collection_modifyitems, …) are invoked by pytest's plugin

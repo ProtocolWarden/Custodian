@@ -2,16 +2,17 @@
 # Copyright (C) 2026 ProtocolWarden
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import pathlib
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from custodian.audit_kit.result import AuditResult
 
 if TYPE_CHECKING:
-    from custodian.audit_kit.passes.import_graph import ImportGraph
     from custodian.audit_kit.passes.ast_forest import AstForest
     from custodian.audit_kit.passes.call_graph import CallGraph
+    from custodian.audit_kit.passes.import_graph import ImportGraph
     from custodian.audit_kit.passes.symbol_index import SymbolIndex
     from custodian.audit_kit.passes.tests_forest import TestsForest
 
@@ -62,7 +63,7 @@ class Detector:
     id: str
     description: str
     status: str  # "fixed" | "open" | "partial" | "deferred"
-    detect: Callable[["AuditContext"], "DetectorResult"]
+    detect: Callable[[AuditContext], DetectorResult]
     severity: str = field(default=MEDIUM)
     needs: frozenset[str] = field(default_factory=frozenset)
     # Detectors that have an equivalent in an external tool (Ruff, Vulture,

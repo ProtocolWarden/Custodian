@@ -52,10 +52,16 @@ from __future__ import annotations
 import re
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW, MEDIUM,
+    LOW,
+    MEDIUM,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
 from custodian.audit_kit.detectors.boundary import (
-    _is_binary, _tracked_files, load_scrub_targets,
+    _is_binary,
+    _tracked_files,
+    load_scrub_targets,
 )
 from custodian.audit_kit.detectors.cross_repo import _load_manifest_info
 from custodian.audit_kit.glob_match import glob_match

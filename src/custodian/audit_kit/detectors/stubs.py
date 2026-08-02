@@ -45,14 +45,14 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW, MEDIUM,
+    LOW,
+    MEDIUM,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
-
-if TYPE_CHECKING:
-    pass
 
 _MAX_SAMPLES = 8
 _NEEDS = frozenset({"ast_forest"})
@@ -279,12 +279,7 @@ def _is_empty_return(stmt: ast.stmt) -> bool:
     if isinstance(val, ast.Tuple) and not val.elts:
         return True
     # return list() / return dict() / return set() / return tuple()
-    if (isinstance(val, ast.Call)
-            and isinstance(val.func, ast.Name)
-            and val.func.id in {"list", "dict", "set", "tuple"}
-            and not val.args and not val.keywords):
-        return True
-    return False
+    return bool(isinstance(val, ast.Call) and isinstance(val.func, ast.Name) and val.func.id in {"list", "dict", "set", "tuple"} and not val.args and not val.keywords)
 
 
 def _returns_none_explicitly(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
@@ -294,9 +289,7 @@ def _returns_none_explicitly(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bo
         return False
     if isinstance(ret, ast.Constant) and ret.value is None:
         return True
-    if isinstance(ret, ast.Name) and ret.id == "None":
-        return True
-    return False
+    return bool(isinstance(ret, ast.Name) and ret.id == "None")
 
 
 _NULL_CLASS_PREFIXES = ("Null", "_Null", "Mock", "Fake", "Stub", "Dummy")
@@ -317,9 +310,7 @@ def _has_sink_args(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     """
     if func.args.vararg and func.args.vararg.arg.startswith("_"):
         return True
-    if func.args.kwarg and func.args.kwarg.arg.startswith("_"):
-        return True
-    return False
+    return bool(func.args.kwarg and func.args.kwarg.arg.startswith("_"))
 
 
 def detect_p1(context: AuditContext) -> DetectorResult:
@@ -332,9 +323,7 @@ def detect_p1(context: AuditContext) -> DetectorResult:
             return False
         if _has_sink_args(func):
             return False
-        if _in_null_named_class(container):
-            return False
-        return True
+        return not _in_null_named_class(container)
     return _scan_functions(context, predicate, detector_id="U5")
 
 

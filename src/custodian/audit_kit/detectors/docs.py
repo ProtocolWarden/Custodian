@@ -42,10 +42,13 @@ import ast as _ast
 import re
 from pathlib import Path
 
-from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW,
-)
 from custodian.audit_kit.code_health import _py_files
+from custodian.audit_kit.detector import (
+    LOW,
+    AuditContext,
+    Detector,
+    DetectorResult,
+)
 
 _MAX_SAMPLES = 8
 
@@ -92,9 +95,7 @@ def _doc_files(repo_root: Path, audit_cfg: dict) -> list[Path]:
         parts_lower = {p.lower() for p in f.parts}
         if parts_lower & _DOC_SKIP_PARTS:
             return False
-        if "changelog" in f.name.lower():
-            return False
-        return True
+        return "changelog" not in f.name.lower()
 
     return [f for f in files if _ok(f)]
 
@@ -151,9 +152,7 @@ def detect_k1(context: AuditContext) -> DetectorResult:
         if re.search(rf"\b(def|class)\s+{re.escape(name)}\b", tests_text):
             return True
         # Exists as a quoted string literal in src (e.g. dict key, enum value, config key)
-        if re.search(rf"""['"]{re.escape(name)}['"]""", src_text):
-            return True
-        return False
+        return bool(re.search(rf"""['"]{re.escape(name)}['"]""", src_text))
 
     seen: dict[str, tuple[Path, int]] = {}
     for f in _doc_files(context.repo_root, audit_cfg):

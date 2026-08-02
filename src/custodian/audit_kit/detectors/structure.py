@@ -111,15 +111,15 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW, MEDIUM,
+    LOW,
+    MEDIUM,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
 from custodian.audit_kit.glob_match import glob_match
-
-if TYPE_CHECKING:
-    pass
 
 _MAX_SAMPLES = 8
 _NEEDS = frozenset({"import_graph"})
@@ -345,13 +345,13 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                         lineno = 0
                         if isinstance(node, ast.Import):
                             for alias in node.names:
-                                if alias.name == pkg or alias.name.startswith(pkg_dot):
+                                if alias.name == pkg or alias.name.startswith(pkg_dot):  # noqa: SIM102 (combined line would exceed the line limit)
                                     if alias.name not in allowed:
                                         mod = alias.name
                                         lineno = node.lineno
                                         break
-                        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
-                            if node.module == pkg or node.module.startswith(pkg_dot):
+                        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:  # noqa: SIM102 (inner condition is documented separately)
+                            if node.module == pkg or node.module.startswith(pkg_dot):  # noqa: SIM102 (combined line would exceed the line limit)
                                 if node.module not in allowed:
                                     mod = node.module
                                     lineno = node.lineno
@@ -520,7 +520,7 @@ def detect_s3(context: AuditContext) -> DetectorResult:
                         module_name = alias.name
                         lineno = node.lineno
                         break
-            elif isinstance(node, ast.ImportFrom):
+            elif isinstance(node, ast.ImportFrom):  # noqa: SIM102 (inner condition is documented separately)
                 if node.module and _is_test_module(node.module):
                     module_name = node.module
                     lineno = node.lineno

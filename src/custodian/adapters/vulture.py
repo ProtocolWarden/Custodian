@@ -14,8 +14,9 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
+
 from custodian.adapters.base import ToolAdapter, find_tool
-from custodian.core.finding import Finding, LOW
+from custodian.core.finding import LOW, Finding
 
 # path:line: unused <type> 'name' (N% confidence)
 _LINE_RE = re.compile(
@@ -84,6 +85,9 @@ class VultureAdapter(ToolAdapter):
                 text=True,
                 cwd=repo_path,
                 timeout=120,
+                # Parse the output regardless of exit status; a non-zero
+                # code is handled per-adapter, not by raising.
+                check=False,
             )
         except FileNotFoundError:
             return [Finding.tool_unavailable(self.name)]

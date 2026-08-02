@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 from custodian.adapters.base import ToolAdapter, find_tool
-from custodian.core.finding import Finding, HIGH, MEDIUM, LOW
+from custodian.core.finding import HIGH, LOW, MEDIUM, Finding
 
 # mypy: path:line:col: level: message  [code]
 _LINE_RE = re.compile(
@@ -63,6 +63,9 @@ class MypyAdapter(ToolAdapter):
                 text=True,
                 cwd=repo_path,
                 timeout=120,
+                # Parse the output regardless of exit status; a non-zero
+                # code is handled per-adapter, not by raising.
+                check=False,
             )
         except FileNotFoundError:
             return [Finding.tool_unavailable(self.name)]

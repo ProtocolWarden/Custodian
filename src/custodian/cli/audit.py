@@ -56,8 +56,8 @@ def _human_summary(result) -> str:
 
 
 def _list_detectors(repo: Path) -> None:
-    from custodian.cli.runner import load_config
     from custodian.audit_kit.code_health import build_code_health_detectors
+    from custodian.cli.runner import load_config
     from custodian.plugins.loader import load_detectors, load_plugins
     config = load_config(repo)
     sys.path.insert(0, str(repo))

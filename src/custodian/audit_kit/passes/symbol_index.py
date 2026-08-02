@@ -61,9 +61,8 @@ def _collect_definitions(tree: ast.Module, idx: SymbolIndex) -> None:
             for target in stmt.targets:
                 if isinstance(target, ast.Name):
                     idx.defined_names.add(target.id)
-        elif isinstance(stmt, ast.AnnAssign):
-            if isinstance(stmt.target, ast.Name):
-                idx.defined_names.add(stmt.target.id)
+        elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+            idx.defined_names.add(stmt.target.id)
 
     # Class-level definitions (methods, class vars)
     for node in ast.walk(tree):

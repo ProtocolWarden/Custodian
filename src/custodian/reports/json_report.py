@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from custodian.core.finding import Finding
@@ -45,7 +45,7 @@ def build_json_report(
 
     doc = {
         "schema": "custodian-findings/v1",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "repo": repo_key,
         "tool_versions": tool_versions or {},
         "summary": {

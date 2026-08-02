@@ -16,7 +16,6 @@ import sys
 
 from custodian.cli import colors
 
-
 _COMMANDS = {
     "audit":   "custodian.cli.audit:main",
     "fix":     "custodian.cli.fix:main",

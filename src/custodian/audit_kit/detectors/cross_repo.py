@@ -46,10 +46,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from custodian.audit_kit.detector import (
-    AuditContext, Detector, DetectorResult, LOW,
+    LOW,
+    AuditContext,
+    Detector,
+    DetectorResult,
 )
 from custodian.audit_kit.glob_match import glob_match
-
 
 _MAX_SAMPLES = 8
 
@@ -247,9 +249,7 @@ def _scan_paths(
             return False
         if set(p.parts) & _SKIP_PARTS:
             return False
-        if skip_roots and _is_under_skip(p, skip_roots):
-            return False
-        return True
+        return not (skip_roots and _is_under_skip(p, skip_roots))
 
     return [p for p in out if _ok(p)]
 
@@ -269,9 +269,7 @@ def _python_src_paths(
             return False
         if set(p.parts) & _SKIP_PARTS:
             return False
-        if skip_roots and _is_under_skip(p, skip_roots):
-            return False
-        return True
+        return not (skip_roots and _is_under_skip(p, skip_roots))
 
     return [p for p in out if _ok(p)]
 
@@ -288,9 +286,7 @@ def _markdown_paths(
             return False
         if set(p.parts) & _SKIP_PARTS:
             return False
-        if skip_roots and _is_under_skip(p, skip_roots):
-            return False
-        return True
+        return not (skip_roots and _is_under_skip(p, skip_roots))
 
     return [p for p in out if _ok(p)]
 

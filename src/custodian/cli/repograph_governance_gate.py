@@ -7,9 +7,9 @@ import json
 import re
 import subprocess
 import sys
-from dataclasses import dataclass, asdict
-from pathlib import Path
+from dataclasses import asdict, dataclass
 from hashlib import sha256
+from pathlib import Path
 
 from custodian.policy.public_surface_catalog import (
     PUBLIC_REPO_NAV_EXTRA_PAGES,
@@ -17,7 +17,6 @@ from custodian.policy.public_surface_catalog import (
     allowed_repo_page,
     parse_canonical_repo_catalog,
 )
-
 
 PUBLIC_REPOS = [
     "OperatorConsole",
@@ -57,6 +56,9 @@ def _rg(repo: Path, pattern: str) -> list[str]:
         capture_output=True,
         text=True,
         timeout=30,
+        # Parse the output regardless of exit status; a non-zero
+        # code is handled per-adapter, not by raising.
+        check=False,
     )
     if proc.returncode not in (0, 1):
         raise RuntimeError(proc.stderr.strip() or f"rg failed for {repo}")

@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 from custodian.adapters.base import ToolAdapter, find_tool
-from custodian.core.finding import Finding, HIGH, MEDIUM, LOW
+from custodian.core.finding import HIGH, LOW, MEDIUM, Finding
 
 # Semgrep severity strings → canonical severity
 _SEMGREP_SEVERITY: dict[str, str] = {
@@ -150,6 +150,9 @@ class SemgrepAdapter(ToolAdapter):
                 text=True,
                 cwd=repo_path,
                 timeout=self._timeout,
+                # Parse the output regardless of exit status; a non-zero
+                # code is handled per-adapter, not by raising.
+                check=False,
             )
         except FileNotFoundError:
             return [Finding.tool_unavailable(self.name)]
