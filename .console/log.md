@@ -1,3 +1,35 @@
+## 2026-08-03 — fix(adapters): emit posix finding paths so globs match on Windows
+
+Four adapters relativised with `str(Path(...).relative_to(repo_path))`, which
+stringifies natively, so on Windows a finding named `src\foo\bar.py`. #61 fixed
+ty this way while adding docker mode; this is the rest of them, plus coverage.
+
+Checked first whether it actually voided exemptions, since PR #55 fixed that
+exact bug on the detector side. For ruff/mypy/semgrep/vulture it does not:
+`_run_adapters` formats findings into samples and a count, and no exclusion
+filter ever runs on them. Two things fell out of that trace. `audit.ignore_paths`
+is dead config — parsed into `policy`, echoed in the config summary, read by
+nothing, on every platform. And the ~45 D11 entries a consumer repo carries are
+`exclude_paths`, the detector path, which already calls `.as_posix()`.
+
+The coverage adapter is the real break: `_is_excluded` glob-matches its own
+`_rel_to_repo` output, and `glob_match` did not normalise separators — #55 added
+`_norm_rel` to `code_health._matches_any`, a *different* matcher. So
+`tools.coverage.exclude_paths` was a silent no-op on Windows. Fixed the adapter
+and hardened `glob_match`, so the invariant holds for all ~27 call sites rather
+than each caller remembering `.as_posix()`. Belt-and-braces on purpose: either
+layer alone suffices, and the tests prove it by reverting one at a time.
+
+Tests force the flavour to `PureWindowsPath` for the call under test so they
+fail on POSIX too. Written the platform-conditional way they would be green on
+Linux CI whether or not the fix is present, which is how this survived.
+
+Detector samples still stringify natively (~50 sites), so on Windows triage now
+sees one file under two keys — posix from adapters, native from detectors.
+Filed separately; that sweep also fixes the c39/c41/t5/t7 failures.
+
+Suite 1178 -> 1193 passed, failures 15 -> 11 on Windows; `ruff check src` clean.
+
 ## 2026-08-03 — feat(ty): docker mode, because a host run is unsound not just noisy
 
 `TyAdapter()` took no arguments and shelled out to a host binary; semgrep was
@@ -360,39 +392,5 @@ Part of the PM context-management completeness-audit train (PM #74).
 | C32 skips ALL_CAPS values | _SECRET_ENV = "OPERATIONS_CENTER_WEBHOOK_SECRET" stores an env var NAME, not the secret itself | 2026-05-01 |
 | C32 skips names ending in exclusion suffixes | endpoint/url/env/name/param/var suffixes indicate the var holds a URL or env var reference, not a secret | 2026-05-01 |
 | C23 false positive in executor.py docstring | "Never uses shell=True." in a module docstring matched the regex; regex-based C23 doesn't distinguish string context | 2026-05-01 |
-| C2 switched to AST-based detection | Regex matched print( inside string literals (docstrings, f-strings); AST walk on ast.Call(func=Name(id='print')) is accurate | 2026-05-01 |
-| C16 skips write_text with 2+ positional args | Custom audit.write_text(filename, content) was false positive; Path.write_text takes 1 positional (text) so 2+ = custom method | 2026-05-01 |
-| T2 recognizes assert_*() function calls | assert_no_mutation_fields(x) and similar custom helpers are assertion mechanisms; previously caused false positives | 2026-05-01 |
-| call_graph tracks all Name Load nodes | Functions passed as values (target=fn, callbacks=[fn]) weren't counted as "used"; Name Load in AST covers all reference forms | 2026-05-01 |
-| U1/U2/U3 skip except-handler fallback classes | try/except fallback stubs (import real lib, except: define stub) are intentional no-ops, not unfinished code | 2026-05-01 |
-| D1 uses __all__ to mark intentional public APIs | exclude_paths doesn't work for D1 (call_graph has no file context); __all__ is the correct Python idiom for declaring public exports | 2026-05-01 |
-| Cross-file detectors use lazy AnalysisGraph | File-local C-class detectors should not pay AST/graph cost | 2026-04-30 |
-| U2 excludes Protocol/abstractmethod/overload | Correct Python idioms for ellipsis bodies | 2026-04-30 |
-| S1 uses declarative YAML architecture.layers | Rules are explicit and auditable | 2026-04-30 |
-| ArchonAdapter/OpenClawRunner converted to ABC | @abstractmethod alone doesn't enforce without ABC base | 2026-04-30 |
-| doctor plugin_audit_keys escape hatch | Plugin audit config keys should not trigger unknown-key warnings | 2026-04-30 |
-| D2: check else-body does NOT terminate | Symmetric if/else (both return) is intentional; only flag when if exits but else falls through | 2026-04-30 |
-| D3 uses separate _all_paths_noreturn | return is not a NoReturn terminal; D3 only counts raise/exit | 2026-04-30 |
-| T2 scans tests_root directly | ast_forest covers only src_root; T2 predated the tests_forest pass | 2026-04-30 |
-| C19/C20/C22-C25 are regex | Patterns tight enough; consistent with C-class file-local pattern detectors | 2026-04-30 |
-| C21 uses inline AST parse | Avoids needing ast_forest for a single C-class detector | 2026-04-30 |
-| D1 conservative: module-level only | Methods need type info; false positive cost too high for method-level dead detection | 2026-04-30 |
-| call_graph tracks decorated_names separately | A function used as @decorator is "used" even without direct foo() call | 2026-04-30 |
-| F1 uses accessed_attrs from call_graph | Any obj.field attribute load marks field live; zero accesses = dead | 2026-04-30 |
-| E1 exempts __init__/__new__/__del__ etc. | Convention is to omit -> None on these; flagging is noise | 2026-04-30 |
-| G1 uses CamelCase only (not snake_case) | Common English words match snake_case patterns; CamelCase = class/type name, low false-positive rate | 2026-04-30 |
-| symbol_index strips comments before tokenizing | A word that appears ONLY in a comment is not "in source" — must strip comments so G1 can detect it | 2026-04-30 |
-| tests_forest is a separate pass | Mirrors ast_forest for tests_root; enables T1 without ad-hoc file reads | 2026-04-30 |
-| X1 counts BoolOp values beyond first | `a and b and c` has 2 branches, not 1; each extra `and`/`or` value adds complexity | 2026-04-30 |
-| x1_threshold/x2_threshold added to doctor known audit keys | Configurable thresholds need to be recognized to avoid false doctor warnings | 2026-04-30 |
-| I1 excludes # noqa lines | `# noqa: F401` marks intentional re-exports; I1 must respect these | 2026-05-01 |
-| T2 recognizes pytest.raises/warns and self.assertX | These are valid assertion mechanisms; not recognizing them caused 200+ false positives across OC+a private downstream repo | 2026-05-01 |
-| D3 pre-checks _has_return_in_scope | Functions with any return path are NOT NoReturn — fix false positives like if/elif/.../raise at end | 2026-05-01 |
-| S2 skips self-import pairs (mod_a == mod_b) | Relative imports in __init__.py resolve to the same module; self-loops are spurious | 2026-05-01 |
-| C18 regex excludes -f"..." patterns | `-f", "null"` command-line flag list elements were incorrectly matching the f-string pattern | 2026-05-01 |
-| D1 skips framework-decorated functions | @app.command(), @router.get(), @pytest.fixture etc. register via decoration not call-site; flagging them as dead is wrong | 2026-04-30 |
-| call_graph scans tests_root as extra_roots | F1/D1 false positives for fields/functions used in tests but not in src; extra_roots contribute only usages, not definitions | 2026-04-30 |
-| F1 skips dataclasses with serialization methods | to_dict/model_dump/asdict expose all fields indirectly; attribute-level analysis can't see this | 2026-04-30 |
-| T2 recognizes mock assertions and raise AssertionError | mock.assert_called_once() / raise AssertionError(...) are legitimate test mechanisms | 2026-04-30 |
 
 *(older entries archived for the R1 400-line budget)*

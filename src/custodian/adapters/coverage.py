@@ -154,9 +154,14 @@ class CoverageAdapter(ToolAdapter):
         return findings
 
     def _rel_to_repo(self, file_path: str, repo_path: Path) -> str:
-        """Best-effort repo-relative path for the finding."""
+        """Best-effort repo-relative path for the finding.
+
+        `.as_posix()`, not `str()`: this path is both matched against the
+        forward-slash globs in ``exclude_paths`` and emitted as the finding
+        path, so on Windows `str()` would silently void every exclusion.
+        """
         try:
-            return str(Path(file_path).resolve().relative_to(repo_path.resolve()))
+            return Path(file_path).resolve().relative_to(repo_path.resolve()).as_posix()
         except ValueError:
             return file_path
 

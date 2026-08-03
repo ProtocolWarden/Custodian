@@ -190,7 +190,10 @@ class SemgrepAdapter(ToolAdapter):
             raw_sev = item.get("extra", {}).get("severity", item.get("severity", "WARNING"))
             path_str = item.get("path", "")
             try:
-                rel = str(Path(path_str).relative_to(repo_path))
+                # `.as_posix()`, not `str()`: on Windows the latter yields
+                # `src\foo\bar.py`, which no forward-slash config glob matches.
+                # Matches the form `_rel` already produces for docker mode.
+                rel = Path(path_str).relative_to(repo_path).as_posix()
             except ValueError:
                 rel = path_str or None
             start = item.get("start", {})
