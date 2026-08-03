@@ -169,8 +169,9 @@ class TyAdapter(ToolAdapter):
                 rel = Path(path_str).relative_to(repo_path).as_posix()
             except ValueError:
                 # Already repo-relative (docker mode always is), or outside
-                # the repo — either way, report the path as ty gave it.
-                rel = path_str
+                # the repo — normalise separators either way so the same file
+                # doesn't get two spellings.
+                rel = Path(path_str).as_posix()
             findings.append(Finding(
                 tool=self.name,
                 rule=m.group("rule"),

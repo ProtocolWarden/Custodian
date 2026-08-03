@@ -386,7 +386,7 @@ def detect_b1(context: AuditContext) -> DetectorResult:
                     count += 1
                     if len(samples) < _MAX_SAMPLES:
                         samples.append(
-                            f"{rel}:{lineno}: contains {name!r}"
+                            f"{rel.as_posix()}:{lineno}: contains {name!r}"
                             + (f" [boundary={provenance}]" if provenance else "")
                         )
                     break  # one finding per line is enough

@@ -2,6 +2,45 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-08-03 — fix(samples): detector sample paths, the half #62 deferred
+
+#62 fixed the adapter half and named what it left: "detector-side samples still
+stringify natively (~50 sites), so on Windows triage still sees one file under
+two keys." This is that half.
+
+Triage groups per file by the raw path string parsed out of a sample, so one
+file must have exactly one spelling across every producer. Detectors formatted
+`path.relative_to(repo_root)` straight in, and `str(WindowsPath)` yields
+backslashes. Fixed at ~50 sites across 14 modules, following the sites that
+already called `.as_posix()`. Where `rel` is also needed as a Path (`.parts`,
+glob matching) it stays a Path and the sample posix-ifies at the f-string,
+rather than converting early and forcing the matcher to re-parse a string.
+
+One adapter gap remains after #62, and it is the branch that matters most:
+#62 changed the happy path, but `relative_to()` *raises* for ruff, mypy,
+vulture and semgrep, because they run with `cwd=repo_path` and report
+cwd-relative paths. The `except` clause decides the spelling for those tools
+and it returned the string verbatim. Observed directly: with the happy path
+already fixed, vulture still emitted `src\pkg\...` beside ruff's `src/pkg/...`.
+ty has the same hole in its own fallback. Both branches normalise now.
+
+Found while sweeping: C1, C6, C8, C13 and C28 interpolated the *absolute* path,
+never relativising at all. Different failure — the joiner's regex breaks at the
+drive-letter colon, so on Windows those findings were dropped from triage
+entirely rather than misfiled, and on POSIX they formed a third key for the
+same file. `_count_pattern` gains a required `repo_root` keyword.
+
+Also `tests_rel` in C13, which built its allowlist globs with `str()`. Latent —
+it only bites when `tests_root` is nested — but the same class as #55 and #62.
+
+The regression test follows #62's rule, since `str()` and `as_posix()` are
+indistinguishable on the only platform that gates merges: `PureWindowsPath`
+drives real Windows semantics on any host for the detector helper and both
+adapter branches, and the absolute-path assertions hold everywhere. Each fix
+was reverted in turn to confirm the suite catches it. The detector-side
+separator assertions stay Windows-only — closing that needs a static check over
+sample construction, and a half-covering one buys false confidence — so the
+module docstring names the limit rather than hiding it.
 ## 2026-08-03 — fix(tests): the seven failures that only ever appear off Linux CI
 
 CI runs ubuntu-only, so seven tests were red on Windows and invisible to every
@@ -332,59 +371,6 @@ there is no in-repo caller by design (not an integration gap). Added a
 OperationsCenter D12 triage (176 → 171 findings after the fix). 9 D12 tests
 (added pytest-hook-skipped); ruff+ty clean.
 
-## 2026-06-17 — feat(D12): incomplete-integration detector (tested but never wired)
-
-New `D12` in `dead_code.py`: a public src function/method REFERENCED BY TESTS but
-NEVER by production code — the "built it + tested it but never wired it in"
-signal. Uses the `ast_forest` (src) + `tests_forest` (tests) split: a symbol
-referenced nowhere is dead code (D1/D5/Vulture); referenced *only by tests* is an
-integration gap. Low-FP by construction — skips private/dunder, `test_*`,
-decorated defs (CLI commands, @property, fixtures, routes, validators,
-@abstractmethod — framework-invoked), `__all__` exports, entry-point names; a
-production reference in ANY src file (even an excluded one) clears the symbol.
-LOW severity, WIRE verdict (added to triage `_UNWIRED`), exclude via
-`audit.exclude_paths.D12`. Motivated by OperationsCenter#313, which auto-merged
-with `get_extraction_health()` defined + unit-tested but its STEP-3 caller never
-wired — the self-review caught it but it shipped anyway; D12 makes that class of
-gap a deterministic finding instead of an LLM-variable review concern. Self-audit
-on Custodian found 6 true positives (tested-but-unwired core/policy functions,
-0 FP in the sample). 8 tests; full suite 1152 green; ruff(src)+ty+doctor clean.
-Those 6 are excluded in `.custodian/config.yaml` (audit.exclude_paths.D12 →
-core/runner, core/finding, policy/filter, policy/architecture) — Custodian's own
-public API surface, WIRE-verdict not bugs; excluded pending a deliberate
-public-API-declaration (`__all__`) pass rather than blocking on the detector that
-introduced them.
-_Not a task tracker — that's backlog.md. Keep entries concise and dated._
-
-## 2026-06-16 — feat(doctor): config-integrity checks (enforce can't silently vanish)
-
-Two doctor `--strict` checks that catch a gate looking enforced but isn't, without
-touching the audit/CI-red path. (1) **Duplicate-key detection** — `find_duplicate_keys`
-(loader.py) walks the raw YAML node tree via `compose`, so a second `audit:`/
-`capabilities:` block (which `safe_load` silently collapses to last-wins, dropping
-an `enforce: true` or suppression — the PrivateManifest incident) is flagged. (2)
-**enforce-without-locator** — `capabilities.enforce: true` with no `registry_path`/
-`registry_repo`/`cross_repo` locator = enforce-theater (CAP1 can never find the
-registry); flagged. NOT flagged: a sibling locator merely absent in single-repo CI
-(that skip is by design — the capability-refs venue gate covers it; firing there
-would red every owning repo). Verified: all 6 fleet repos still doctor-clean (no
-false positives); negative controls fire. The detector-level "make CAP1 fire on
-registry-not-found" alternative was rejected — it would red owning repos' single-repo
-CI, which skips by design. Survivor #1 from the gate-integrity adversarial pass.
-
-## 2026-06-06 — chore: engine refresh — injection telemetry (CL #26/#27)
-
-`cl context init` refresh of .context/.engine/: route.py gains the injection
-telemetry from CL #26 (one JSONL event per surfaced injection to
-sessions/.telemetry/injection.jsonl — but note this repo's .context is
-session-less, so the telemetry dir appears only if/when injections fire here;
-covered by gitignore). cold.py picks up the CLOSED-superseded docstring (CL #27).
-Part of the PM context-management completeness-audit train (PM #74).
-
-<!-- Reconciled 2026-08-02 (RC1): entries older than 2026-05-16 pruned to stay
-     under the 400-line budget. Full history is in git — `git log -p .console/log.md`. -->
-
-<!-- Reconciled 2026-08-03 (RC1): `## Stop Points` and `## Recent Decisions`
-     (2026-05 material) pruned to stay under the 400-line budget. Full history is in
-     git — `git log -p .console/log.md`, or blob `db7e3d7:.console/archive/log-2026-05.md`
-     for the collected copy that #64 briefly tracked. -->
+<!-- Reconciled 2026-08-03 (RC1): `## Stop Points`, `## Recent Decisions`
+     (2026-05 material) and entries through 2026-06-17 pruned to stay under the
+     400-line budget. Full history is in git — `git log -p .console/log.md`. -->

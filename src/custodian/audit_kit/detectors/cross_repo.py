@@ -339,7 +339,7 @@ def detect_x1(context: AuditContext) -> DetectorResult:
                 if len(samples) < _MAX_SAMPLES:
                     canonical = info.label_to_canonical[label]
                     samples.append(
-                        f"{rel}:{i}: public label `{label}` — "
+                        f"{rel_posix}:{i}: public label `{label}` — "
                         f"PlatformManifest canonical is `{canonical}`"
                     )
     return DetectorResult(count=count, samples=samples)
@@ -422,7 +422,7 @@ def detect_x2(context: AuditContext) -> DetectorResult:
             count += 1
             if len(samples) < _MAX_SAMPLES:
                 samples.append(
-                    f"{rel}: imports `{pkg}` ({target_canonical}) "
+                    f"{rel_posix}: imports `{pkg}` ({target_canonical}) "
                     f"but no edge declared from `{current_repo}` → "
                     f"`{target_canonical}` in PlatformManifest"
                 )
@@ -485,7 +485,7 @@ def detect_x3(context: AuditContext) -> DetectorResult:
                 if len(samples) < _MAX_SAMPLES:
                     canonical_url = stale_patterns[stale_fragment]
                     samples.append(
-                        f"{rel}:{i}: stale GitHub URL `{stale_fragment}` — "
+                        f"{rel_posix}:{i}: stale GitHub URL `{stale_fragment}` — "
                         f"PlatformManifest canonical is `{canonical_url}`"
                     )
     return DetectorResult(count=count, samples=samples)

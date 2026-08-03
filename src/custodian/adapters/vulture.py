@@ -127,7 +127,11 @@ class VultureAdapter(ToolAdapter):
                 # `src\foo\bar.py`, which no forward-slash config glob matches.
                 rel = Path(path_str).relative_to(repo_path).as_posix()
             except ValueError:
-                rel = path_str
+                # Not under repo_path — the tool reported a cwd-relative
+                # path. Already repo-relative, but still native-separated,
+                # and this branch is the one vulture actually takes: it runs
+                # with cwd=repo_path, so relative_to() always raises.
+                rel = Path(path_str).as_posix()
             message = m.group("message")
             findings.append(Finding(
                 tool=self.name,

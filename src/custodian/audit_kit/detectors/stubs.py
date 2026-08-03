@@ -204,7 +204,7 @@ def _sample(
     func: ast.FunctionDef | ast.AsyncFunctionDef,
     context: AuditContext,
 ) -> str:
-    rel = path.relative_to(context.repo_root)
+    rel = path.relative_to(context.repo_root).as_posix()
     return f"{rel}:{func.lineno}: {func.name}()"
 
 
@@ -451,7 +451,6 @@ def detect_u4(context: AuditContext) -> DetectorResult:
         rel_str = path.relative_to(context.repo_root).as_posix()
         if exclude_globs and any(_glob_to_regex(g).match(rel_str) for g in exclude_globs):
             continue
-        rel = path.relative_to(context.repo_root)
 
         this_file_protocols = _protocol_classes(tree)
         file_aliases = _import_aliases(tree)
@@ -492,7 +491,7 @@ def detect_u4(context: AuditContext) -> DetectorResult:
                     if len(samples) < _MAX_SAMPLES:
                         missing_str = ", ".join(sorted(missing))
                         samples.append(
-                            f"{rel}:{node.lineno}: {node.name} inherits {proto_name} "
+                            f"{rel_str}:{node.lineno}: {node.name} inherits {proto_name} "
                             f"but is missing: {missing_str}"
                         )
 

@@ -61,7 +61,7 @@ def detect_inj1(context: AuditContext) -> DetectorResult:
         if _is_binary(path):
             continue
         try:
-            rel = path.relative_to(context.repo_root)
+            rel = path.relative_to(context.repo_root).as_posix()
         except ValueError:
             continue
         try:

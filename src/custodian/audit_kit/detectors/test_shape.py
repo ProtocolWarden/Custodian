@@ -212,7 +212,7 @@ def detect_t1(context: AuditContext) -> DetectorResult:
     for path, tree, _src in context.graph.ast_forest.items():
         if str(path) in excluded_paths:
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for stmt in tree.body:  # module-level only
             if not isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 continue
@@ -252,7 +252,7 @@ def detect_t2(context: AuditContext) -> DetectorResult:
             if not _has_assertion_mechanism(node):
                 count += 1
                 if len(samples) < _MAX_SAMPLES:
-                    samples.append(f"{rel}:{node.lineno}: {node.name}() — no assert")
+                    samples.append(f"{rel_posix}:{node.lineno}: {node.name}() — no assert")
 
     return DetectorResult(count=count, samples=samples)
 
@@ -281,7 +281,7 @@ def detect_t3(context: AuditContext) -> DetectorResult:
     samples: list[str] = []
     count = 0
     for path, _tree in _parse_test_files(context.tests_root):
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
         except OSError:
@@ -388,7 +388,7 @@ def detect_t4(context: AuditContext) -> DetectorResult:
     }
 
     samples = [
-        f"{loc[0].relative_to(context.repo_root)}:{loc[1]}: fixture {name}() — never requested"
+        f"{loc[0].relative_to(context.repo_root).as_posix()}:{loc[1]}: fixture {name}() — never requested"
         for name, loc in sorted(orphans.items(), key=lambda x: (str(x[1][0]), x[1][1]))
     ]
     return DetectorResult(count=len(orphans), samples=samples[:_MAX_SAMPLES])
@@ -430,7 +430,7 @@ def detect_t5(context: AuditContext) -> DetectorResult:
     samples: list[str] = []
 
     for path, tree in _parse_test_files(context.tests_root):
-        rel = str(path.relative_to(context.repo_root))
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
@@ -548,7 +548,7 @@ def detect_t6(context: AuditContext) -> DetectorResult:
             continue
         count += 1
         if len(samples) < _MAX_SAMPLES:
-            samples.append(f"{rel}: module {dotted!r} not imported by any test file")
+            samples.append(f"{rel_posix}: module {dotted!r} not imported by any test file")
     return DetectorResult(count=count, samples=samples)
 
 
@@ -619,7 +619,8 @@ def detect_t7(context: AuditContext) -> DetectorResult:
         if len(samples) < _MAX_SAMPLES:
             expected = (context.tests_root / "unit" / rel_src.parent / f"test_{rel_src.stem}.py")
             samples.append(
-                f"{rel}: no parallel test (expected e.g. {expected.relative_to(context.repo_root)})"
+                f"{rel_posix}: no parallel test "
+                f"(expected e.g. {expected.relative_to(context.repo_root).as_posix()})"
             )
     return DetectorResult(count=count, samples=samples)
 
@@ -770,5 +771,5 @@ def detect_t8(context: AuditContext) -> DetectorResult:
             preview = pkgs[:3]
             extra = len(pkgs) - len(preview)
             pkg_summary = ", ".join(preview) + (f" (+{extra} more)" if extra > 0 else "")
-            samples.append(f"{rel}: no imports from any src package ({pkg_summary})")
+            samples.append(f"{rel_posix}: no imports from any src package ({pkg_summary})")
     return DetectorResult(count=count, samples=samples)
