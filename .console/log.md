@@ -1,3 +1,42 @@
+## 2026-08-03 — feat(ty): docker mode, because a host run is unsound not just noisy
+
+`TyAdapter()` took no arguments and shelled out to a host binary; semgrep was
+the only adapter that could containerize. For a containerized repo a host run
+cannot be correct — the venv is built `--system-site-packages` against the
+image's interpreter, so the dependencies sit inside the image and `pyvenv.cfg`
+points `home` at a path the host does not have.
+
+Not merely a noisy count: an unresolved import infers as `Unknown`, which
+invents attribute errors *and* suppresses real ones. Same tree, same config —
+`unresolved-attribute` 303 host / 242 container (61 false positives), and
+`invalid-assignment` 55 / 77 (22 real errors the host **misses**). Wrong in
+both directions. Different rationale from semgrep's `docker: true` (a tool
+that no-ops on Windows); this is a correctness requirement on any host OS.
+
+Targets pass relative to the mount — ty echoes the form it was given, so
+diagnostics arrive repo-relative. `mount` and `command` are configurable
+because a venv with a hardcoded prefix only resolves at its own mount point.
+
+Two defects found while adding it: `TimeoutExpired` was uncaught, so a slow
+tool took down the whole audit instead of reporting one dead adapter; and
+finding paths used `str()`, so one file had two spellings (`src/foo.py` from a
+container, `src\foo.py` natively on Windows) despite being keyed and exempted
+by path — that fixes `test_path_relativized`, already red on main. `mypy`,
+`ruff`, `semgrep` and `vulture` share the separator bug, left for their own
+change; worth checking whether posix-glob `ignore_paths` silently miss on
+Windows, as PR #55 fixed a related glob bug the same way.
+
+Also: `{"enabled": False}` is a truthy dict and the v1 schema spells every
+tool that way, so the bare test enabled a disabled tool. Fixed for ty; the
+other adapters have the same hole.
+
+Docker mode introduced a fourth silent-green path, so it is guarded: a
+non-existent entrypoint exits 127 with output the concise parser skips, which
+would have reported a clean tree. ty exits 0 clean and 1 with diagnostics, so
+`returncode != 0 and no findings` is unambiguously anomalous and now yields
+TOOL_ERROR. This retired a test that asserted the old behaviour — output
+claiming "Found 2 diagnostics" that parsed to zero was being swallowed.
+
 ## 2026-08-02 — fix(u4): count methods inherited from non-Protocol bases
 
 U4 collected the implementing class's own body only, so the ordinary mixin

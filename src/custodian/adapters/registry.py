@@ -24,6 +24,24 @@ Semgrep also accepts a dict form::
 on Windows ``semgrep-core`` fails rule validation while semgrep still exits 0,
 so an authored rule set silently never executes. Rules and source must live
 inside the repo, since only the repo is mounted.
+
+ty accepts a dict form too, for a different reason::
+
+    tools:
+      ty:
+        docker: true
+        image: docker-worker:latest       # the repo's own runtime image
+        mount: /work                      # where that image expects the repo
+        command: /work/.venv/bin/ty       # ty need not be on PATH
+        timeout: 180                      # optional, seconds
+
+Here docker mode is about *soundness*, not host support. A type checker
+resolves imports against an environment, and for a containerized repo that
+environment is inside the image — a venv built ``--system-site-packages``
+leaves the dependencies at ``/usr/local/lib/...`` and points ``pyvenv.cfg``
+``home`` at a path the host does not have. Imports ty cannot resolve infer as
+``Unknown``, which invents attribute errors *and* suppresses real ones, so a
+host run is wrong in both directions rather than merely noisy.
 """
 from __future__ import annotations
 
@@ -44,9 +62,31 @@ def get_enabled_adapters(config: dict) -> list[ToolAdapter]:
         from custodian.adapters.mypy import MypyAdapter
         result.append(MypyAdapter())
 
-    if tools_cfg.get("ty"):
+    ty_cfg = tools_cfg.get("ty")
+    # `{"enabled": False}` is a truthy dict — the v1 schema spells every tool
+    # that way, so a bare truthiness test silently enables a disabled tool.
+    if isinstance(ty_cfg, dict):
+        ty_cfg = ty_cfg if ty_cfg.get("enabled", True) else None
+    if ty_cfg:
         from custodian.adapters.ty import TyAdapter
-        result.append(TyAdapter())
+        # Accept either a bare truthy value (host binary) or a dict. A
+        # containerized repo needs the dict form: the dependencies ty must
+        # resolve live inside the image, not on the host disk, and an import
+        # ty cannot resolve infers as Unknown — which invents attribute errors
+        # and hides real ones, so a host run is unsound rather than noisy.
+        if isinstance(ty_cfg, dict):
+            image = ty_cfg.get("image")
+            mount = ty_cfg.get("mount")
+            command = ty_cfg.get("command")
+            result.append(TyAdapter(
+                docker=bool(ty_cfg.get("docker", False)),
+                image=image if isinstance(image, str) else "python:3.12-slim",
+                mount=mount if isinstance(mount, str) else "/src",
+                command=command if isinstance(command, str) else "ty",
+                timeout=int(ty_cfg.get("timeout", 120)),
+            ))
+        else:
+            result.append(TyAdapter())
 
     if tools_cfg.get("vulture"):
         from custodian.adapters.vulture import VultureAdapter

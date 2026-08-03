@@ -2,8 +2,10 @@
 # Copyright (C) 2026 ProtocolWarden
 from __future__ import annotations
 
+import subprocess
 from unittest.mock import MagicMock, patch
 
+from custodian.adapters.registry import get_enabled_adapters
 from custodian.adapters.ty import TyAdapter, _ty_severity
 from custodian.core.finding import HIGH, MEDIUM, LOW
 
@@ -73,12 +75,28 @@ class TestTyAdapterRun:
         assert findings[0].severity == MEDIUM
 
     def test_non_matching_lines_skipped(self, tmp_path):
+        """Banner and blank lines are not diagnostics.
+
+        Uses a clean exit deliberately: the same output with a *failing* exit
+        code means ty had something to say that this parser could not read,
+        which TestTyFailsLoudly asserts is reported rather than swallowed.
+        """
         findings = self._run_with_stderr(tmp_path, [
-            "Found 2 diagnostics",
+            "Found 0 diagnostics",
             "",
             "Some other output",
-        ])
+        ], returncode=0)
         assert findings == []
+
+    def test_claimed_diagnostics_that_parsed_to_nothing_are_reported(self, tmp_path):
+        """ty said it found some; we read none. That is a parser gap, not a
+        clean tree, and it must not be silently swallowed."""
+        findings = self._run_with_stderr(tmp_path, [
+            "Found 2 diagnostics",
+            "some format this adapter does not understand",
+        ], returncode=1)
+        assert len(findings) == 1
+        assert findings[0].rule == "TOOL_ERROR"
 
     def test_multiple_diagnostics(self, tmp_path):
         p = str(tmp_path / "src" / "a.py")
@@ -101,3 +119,170 @@ class TestTyAdapterRun:
             TyAdapter().run(tmp_path, {"src_root": "mycode"})
         cmd = mock_run.call_args[0][0]
         assert str(custom) in cmd
+
+    def test_timeout_reports_one_dead_tool_not_a_crash(self, tmp_path):
+        """A timeout used to propagate and take the whole audit down."""
+        (tmp_path / "src").mkdir()
+        with patch(
+            "subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="ty", timeout=120),
+        ):
+            findings = TyAdapter().run(tmp_path, {})
+        assert len(findings) == 1
+        assert findings[0].rule == "TOOL_ERROR"
+        assert "timed out" in findings[0].message
+
+
+class TestTyAdapterDockerMode:
+    """Docker mode exists because a host run is unsound, not just noisy.
+
+    The dependencies ty resolves imports against live inside the image for a
+    containerized repo. Unresolved imports infer as Unknown, which both
+    invents attribute errors and suppresses real ones.
+    """
+
+    def _cmd_for(self, tmp_path, **kwargs):
+        (tmp_path / "src").mkdir(exist_ok=True)
+        proc = MagicMock()
+        proc.stderr = ""
+        proc.stdout = ""
+        with patch("custodian.adapters.ty.find_tool", return_value="docker"), \
+             patch("subprocess.run", return_value=proc) as mock_run:
+            TyAdapter(docker=True, **kwargs).run(tmp_path, {})
+        return mock_run.call_args[0][0]
+
+    def test_available_when_docker_present_even_without_ty(self, tmp_path):
+        with patch("custodian.adapters.ty.find_tool", return_value="docker"):
+            assert TyAdapter(docker=True).is_available() is True
+
+    def test_unavailable_when_docker_missing(self):
+        with patch("custodian.adapters.ty.find_tool", return_value=None):
+            assert TyAdapter(docker=True).is_available() is False
+
+    def test_builds_docker_run(self, tmp_path):
+        cmd = self._cmd_for(tmp_path, image="docker-worker:latest")
+        assert cmd[:3] == ["docker", "run", "--rm"]
+        assert "docker-worker:latest" in cmd
+        assert cmd[-3:] == ["--output-format", "concise", "src"]
+
+    def test_target_is_relative_so_paths_come_back_repo_relative(self, tmp_path):
+        """ty echoes the target form it was given; relative in, relative out."""
+        cmd = self._cmd_for(tmp_path)
+        assert "src" in cmd
+        assert str(tmp_path) not in " ".join(cmd[cmd.index("-w"):])
+
+    def test_mount_and_entrypoint_are_configurable(self, tmp_path):
+        """A venv with a hardcoded prefix only works at its own mount point."""
+        cmd = self._cmd_for(
+            tmp_path, mount="/work", command="/work/.venv/bin/ty",
+        )
+        assert f"{tmp_path.resolve().as_posix()}:/work" in cmd
+        assert cmd[cmd.index("-w") + 1] == "/work"
+        assert cmd[cmd.index("--entrypoint") + 1] == "/work/.venv/bin/ty"
+
+    def test_src_root_outside_repo_is_reported_not_silently_wrong(self, tmp_path):
+        adapter = TyAdapter(docker=True)
+        outside = tmp_path.parent / "elsewhere"
+        outside.mkdir(exist_ok=True)
+        with patch("custodian.adapters.ty.find_tool", return_value="docker"):
+            findings = adapter.run(tmp_path, {"src_root": "../elsewhere"})
+        assert len(findings) == 1
+        assert findings[0].rule == "TOOL_ERROR"
+        assert "outside the repo" in findings[0].message
+
+    def test_relative_paths_from_container_survive_parsing(self, tmp_path):
+        """Container paths are already repo-relative and must not be mangled."""
+        (tmp_path / "src").mkdir(exist_ok=True)
+        proc = MagicMock()
+        proc.stderr = "src/foo/bar.py:12:3: error[unresolved-attribute] No attr `x`"
+        proc.stdout = ""
+        with patch("custodian.adapters.ty.find_tool", return_value="docker"), \
+             patch("subprocess.run", return_value=proc):
+            findings = TyAdapter(docker=True).run(tmp_path, {})
+        assert len(findings) == 1
+        assert findings[0].path == "src/foo/bar.py"
+        assert findings[0].line == 12
+
+
+class TestTyFailsLoudly:
+    """A tool that fails and says nothing must not read as a clean tree.
+
+    Exit codes measured against ty 0.0.65: 0 clean, 1 diagnostics found, 2
+    internal error; a docker entrypoint that does not exist exits 127. The
+    last two produce output the concise parser skips, so without this guard
+    they report zero findings — the silent-green failure that has already
+    cost this project three separate adapters.
+    """
+
+    def _run(self, tmp_path, returncode, stderr, adapter=None):
+        (tmp_path / "src").mkdir(exist_ok=True)
+        proc = MagicMock()
+        proc.stderr = stderr
+        proc.stdout = ""
+        proc.returncode = returncode
+        with patch("custodian.adapters.ty.find_tool", return_value="docker"), \
+             patch("subprocess.run", return_value=proc):
+            return (adapter or TyAdapter()).run(tmp_path, {})
+
+    def test_missing_docker_entrypoint_is_not_a_clean_tree(self, tmp_path):
+        findings = self._run(
+            tmp_path, 127,
+            'docker: Error response from daemon: ... exec: "/work/.venv/bin/ty": '
+            "stat /work/.venv/bin/ty: no such file or directory",
+            adapter=TyAdapter(docker=True, command="/work/.venv/bin/ty"),
+        )
+        assert len(findings) == 1
+        assert findings[0].rule == "TOOL_ERROR"
+        assert "exited 127" in findings[0].message
+
+    def test_internal_error_is_not_a_clean_tree(self, tmp_path):
+        findings = self._run(tmp_path, 2, "ty failed to read the configuration")
+        assert len(findings) == 1
+        assert findings[0].rule == "TOOL_ERROR"
+
+    def test_clean_run_stays_clean(self, tmp_path):
+        """rc=0 with nothing parsed is a genuinely clean tree, not an error."""
+        assert self._run(tmp_path, 0, "All checks passed!") == []
+
+    def test_diagnostics_found_is_not_an_error(self, tmp_path):
+        """ty exits 1 when it has something to say — that is the normal path."""
+        findings = self._run(
+            tmp_path, 1,
+            "src/a.py:1:1: error[invalid-assignment] Bad assignment",
+        )
+        assert len(findings) == 1
+        assert findings[0].rule == "invalid-assignment"
+
+
+class TestTyRegistryWiring:
+    def test_bare_true_gives_a_native_adapter(self):
+        adapters = get_enabled_adapters({"tools": {"ty": True}})
+        adapter = next(a for a in adapters if a.name == "ty")
+        assert adapter._docker is False
+
+    def test_dict_form_passes_docker_settings_through(self):
+        adapters = get_enabled_adapters({
+            "tools": {"ty": {
+                "docker": True,
+                "image": "docker-worker:latest",
+                "mount": "/work",
+                "command": "/work/.venv/bin/ty",
+                "timeout": 300,
+            }}
+        })
+        adapter = next(a for a in adapters if a.name == "ty")
+        assert adapter._docker is True
+        assert adapter._image == "docker-worker:latest"
+        assert adapter._mount == "/work"
+        assert adapter._command == "/work/.venv/bin/ty"
+        assert adapter._timeout == 300
+
+    def test_enabled_false_disables_it(self):
+        """`{"enabled": False}` is a truthy dict — the v1 schema spells every
+        tool that way, so a bare truthiness test enables a disabled tool."""
+        adapters = get_enabled_adapters({"tools": {"ty": {"enabled": False}}})
+        assert not [a for a in adapters if a.name == "ty"]
+
+    def test_enabled_true_still_enables_it(self):
+        adapters = get_enabled_adapters({"tools": {"ty": {"enabled": True}}})
+        assert [a for a in adapters if a.name == "ty"]
