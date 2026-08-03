@@ -2,6 +2,48 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-08-03 — fix(adapters): find_tool must prefer the AUDITED repo's venv
+
+Found while triaging why OperationsCenter's Custodian pre-push gate failed. A
+globally-installed `custodian-multi` audited OC — which pins `ruff==0.15.13` —
+using a system-wide **ruff 0.16.1**, and reported **1222 findings** against a tree
+OC's own `ruff check` calls clean (BLE001 ×316, UP045 ×290, UP037 ×118, …). Same
+repo, same `.custodian/config.yaml`, ruff 0.15.13: **0 findings**. Vulture skewed
+the same way (621). Every one of those was phantom.
+
+Root cause: `find_tool()` resolved `Path(sys.executable).parent / name` — i.e. the
+venv **Custodian itself** is installed in — then fell back to PATH. For a
+*multi-repo* auditor that is backwards. Each repo pins the toolchain its config was
+written against, so the audit is only meaningful when it runs those versions; the
+venv Custodian happens to live in has no authority over the repo in front of it. It
+was right by accident in the single-repo case (Custodian installed into the audited
+repo's venv) and silently wrong everywhere else.
+
+Second, smaller bug in the same three lines: `Path(sys.executable).parent / name`
+can never match on Windows, where console scripts are `ruff.exe` and live in
+`Scripts/` rather than `bin/`. So the venv branch was dead code on that platform and
+every lookup fell through to PATH.
+
+Fix: resolution order is now (1) the audited repo's own venv, (2) Custodian's venv,
+(3) PATH; `_executable()` tries `.exe`/`.bat`/`.cmd` on Windows and both `bin/` and
+`Scripts/` are accepted on either host (a venv built under WSL and audited from
+Windows over /mnt/c carries the other platform's layout). The audited repo is scoped
+by a `ContextVar` + `audited_repo()` context manager rather than a parameter, because
+`is_available()` takes no arguments and it and `run()` must agree on which binary
+they are discussing — `cli/runner._run_adapters` wraps its loop in it.
+
+Verified: 1238 passed, 5 skipped. Six new tests cover repo-venv preference, the
+no-venv fallback, both script-dir spellings, and that the ContextVar does not leak
+past the loop (a leak would make later repos in a `--repos a b c` run inherit the
+first repo's toolchain). Custodian's own audit is unchanged from baseline — the one
+remaining finding (W2, `core.hooksPath` unset) is environmental and pre-existing.
+Live proof on this machine: under `audited_repo(~/GitHub/OperationsCenter)`,
+`find_tool('ruff')` returns OC's pinned `.venv/bin/ruff` instead of Custodian's own.
+
+Noted, not fixed (pre-existing, reproduces at origin/main): `tests/test_reconcile.py`
+does not isolate `$REPOGRAPH_BOUNDARY_ARTIFACT_FILE`, so two tests fail whenever that
+variable is set in the caller's environment.
+
 ## 2026-08-03 — docs(adr): ask ContextLifecycle to split .console/log.md
 
 ADR 0001, status proposed. Custodian implements RC1/RC2 but does not own the

@@ -9,6 +9,7 @@ from pathlib import Path
 
 import yaml
 
+from custodian.adapters.base import audited_repo
 from custodian.adapters.registry import get_enabled_adapters
 from custodian.audit_kit.code_health import build_code_health_detectors
 from custodian.audit_kit.detector import AnalysisGraph, AuditContext, run_audit
@@ -264,38 +265,46 @@ def _run_adapters(result: AuditResult, *, repo_root: Path, config: dict) -> None
     if not adapters:
         return
 
-    for adapter in adapters:
-        tool_id = adapter.name.upper()
-        if not adapter.is_available():
+    # Resolve tools from repo_root's own venv for the whole loop: the repo we are
+    # auditing pins the toolchain its config was written against, not whichever
+    # venv Custodian happens to be installed in. Scoped here rather than passed as
+    # an argument because is_available() takes none, and it and run() must agree
+    # on which binary they are talking about.
+    with audited_repo(repo_root):
+        for adapter in adapters:
+            tool_id = adapter.name.upper()
+            if not adapter.is_available():
+                result.add_pattern(tool_id, {
+                    "description": f"{adapter.name} (not installed)",
+                    "status": "skipped",
+                    "severity": "low",
+                    "source": "adapter",
+                    "count": 0,
+                    "samples": [
+                        f"{adapter.name!r} is not installed — install it to enable findings"
+                    ],
+                })
+                continue
+
+            findings = adapter.run(repo_root, config)
+
+            # Filter out TOOL_UNAVAILABLE sentinel (shouldn't happen, but be safe)
+            real = [f for f in findings if f.rule != "TOOL_UNAVAILABLE"]
+
+            samples = [
+                f"{f.path or '?'}:{f.line or '?'}: [{f.rule}] {f.message}"
+                for f in real[:8]
+            ]
+            count = len(real)
             result.add_pattern(tool_id, {
-                "description": f"{adapter.name} (not installed)",
-                "status": "skipped",
-                "severity": "low",
+                "description": f"{adapter.name} findings",
+                "status": "open" if count else "pass",
+                "severity": "medium",
                 "source": "adapter",
-                "count": 0,
-                "samples": [f"{adapter.name!r} is not installed — install it to enable findings"],
+                "count": count,
+                "samples": samples,
             })
-            continue
-
-        findings = adapter.run(repo_root, config)
-
-        # Filter out TOOL_UNAVAILABLE sentinel (shouldn't happen, but be safe)
-        real = [f for f in findings if f.rule != "TOOL_UNAVAILABLE"]
-
-        samples = [
-            f"{f.path or '?'}:{f.line or '?'}: [{f.rule}] {f.message}"
-            for f in real[:8]
-        ]
-        count = len(real)
-        result.add_pattern(tool_id, {
-            "description": f"{adapter.name} findings",
-            "status": "open" if count else "pass",
-            "severity": "medium",
-            "source": "adapter",
-            "count": count,
-            "samples": samples,
-        })
-        result.total_findings += count
+            result.total_findings += count
 
 
 def _build_analysis_graph(
