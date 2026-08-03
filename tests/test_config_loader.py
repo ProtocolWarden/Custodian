@@ -9,8 +9,14 @@ import pytest
 import yaml
 
 from custodian.config.loader import (
-    config_summary, load_config, migrate_v0_to_v1, _normalize_v0,
+    config_summary, has_ignore_paths, load_config, migrate_v0_to_v1, _normalize_v0,
 )
+
+
+# The retired `ignore_paths` key in both spellings it ever had: under `audit`
+# in a raw v0 file, and under `policy` once normalized. See TestIgnorePathsRemoved.
+_IGNORE_PATHS_V0 = {"audit": {"ignore_paths": ["src/legacy/**"]}}
+_IGNORE_PATHS_V1 = {"version": 1, "policy": {"ignore_paths": ["src/legacy/**"]}}
 
 
 def _write_config(tmp_path: Path, content: dict) -> Path:
@@ -104,6 +110,59 @@ class TestMigrateV0ToV1:
         assert "ty" in result["tools"]
         assert "semgrep" in result["tools"]
         assert "vulture" in result["tools"]
+
+
+class TestIgnorePathsRemoved:
+    """``audit.ignore_paths`` is NOT a supported key, and must not creep back.
+
+    It was parsed into ``policy["ignore_paths"]`` by both config-shape branches
+    and echoed by ``config_summary``, but no code path ever read it to filter a
+    finding. A repo writing ``audit: {ignore_paths: ["src/legacy/**"]}`` got the
+    globs listed back in the config summary — which reads as confirmation the
+    exemption landed — while every finding under that path kept reporting.
+
+    Implementing it was rejected rather than deferred: detector findings carry
+    no structured path. ``DetectorResult`` is ``(count, samples)`` where samples
+    are free-form strings capped at 8 (``_MAX_SAMPLES``) with inconsistent
+    shapes — absolute paths, repo-relative paths, and non-path prefixes like
+    ``"docs: ..."``. A path filter could drop matching samples but could never
+    correct ``count``, so a detector with 500 findings all under an ignored path
+    would report ``count=500, samples=[]``: a worse failure than the no-op.
+    ``audit.exclude_paths`` is the real, per-detector mechanism.
+    """
+
+    def test_normalize_v0_does_not_lift_it_into_policy(self):
+        n = _normalize_v0(_IGNORE_PATHS_V0)
+        assert "ignore_paths" not in n["policy"]
+
+    def test_normalize_v0_still_preserves_the_raw_audit_block(self):
+        # Removal stops the key being treated as policy; it does not rewrite
+        # the operator's file. `_normalize_v0` re-exports the original keys.
+        n = _normalize_v0(_IGNORE_PATHS_V0)
+        assert n["audit"]["ignore_paths"] == ["src/legacy/**"]
+
+    def test_migrate_does_not_carry_it_into_v1(self):
+        result = migrate_v0_to_v1(_IGNORE_PATHS_V0)
+        assert "ignore_paths" not in result["policy"]
+
+    @pytest.mark.parametrize("cfg", [_IGNORE_PATHS_V0, _IGNORE_PATHS_V1])
+    def test_summary_warns_instead_of_echoing_the_globs(self, cfg):
+        lines = config_summary(cfg)
+        assert not any("src/legacy/**" in ln for ln in lines), (
+            "echoing the globs reads as confirmation the exemption took effect"
+        )
+        assert any("exclude_paths" in ln for ln in lines), (
+            "the warning must name the mechanism that actually works"
+        )
+
+    def test_summary_stays_quiet_when_the_key_is_absent(self):
+        lines = config_summary({"version": 1, "policy": {"ignore_rules": ["C1"]}})
+        assert not any("ignore_paths" in ln for ln in lines)
+
+    def test_has_ignore_paths_tolerates_a_non_mapping_section(self):
+        # config_summary runs against a raw, unvalidated file via
+        # `custodian-config show`; a scalar `audit:` must not raise.
+        assert has_ignore_paths({"audit": "not-a-mapping"}) is False
 
 
 class TestConfigSummary:

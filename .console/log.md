@@ -1,3 +1,47 @@
+# Log
+
+_Chronological continuity log. Decisions, stop points, what changed and why._
+
+## 2026-08-03 — fix(config): retire audit.ignore_paths rather than implement it
+
+`audit.ignore_paths` was parsed into `policy` by both config-shape branches and
+printed by `config_summary`, but nothing ever read it to filter a finding. A repo
+writing `ignore_paths: ["src/legacy/**"]` saw the globs echoed back in the config
+summary — which reads as confirmation the exemption landed — while every finding
+under that path kept reporting. Parse-and-display with no application is worse
+than an unknown key, which `doctor` at least warns about.
+
+Removed rather than implemented, because detector findings carry no structured
+path. `DetectorResult` is `(count, samples)` where samples are free-form strings
+capped at 8 with inconsistent shapes — absolute paths, repo-relative paths, and
+non-path prefixes like `docs:` / `README.md:`. A path filter could drop matching
+samples but never correct `count`, so a detector with 500 findings all under an
+ignored path would report `count=500, samples=[]` — a silent-green path of the
+same family as the `--only` unknown-id guard and ty's docker exit-127 case.
+Implementing it for adapters only (whose `Finding` does carry `.path`) would
+reproduce the original bug: the key would work for RUFF and silently not for C1.
+
+`audit.exclude_paths` is the real mechanism — per-detector, POSIX-normalized via
+`_norm_rel`, validated by `doctor`. `config_summary` now warns instead of echoing,
+and `custodian-config migrate` says so out loud since it rewrites the file. No
+`.custodian/config.yaml` in any of the eight sibling repos sets `ignore_paths`,
+so nothing changes behaviour anywhere; the key was dead on arrival fleet-wide.
+
+Worth noting C37 (dead audit-config key) could not catch this: it greps source for
+the key name as a string literal, and the dead parse site in `loader.py` supplied
+one. Only Custodian's self-audit was fooled — consumer repos would have been flagged.
+
+Reconciliation: `## Stop Points` and `## Recent Decisions` (all 2026-05 material)
+moved to `.console/archive/log-2026-05.md`. log.md stood at 398/400 when this was
+drafted; #62 pruned and re-grew it to 396, so an entry trips RC1 either way (396 +
+39 = 435). The split takes the live log back to ~330 and buys real headroom instead
+of shaving rows each time. Archived rather than pruned, unlike the 2026-08-02 and #62 passes:
+`.console/archive/**` sits outside RC1's `.console/*.md` glob but still inside RC2's
+`.console/**` leak scan, so the content keeps being scrubbed for private names
+without consuming the budget. Required un-ignoring `.console/archive/`, which
+`.gitignore` had untracked next to a console-reconciliation §3.1 citation —
+untracked, the archive would be neither committed nor scanned.
+
 ## 2026-08-03 — fix(adapters): emit posix finding paths so globs match on Windows
 
 Four adapters relativised with `str(Path(...).relative_to(repo_path))`, which
@@ -147,10 +191,6 @@ handling code must not red the fleet-wide audit. Reports codepoint+position only
 custodian:allow-invisible-chars content marker; \u escapes so it never
 self-triggers. 7 tests; full suite 1126 passed.
 
-# Log
-
-_Chronological continuity log. Decisions, stop points, what changed and why._
-
 ## 2026-06-18 — fix: pattern-collision masking + content-less B2 message
 
 `run_audit`/`_run_adapters` did `result.patterns[id] = entry`, so when two
@@ -279,118 +319,8 @@ Part of the PM context-management completeness-audit train (PM #74).
 <!-- Reconciled 2026-08-02 (RC1): entries older than 2026-05-16 pruned to stay
      under the 400-line budget. Full history is in git — `git log -p .console/log.md`. -->
 
-## Stop Points
-
-- Fix forbidden_import_prefix doubled config path (2026-05-07, on `main`): Earlier sed pass over usage docs accidentally rewrote `.custodian.yaml` → `.custodian/config.yaml` on both sides of the "preferred (or legacy fallback)" parenthetical, producing nonsensical `.custodian/config.yaml (or .custodian/config.yaml)`. Restored to single-line mentioning preferred form + legacy fallback.
-
-- Config-path docs refreshed for .custodian/config.yaml (2026-05-07, on `main`): User reported the README and GitHub description still referenced the legacy `.custodian.yaml` single-file path. Updated GitHub description, README, CONTRIBUTING, SECURITY, all 3 ISSUE/PR templates, design/detector_disposition_matrix, and usage/forbidden_import_prefix to the preferred `.custodian/config.yaml` layout. README now explicitly documents the legacy form as a backwards-compat fallback (loader supports both).
-
-- R6 — docs index detector (2026-05-07, on `main`): Added R6 to the readme detector class. R6 fires when `docs/` exists at repo root but `docs/README.md` does not — flagging unindexed doc trees. 3 new tests; full Custodian suite 815 ✓. Used to drive doc-index creation in 6 platform repos (OC, OperatorConsole, SwitchBoard, WorkStation, Custodian, CxRP) — a private platform repo already had one; RxP/ER/SR have no docs/ and are skipped silently. README's R-class count bumped 5 → 6.
-
-- README opening standardized in own repo (2026-05-06, on `main`): Self-applied the new R3/R4 convention. Custodian's README now leads with `## What this repo is` (detector framework, adapters, plugin loader, CLI, schema-stable JSON) and `## What this repo is not` (not a linter, not a test runner, not repo-specific).
-
-- R-class README detectors landed (2026-05-06, on `main`): New `audit_kit/detectors/readme.py` adds R1-R5 enforcing README structural conventions: file present, H1 matches repo name (allowing "RepoName — tagline" form), `## What X is` H2, `## What X is not` H2, non-empty intro paragraph (badges don't count). All LOW severity, no analysis pass needed. 22 unit tests + wired into runner.py and doctor.py registries. Bumped Custodian's own README to add the R class to the detector model table. Used the new detector to drive standardization of the 6 older READMEs across the platform — all 10 platform repos now pass R1-R5.
-
-- README detector-count refresh (2026-05-06, on `main`): Detector class counts in README's "Detector model" table had drifted since the tool-first deprecation pass (C/D/F/U/T were all wrong). Recomputed from `build_*_detectors()` output (active=46 across 12 classes; 21 deprecated). Added a one-line note pointing readers at `docs/design/detector_disposition_matrix.md`.
-
-- CI cleanup round 2 (2026-05-06, on `main`): re-added license headers (they got reverted) + per-file ruff ignores for `src/custodian/cli/**` (T201/BLE001/S603 OK in CLIs) and `src/custodian/adapters/**` (S603 — these adapters wrap external tools via subprocess by design). 790 tests pass; ruff src/ clean.
-- CI cleanup: license headers + dead C7 exclude_paths (2026-05-06, on `main`): Custodian's CI was failing on (a) missing SPDX headers in 3 newly-added `__init__.py` files (`.vulture_whitelist.py`, `audit_kit/detectors/__init__.py`, `audit_kit/passes/__init__.py`) and (b) `custodian-doctor --strict` warning that `exclude_paths` referenced retired detector C7. Added the headers; removed the dead C7 block. CI now green.
-
-- A1 `public_api_only` invariant (2026-05-06, on `feat/boundary-public-api-invariant`): New invariant for enforcing public-API discipline when a repo consumes an extracted library. Config: `public_api_only: {package, allowed_paths}`. Flags imports of `<package>.*` whose module path isn't in `allowed_paths` exactly. Driven by the runtime extraction (ER / RxP / SR are now independent repos consumed by OC; boundary discipline was relying on PR review only). 8 new tests pin allowed top-level + subpackage paths, deep-module rejection, unrelated-package ignore, empty-allowlist safe default, relative imports never flagged. 790 tests pass (+8).
-
-- D3 honors `exclude_paths.D3` (2026-05-06, on `main`): D3 (NoReturn missing) was the only D-class detector that didn't read its `audit.exclude_paths.D3` config — every other detector with the `(audit_cfg.get('exclude_paths') or {}).get('<id>')` pattern did. Discovered when triaging OC's Typer entrypoints (which legitimately end in `raise typer.Exit(code)`) and a private downstream repo's NoopTraceSink (intentional no-op base methods). Added the standard fnmatch exclusion logic to `detect_d3` matching the existing pattern in D6/D9/D10/F1/F2. Consumers can now exclude per-file just like every other path-aware detector. 782 tests still pass.
-
-- Triage layer landed (2026-05-05, on `main`): New module `src/custodian/triage/` joins per-detector findings into per-file action verdicts (DELETE / IMPLEMENT / WIRE / REDESIGN / CLEANUP), closing the "we have signals but no synthesis" gap. Three layers shipped together. (1) Docs — `docs/usage/triage_signals.md` documents the decision matrix. (2) CLI — `custodian triage <audit.json>` (and console script `custodian-triage`); supports `--json` and `--only VERDICT` filters; reads stdin via `-`. (3) Integrated pass — when `audit.triage: true` is set in `.custodian/config.yaml`, runs after detectors+adapters and appends `TRIAGE_<VERDICT>` patterns to the audit result with `source: "triage"`. Matrix buckets: `_UNCALLED` (D1/D5/F1/F2/VULTURE), `_STUB_BODY` (U1/U2/U3/D3), `_UNWIRED` (D6/U4/VF6), `_BLOAT` (C29), `_NOISE` (C33), `_DEAD_TEXT` (C34/G1/C8). DELETE = uncalled+stub; IMPLEMENT = stub alone; WIRE = unwired; REDESIGN = bloat+noise; CLEANUP = dead text. Verdicts not exclusive — file may earn multiple, sorted by priority. 21 new tests; full suite 782 pass. Smoke test on a private downstream repo produced 2 actionable verdicts (1 IMPLEMENT in trace_sink.py, 1 CLEANUP in script_enrichment.py); Custodian + OC produce 0 (correct — those repos have no triage-relevant detector hits).
-
-- Tool-first enforcement round 2 (2026-05-05, on `main`): Continuation of the prior pass after deeper verification. **Deprecated 3 more natives**: N1 → Ruff N818 (exception class naming), D9 → Ruff TRY203 (useless try/except), C42 → Ruff B028 (warnings.warn missing stacklevel). **Investigated and kept** (no stable Ruff equivalent): C1/C6 (FIX001/002 not in default Ruff selection + C1 has `[deferred, reviewed]` suppression), C11 (no subprocess timeout rule), C28 (no hardcoded-IP rule), C34 (ERA001 misses def/class/@decorator forms), C41/C43 (no ensure_ascii rule), C33 (density check, not per-line), D3 (no Ruff/ty unreachable-code rule — confirmed by direct test), D10 (RUF029 still preview). **Closed the consumer-config gap**: every consumer's `pyproject.toml` previously left Ruff at default rules (E + F), so deprecated natives were silently going dark. Added `[tool.ruff.lint] extend-select` blocks across the platform repos pinning the exact Ruff rules that replace each deprecated native (T201, S101/S110/S324/S602/S603, BLE001, DTZ001/003/005/006/007, G004, B006/B028, PLC1802, TRY002/TRY203, PGH003, RET503, N818). **Un-deprecated** C16/C36 (PLW1514 preview-only) and C39 (LOG004 preview-only) since the Ruff equivalents aren't stable yet — keeps native coverage in place. **Side fixes**: enabled `tools.ty: true` in self-config (adapter was wired but flag was off — surfaces 10 real ty diagnostics); upgraded a downstream repo's Ruff 0.4.4 → 0.15.12; installed Ruff in WorkStation's venv (was missing). 761 tests pass.
-
-- Tool-first enforcement pass (2026-05-05, on `main`): The Custodian Boundary Refinement spec's principle ("use the tools first, don't reimplement") was previously documented in the disposition matrix but not enforced — every native detector ran by default even when Ruff/Vulture/ty covered the same patterns. Closed the gap. **Marked deprecated** (16 C-class + 4 D/F-class duplicates of Ruff/Vulture rules): C2/C4/C9/C10/C15/C16/C17/C18/C20/C23/C31/C35/C36/C38/C39/C40 (→ Ruff), D1/D5/F1/F2 (→ Vulture), D8 (→ Ruff RET503). **Retired entirely** (no tool equivalent worth maintaining): C7 (assert True), D2 (else after terminal if), D7 (dead method param). **Kept active**: D3 (NoReturn check) — would have moved to ty/mypy, but those aren't broadly enabled across consumers, so leaving deprecated=False to avoid losing functionality. **Flipped the default**: `skip_deprecated=True` is now the default in `run_audit()`, `run_repo_audit()`, and the CLI. Added `--include-deprecated` opt-in flag (kept legacy `--skip-deprecated` as a no-op for backward compat). Detector class docstring updated to reflect the new convention. Multi-repo verification: Custodian-self / OC / a private downstream repo all show identical totals between default and `--include-deprecated` modes (deprecated detectors find 0 additional findings on those repos because Ruff already catches them). 25 detector-class tests removed (4 C7 + 9 D2 + 12 D7); 761 tests pass (was 786).
-
-- Disposition matrix updated for Semgrep migration completion (2026-05-05, on `main`): The boundary-refinement spec called for stale TRANSITIONAL markers to be removed and the destination summary to reflect AI3/VF3 as `semgrep` (not `semgrep transitional`). Updated `docs/design/detector_disposition_matrix.md`: AI3 row now reads "DONE (2026-05-05). Python plugin detector removed; enforced by OC/.custodian/rules/semgrep/...". Destination summary now lists `semgrep | 5 | C28, C32, S3, AI3, VF3` (previously two rows: 3 stable + 2 transitional). New "a private downstream repo Plugin Detectors" section documents all 6 a private downstream repo detectors (VF1 → A2 declarative, VF2 → A1 forbidden_import, VF3 → semgrep, VF4 → A1 forbidden_import_prefix, VF5 → A1 class_field_count, VF6 → custom Python). No more TRANSITIONAL markers in the matrix; every detector has a definitive disposition.
-
-- Boundary refinement: Semgrep adapter wiring + docs (2026-05-05, on `main`): Closes the "call-pattern checks → Semgrep" leg of the Custodian Boundary Refinement spec. (1) Adapter registry now honors `tools.semgrep.configs: [path, ...]` so consumer repos can keep rules under `.custodian/rules/semgrep/` instead of the legacy root-level `rules/semgrep/`. (2) `SemgrepAdapter.run()` falls back to `.custodian/rules/semgrep/` first, then `rules/semgrep/`; resolves relative configs against `repo_path`. (3) New docs page `docs/usage/forbidden_import_prefix.md` with the boundary-decision table and real-consumer examples (OC AI1, a private downstream repo VF2/VF4). All 786 tests still pass.
-
-- T8 sample message truncated (2026-05-04, on `main`): The T8 detector's per-finding message was rendering the full sorted list of src packages, producing ~600-char strings on repos with many packages (OpsCenter has 39). Pulled per-finding noise down to a fixed-width tail: `"no imports from any src package (a, b, c (+36 more))"`. Surfaced during the multi-repo Custodian sweep where T8 dominated visually despite being a useful signal. Existing T6/T7/T8 tests unchanged; full Custodian suite 786 pass.
-
-- CLI flags for orchestrator coverage opt-in (2026-05-04, on `main`): Added `--enable-coverage [--coverage-json PATH]` to `custodian-audit`. When set, shallow-merges a `tools.coverage` block (enabled=True, json_path=PATH) into the loaded config without modifying the repo's `.custodian.yaml`. Lets orchestrators (OperationsCenter dispatch) opt in coverage analysis at invocation time. Honors the existing adapter — no new code path. 1 new integration test (`test_runner_enable_coverage_override`); full Custodian suite 786 pass.
-
-- Vulture soft-flip + coverage adapter (2026-05-04, on `main`): Two unrelated changes shipped together. (1) **Vulture default ON** with `min_confidence=80` (high-confidence dead code only) — flipped both v0-normalize and v1-migrate default blocks in `loader.py`. Aligns with the "use Custodian's tools by default unless covered by native or repo-specific" policy. Test fixture updated. (2) **Coverage adapter** `src/custodian/adapters/coverage.py` ingests externally-produced `coverage.json`, emits per-module / per-function findings: `CV1_MODULE_UNEXECUTED` (0/N statements run), `CV2_FUNCTION_UNEXECUTED` (function never executed), `CV3_MODULE_BELOW_MIN_COVERAGE` (under configurable threshold). Default OFF in `custodian` CLI — opt-in via `tools.coverage` block in `.custodian.yaml` or by registry callers. Adapter does NOT run coverage.py itself; consuming repos (e.g. a private downstream repo representative pipeline) produce the JSON and Custodian analyses it. Configurable: `json_path`, `min_coverage`, `exclude_paths`. 12 new tests; full Custodian suite 785 pass.
-
-- T6/T7/T8 — test-presence detector trio (2026-05-04, on `main`): Three new T-class detectors complementing T1 (per-symbol coverage) at the file level. **T6** (untested module): walks src ast_forest, builds dotted module names (skipping `__init__.py` and dunders), collects every `import X` / `from X import y` reference from tests_forest with prefix expansion (`from foo.bar` → marks `foo`, `foo.bar`, `foo.bar.y` as imported), flags any src module whose dotted path is never imported. Excludes via `audit.exclude_paths.T6`. **T7** (parallel test file): for each `src/foo/bar.py`, accepts any of `tests/test_bar.py`, `tests/foo/test_bar.py`, `tests/{unit,integration,contract,regression}/[foo/]test_bar.py` (extensible via `audit.t7_test_dirs`). Skips `__init__.py` and dunders. Excludes via `audit.exclude_paths.T7`. **T8** (dangling test): derives src top-level package names from `src_root` children (dirs with `__init__.py` or top-level `.py` files), walks every `tests/test_*.py` AST, flags files whose imports include zero references to any src package. Skips `conftest.py` + `__init__.py`. Returns 0 if no src packages discoverable. Custom exempt globs via `audit.t8_exempt`. All three registered in `build_test_shape_detectors()`. 20 new tests; full Custodian suite 773 pass.
-
-## Recent Decisions
-
-| Decision | Rationale | Date |
-| Vulture soft-flipped ON with min_confidence=80 | Aligns with "use Custodian's tools by default unless covered by native" policy. Confidence 80 = high-confidence dead code only (avoids the noisy 60% baseline). Repos can opt out via `tools.vulture.enabled: false` or lower the bar over time. | 2026-05-04 |
-| Coverage adapter ingests coverage.json (does NOT run coverage.py) | Mirrors the ruff/mypy/semgrep pattern — adapters consume tool output, they don't run the tool. Running coverage means running the production pipeline, which is repo-specific. Custodian stays generic; consuming repos produce the JSON. | 2026-05-04 |
-| Coverage adapter default OFF in custodian CLI | The on/off rationale differs from other adapters: vanilla `custodian audit` shouldn't trigger or expect a coverage.json. Only repos with an end-to-end pipeline that produces one (initially: a private downstream repo via OpsCenter dispatch) should opt in. | 2026-05-04 |
-| T6 skips `__init__.py` (no separate package finding) | A package's `__init__.py` is implicitly exercised whenever any submodule is imported; flagging it separately would always duplicate findings against the submodule. T7 already skips `__init__.py` for the same reason. | 2026-05-04 |
-| T7 default test-dir hints: unit, integration, contract, regression | Matches the dir layouts used in a private downstream repo + OpsCenter (the two largest consumers). Custom dirs configurable via `audit.t7_test_dirs`. | 2026-05-04 |
-| T8 derives src packages from `src_root` rather than reading `pyproject.toml` | Repo-agnostic — works for any layout that follows the `src/<package>/__init__.py` convention without parsing per-repo packaging metadata. | 2026-05-04 |
-| C43 detector added: json.dump() without ensure_ascii=False | LOW severity; 9 tests; file-write sibling of C41 (json.dumps); a private downstream repo runners/audio_enhance/pipeline.py fixed; 753 tests total | 2026-05-03 |
-| C42 detector added: warnings.warn() without stacklevel= | LOW severity; 10 tests; catches calls where the warning points to the helper rather than the real caller; 744 tests total | 2026-05-03 |
-| a private downstream repo C15 tech debt cleared: 163 logger f-strings migrated | AST-based auto-fixer with byte-offset-aware handling for emoji; all 52 a private downstream repo files fixed; blanket exclusion removed | 2026-05-03 |
-| Custodian self-audit C41 clean | Applied ensure_ascii=False to 4 own json.dumps calls (result.py, multi.py, json_report.py, sarif_report.py) | 2026-05-03 |
-| C41 detector added: json.dumps() without ensure_ascii=False | LOW severity; 13 tests; explicit ensure_ascii=True not flagged (deliberate choice); a private downstream repo: 26 auto-fixed (single-line) + 4 multi-line manual; SIM115 NamedTemporaryFile → mkstemp in 5 a private downstream repo files; 734 tests | 2026-05-03 |
-| C40 detector added: assert statement in non-test production code (721 tests) | assert is disabled by python -O; production invariants must use explicit raise. Skips tests_root, `if __debug__:` blocks, `if __debug__ and ...:` guards, # noqa: C40. 12 tests. a private downstream repo: 19 findings fixed (remove redundant isinstance asserts; convert to if/raise for nlp/cairo/freetype/proc.stdin guards). 721 tests total. | 2026-05-03 |
-| Custodian self-audit clean + ruff adapter fix; 709 tests | RUFF_NO_CACHE=1 was invalid for newer ruff (exit code 2, silent 0 findings); switched to --no-cache flag. D7 _is_stub_body() now recognizes `return None` and bare `return` as null-object stubs (was flagging NullEmitter implementations). Self-audit 3 ruff findings fixed: docs.py E402 (import order), naming.py F401 (_py_files unused), naming.py F841 (top_class_names dead variable). a private downstream repo ruff: 284 violations exposed, all resolved; 0 Custodian findings. | 2026-05-03 |
-| C39 detector added: logger.exception() outside except handler | AST visitor-based; tracks except handler depth. logger.exception() without active exception logs NoneType:None traceback — fix is logger.error(). 9 tests; 707 total. a private downstream repo finding: speech/client.py after health check loop. | 2026-05-03 |
-| T5 detector added: single-case pytest.mark.parametrize | Flags parametrize decorators with exactly one literal case — should be a plain test with inlined value. Skips variable/comprehension arg lists. 10 tests; 698 total. a private downstream repo finding fixed (test_script_output_contract.py). | 2026-05-03 |
-| OC2/OC5/OC9 removed from OC plugin; OC3+OC8 kept | OC t3_env_gate_hints added to config (aider, switchboard, etc.); plugin now has only 2 detectors (OC3 orphaned entrypoints, OC8 K1 + field-def awareness). | 2026-05-03 |
-| a private downstream repo plugin: VF3 dead code removed | _detect_vf3_config_access was unregistered dead code (VF3 already migrated to native C13). VF6 is now the only plugin detector. | 2026-05-03 |
-| C38/D10 detectors added + tests | C38: mutable default argument (list/dict/set); D10: async def without await (skips framework decorators, async generators, stubs); a private downstream repo gpu release() fixed sync; 25 new tests; 688 total | 2026-05-02 |
-| T4/U4/C37 detectors added + tests | T4: orphan pytest fixtures (9 tests); U4: Protocol implementation gaps (7 tests); C37: stale audit config keys (7 tests); 663 total tests. OC/a private downstream repo orphan fixtures deleted; anyio_backend false positive fixed with _PLUGIN_OVERRIDE_FIXTURES | 2026-05-02 |
-| N2 detector added: invisible pytest test functions (in test files, not named test_) | Only scans tests_root; skips @pytest.fixture decorators, private helpers, conftest.py, setup/teardown hooks; found 14 in a private downstream repo + 23 in OC, all renamed with _ prefix; 10 tests; 639 total | 2026-05-02 |
-| D9 detector added: no-op try/except handler (single handler + bare raise) | Only flags single-handler try blocks — multi-handler bare reraises are intentional exception filtering; found 2 in a private downstream repo (assembly.py, stage_driver.py) and fixed; 9 tests; 629 total | 2026-05-02 |
-| K3 detector added: Google-style docstring Args section param drift | AST-based; parses Args: sections, compares against actual sig; false positives from Returns/Raises/Kwargs/ALL_CAPS fixed with _GOOGLE_SECTION_HEADERS set; found policy→_policy in OC explain.py; 10 tests; 620 total | 2026-05-02 |
-| C36 detector added: built-in open() in text mode without encoding= | AST-based; only flags bare open() not attribute opens (wave/Image/etc); all repos already clean; 9 tests | 2026-05-02 |
-| C35 detector added: bare type: ignore without error-code brackets | Uses tokenize for comment-only scanning (no string/docstring false positives); found 23 in a private downstream repo, all fixed; 8 tests | 2026-05-02 |
-| C34 detector added: commented-out def/class/decorator definitions | Regex-based; flagged 2 commented-out functions in a private downstream repo filter_function.py; 9 tests | 2026-05-02 |
-| D8 detector added: value return with implicit None fall-through | Uses _all_paths_terminate() helper; false positives fixed for with-blocks and while True loops; found _initial_authenticate() in a private downstream repo and fixed it explicitly; 10 tests | 2026-05-02 |
-| Audit round 3 complete (2026-05-02) | All repos: Custodian=0, a private downstream repo=1(A1 advisory known), OConsole=0, CxRP=0, OC=0; 593 tests | 2026-05-02 |
-| Audit round 2 complete (2026-05-02) | All repos: Custodian=0, a private downstream repo=1(A1 advisory), OConsole=0, CxRP=0, OC=155(T1 LOW domain gaps). Dead code removed, vulture FP rate reduced, D7/T1 glob fixed, 502 tests. | 2026-05-02 |
-| Vulture adapter now includes tests_root in scan | False positives for public API functions only called from tests (run_adapters, filter_findings, apply_policy, etc.) — vulture couldn't see test callers; now passes tests_root as additional scan path | 2026-05-02 |
-| D7 and T1 exclusions now use _glob_to_regex from code_health | PurePosixPath.match() doesn't handle src/**/*.py correctly (** needs ≥1 intermediate dir); switched to code_health._glob_to_regex which handles zero-or-more segments | 2026-05-02 |
-| D7 exclude_paths support added | detect_d7() now reads audit.exclude_paths.D7; used for command-dispatch functions with interface-required params | 2026-05-02 |
-| T1 broad exclusions added for a private downstream repo/OC | a private downstream repo: all production dirs excluded (integration-tested pipeline); OC: adapters/entrypoints/artifact_index/backends excluded (monkeypatch-tested) | 2026-05-02 |
-| Dead code removed: _top_level_arg_count, _worst_severity, _SEV_ORDER, cmd_install, get_aider_command, spawn_update_clis_background, read_decision, queue.remove | a private downstream repo/OC/OConsole genuinely dead functions and variables cleaned up; protocols.py Protocol classes whitelisted as plugin author API | 2026-05-02 |
-| A2 detector (directory structure invariants) | Generic version of VF1 capability DDD folder shape; uses PurePosixPath.match() (not fnmatch) so * = one path component; config: architecture.directory_structure with glob/required_files/required_dirs/exclude | 2026-05-02 |
-| A1 extended with class_field_count rule type | Generic version of VF5 WorkflowContext god-object check; counts ast.AnnAssign fields in a named class, excludes InitVar; config: class_field_count: {class_name, max_fields} | 2026-05-02 |
-| H1 detector (hexagonal architecture layer ordering) | Layers declared in architecture.hex in order from innermost to outermost; each layer may only import from layers with lower index; more concise than S1's explicit may_not_import lists | 2026-05-02 |
-| VF1 and VF5 migrated to declarative config | VF1 now uses A2 (directory_structure in .custodian.yaml), VF5 now uses A1 class_field_count; custom _custodian/detectors.py only retains VF3 (TRANSITIONAL) and VF6 (cross-file) | 2026-05-02 |
-| a private downstream repo A1 excludes extended for entrypoints/start | src/entrypoints/** and src/start/** excluded from A1 VF2 rule; these are composition roots legitimately importing get_default_mongo() from class_mongo_conn | 2026-05-02 |
-| F1 inheritance check for serializable base classes | _dataclass_field_names() now does two passes: first collects which classes have serialization methods; second skips subclasses of those (handles BaseContract → subclass pattern in CxRP) | 2026-05-02 |
-| T2 exclude_paths support added | detect_t2() now reads audit.exclude_paths.T2 to skip "should not raise" validation test files; consistent with T1/C-class exclusion pattern | 2026-05-02 |
-| Multi-repo audit round complete (2026-05-02) | a private downstream repo: A1=1(advisory), VULTURE=342, T1=670. OC: T1=266, VULTURE=470. SB: VULTURE=64. OConsole: D1=5(dead funcs), D7=16, T1=75, VULTURE=11. CxRP: T1=1, VULTURE=66. Custodian: VULTURE=19. WorkStation: clean. All hard violations resolved. | 2026-05-02 |
-| All 15 Custodian refactor phases complete | Phases 4-15 implemented in one session: Semgrep/ty/mypy/Vulture adapters, policy layer, codemod base, config migration, JSON/SARIF/Markdown reports, integration tests, deprecated detector cleanup, unified CLI, pre-commit hooks, multi-repo enhancements. 475 tests. | 2026-05-01 |
-| S4 detector: missing venv guard in tests/conftest.py | Repeatedly having to add venv guard manually; made it a detector so Custodian flags repos that are missing it | 2026-05-01 |
-| Deprecated detectors stubbed not deleted | 27 detect_* functions replaced with stubs returning (0,[]); Detector registrations kept for --list-detectors to show them with deprecated=True status | 2026-05-01 |
-| F3 skips classes deserialized via model_validate*() | ClassName.model_validate*() calls mean all fields are part of the external schema; not dead even if not accessed as Python attributes | 2026-05-01 |
-| F3 transitively expands model_validate_classes | Pydantic inflates nested models automatically during deserialization; a field typed as NestedModel in a deserialized class means NestedModel's fields are also schema fields | 2026-05-01 |
-| align_text_to_scene restored + added to __all__ (a private downstream repo) | Function was deleted as D1 false positive; actually monkey-patched via module attribute access in tools/audit/adapters/runtime_hooks — D1 checks called_names not called_attrs | 2026-05-01 |
-| D1 false positive: module attribute monkey-patching | `align_mod.align_text_to_scene = ...` is attribute access not a call; D1 misses these. Fix: add __all__ to suppress, or improve D1 to also check called_attrs (but that would suppress too many) | 2026-05-01 |
-| D7 recognizes del var as param use | del stage_name, content_type is the Python idiom for intentionally discarding Protocol-required params; Del ctx added to used_names check | 2026-05-01 |
-| D7 skips @override methods | Override implementations must match the parent signature; unused params are interface-required | 2026-05-01 |
-| D7 treats raise NotImplementedError as stub body | Single-statement or docstring+raise NIE body = incomplete stub; params not flagged | 2026-05-01 |
-| test_cli_doctor subprocess needs PYTHONPATH | Tests spawn python -m custodian.cli.doctor; without PYTHONPATH=src the module isn't found (custodian not pip-installed) | 2026-05-01 |
-| Settings.policy_path accessed via getattr(self, attr) — F3 false positive | Dynamic string-based attribute access not captured by call_graph; added to known gap | 2026-05-01 |
-| D6 added: class referenced but never constructed | D5 catches "never referenced"; D6 catches "referenced but constructor never called" — the partial-pipeline pattern where a DTO is wired into type annotations but the produce-side was never implemented | 2026-05-01 |
-| constructed_names tracked separately in call_graph | ast.Call where func is ast.Name → constructor call; also: ClassName.method() attr access, ClassName[T]() generic subscript, keyword kwarg values, base class names — all treated as "class in active use" | 2026-05-01 |
-| D5/D6 skip BaseModel/BaseSettings/TypedDict bases | Pydantic models deserialized via model_validate/parse_obj — not via direct constructor; static analysis can't see this | 2026-05-01 |
-| D7 skips dunder methods | __exit__/__getitem__ etc. — params required by protocol even if unused | 2026-05-01 |
-| F1/F3 skip kw_arg_names | Model(field=value) sets a field; track kwarg names in call_graph so fields used only via constructor aren't flagged as dead | 2026-05-01 |
-| call_graph tracks getattr() strings | getattr(obj, "field") is a string-based attribute read; add to accessed_attrs so F1/F3 don't false-positive on these | 2026-05-01 |
-| A1 uses declarative invariants YAML | architecture.invariants in .custodian.yaml; complements S1 (import layer rules) with structural constraints (max_lines, max_classes, max_functions, forbidden_import) | 2026-05-01 |
-| C33 flags per-file ghost-work density | Unlike C1/C6 (per-occurrence), C33 flags a FILE when it accumulates ≥ threshold TODO/FIXME/HACK/XXX markers; threshold configurable via audit.c33_threshold | 2026-05-01 |
-| D6 false positive: dict-registry factory pattern | "nltk": NLTKCheckStage → builders[name](cfg) is dynamic dispatch; can't trace statically. Known limitation; add to .custodian.yaml exclusions if needed | 2026-05-01 |
-| OC deleted classes were partial-pipeline DTOs | ArchonFailureInfo, KodoFailureInfo, OpenClawFailureInfo, OpenClawEventDetailRef, ChildTaskSpec were referenced but not wired; restored all and added _extract_failure_info() adapter methods | 2026-05-01 |
-| Policy: only delete truly orphaned/duplicated code | DTOs/structs that are partially wired should be completed (restore + wire), not deleted; safe deletions = exact duplication or zero references anywhere including type annotations | 2026-05-01 |
-| D5 also checks called_attrs/accessed_attrs | Classes accessed as mod.ClassName are attribute loads, not Name Loads; D5 missed them without this check | 2026-05-01 |
-| D5 skips Protocol/ABC base classes | Protocol subclasses are structural interfaces used only in type annotations; PEP 563 lazy eval means no Name Load → false positive | 2026-05-01 |
-| C32 uses word-boundary + bigram matching | Substring match ("token" in "word_tokenizer") caused false positives; split on _/./- and check whole words and bigrams | 2026-05-01 |
-| C32 skips URL values (http/https prefix) | TOKEN_ENDPOINT = "https://..." is a URL, not a credential value | 2026-05-01 |
-| C32 skips ALL_CAPS values | _SECRET_ENV = "OPERATIONS_CENTER_WEBHOOK_SECRET" stores an env var NAME, not the secret itself | 2026-05-01 |
-| C32 skips names ending in exclusion suffixes | endpoint/url/env/name/param/var suffixes indicate the var holds a URL or env var reference, not a secret | 2026-05-01 |
-| C23 false positive in executor.py docstring | "Never uses shell=True." in a module docstring matched the regex; regex-based C23 doesn't distinguish string context | 2026-05-01 |
-
-*(older entries archived for the R1 400-line budget)*
+<!-- Reconciled 2026-08-03 (RC1): `## Stop Points` and `## Recent Decisions`
+     (2026-05 material) moved to `.console/archive/log-2026-05.md`. Archived, not
+     pruned — `.console/archive/**` is outside RC1's `.console/*.md` budget glob but
+     still inside RC2's `.console/**` leak scan. The archive is the pre-#62 copy, so
+     it also retains the table rows #62 pruned. -->
