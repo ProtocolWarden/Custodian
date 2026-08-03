@@ -2,6 +2,10 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-08-03 — fix(adapters): find_tool venv-first was a silent no-op on Windows
+
+Probing `Path(sys.executable).parent / name` never matches `ruff.exe`, so every lookup fell through to PATH: an OperationsCenter venv pinned to ruff 0.15.13 still resolved global 0.16.1, whose wider 0.16 defaults emitted 1222 phantom findings and red-failed a required gate no venv could fix. Now probes via PATHEXT-aware `shutil.which(path=...)`; regression test verified red against the old code, green against the new. Our own C16 gate then caught the new test's `write_text()` missing `encoding=` — fixed before push, which is the detector working as intended.
+
 ## 2026-08-03 — docs(adr): ask ContextLifecycle to split .console/log.md
 
 ADR 0001, status proposed. Custodian implements RC1/RC2 but does not own the

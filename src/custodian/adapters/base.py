@@ -18,10 +18,19 @@ def find_tool(name: str) -> str | None:
     When Custodian runs inside a virtualenv, tools installed in that venv are
     preferred over system-wide installations so ``shutil.which`` (which only
     searches PATH) is not sufficient when the venv is not fully activated.
+
+    The venv probe goes through ``shutil.which(path=...)`` rather than a bare
+    ``Path.exists()`` on the plain name: on Windows a venv ships ``ruff.exe``
+    (or ``.bat``/``.cmd``), never an extensionless ``ruff``, so the plain-name
+    probe never matched and EVERY lookup silently fell through to PATH. That
+    made venv-first preference a no-op on Windows — a venv pinned to
+    ``ruff==0.15.13`` still resolved a newer global ruff, whose wider default
+    rule set then emitted thousands of phantom findings. ``which`` consults
+    PATHEXT, so it matches the real filename on every platform.
     """
-    venv_bin = Path(sys.executable).parent / name
-    if venv_bin.exists():
-        return str(venv_bin)
+    venv_bin = shutil.which(name, path=str(Path(sys.executable).parent))
+    if venv_bin:
+        return venv_bin
     return shutil.which(name)
 
 
