@@ -1,5 +1,28 @@
 # Log
 
+## 2026-08-03 — docs: write up the three opt-in detectors that had none
+
+INJ1, DC10 and D12 shipped with zero documentation — 0 hits for each across
+`docs/` and `README.md`. Surfaced by `cl reconcile check`, whose DOC GAP gate
+refuses to archive a done item lacking a durable doc, leaving the whole 2026-06
+log backlog unreconcilable. The gate was right; the docs were the debt.
+
+Two usage pages (`prompt_injection_signatures.md`, `incomplete_integration.md`),
+a DC10 section in `doc_conventions.md`, and a matrix table covering all three
+under a new "opt-in detectors" heading — they share one property worth stating
+once: `deprecated=True` here is the off-by-default lever, NOT tool replacement.
+The flag reads as "superseded" and all three are current; worth a rename later.
+
+Claims checked against source, not memory: INJ1's 16 codepoints diffed against
+`_INVISIBLE` (exact, no drift), DC10's regexes exercised to confirm a bare
+"done" does not fire and staged work does not either, and every D12 behaviour
+written up has a named test — including the excludes asymmetry, where a
+reference in an excluded file still clears a symbol.
+
+Docs index updated, since an unindexed page under `docs/` trips its own
+detector; it also claimed DC1-DC8 while the page covered DC1-DC5. Unblocks the
+June reconciliation: those three items can now carry real `doc:` paths.
+
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
 ## 2026-08-03 — fix(samples): detector sample paths, the half #62 deferred

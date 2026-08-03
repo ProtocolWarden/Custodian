@@ -550,6 +550,20 @@ These detectors were built natively after Phase 0 was complete. All are `custodi
 |---|---|---|---|---|---|---|
 | CAP1 | Capability `invocation.ref` does not resolve in the owning repo | MEDIUM | capability_refs.py | `custodian_policy` | LOW | Cross-repo anti-rot: loads the capability registry from the sibling PlatformManifest checkout, selects capabilities this repo owns (via the manifest canonical↔repo_id map), and resolves each `invocation.ref` against the repo's own code (dotted module/symbol for entrypoint/executor; `[project.scripts]` for cli). Opt-in/dormant: silent unless `audit.capabilities.enforce: true`, `repo_key` set, and the registry is reachable. RepoGraph keeps the ref opaque by design — CAP1 is where it gets checked. |
 
+### Opt-in detectors (shipped `deprecated=True` as an off-by-default lever)
+
+These three are **not** tool-deprecated. They reuse the `deprecated` flag as the
+"skipped by the default gate" lever, so a new heuristic detector cannot red-wall
+consumers that audit against `Custodian@main`. Run them with
+`--only <ID> --include-deprecated`. Each has a usage page; this table is the
+disposition record.
+
+| Code | Description | Severity | Module | Destination | FP Risk | Notes |
+|---|---|---|---|---|---|---|
+| D12 | Public src symbol tested but never called in production (incomplete integration) | LOW | dead_code.py | `custodian_policy` | LOW | Needs `ast_forest` + `tests_forest`; returns 0 if either is absent, so a repo without a tests root is silent rather than fully flagged. The src/tests forest split is the precision: referenced nowhere = dead code (D1/D5/Vulture), referenced only by tests = integration gap. Skips `_`/`test`/`pytest_` prefixes, decorated defs, `__all__` exports, `_NEVER_DEAD`. Ratchet via `audit.d12_baseline` (symbol **names**); excludes via `audit.exclude_paths.D12` — excludes gate definitions only, references and `__all__` are still collected from excluded files. Origin: OperationsCenter#313 `get_extraction_health`. Feeds triage `WIRE`. See [usage/incomplete_integration.md](../usage/incomplete_integration.md). |
+| DC10 | Doc claims a feature integrated while the same doc defers that integration | LOW | doc_conventions.py | `custodian_policy` | LOW | Requires BOTH a *strong* completion claim (`end-to-end integration`, `fully integrated`, `integration complete`, `wired end-to-end`) and a deferral marker in the same file — a bare "done" is not enough, and "Stage 1 complete, Stage 2 next" deliberately does not fire. Config lives under `audit:` (`dc10_scan_globs`, `dc10_baseline` by **path**, `exclude_paths.DC10`), not under the `doc_conventions:` block DC1–DC5 use. Prose-level twin of D12; same #313 origin. See [usage/doc_conventions.md](../usage/doc_conventions.md). |
+| INJ1 | Tracked file contains invisible / bidirectional control characters | LOW | injection.py | `custodian_policy` | LOW | 16 codepoints: ZWSP/ZWNJ/ZWJ, LRM/RLM, the bidi embedding-override-isolate set, mid-file BOM, soft hyphen. Near-zero FP because none legitimately appear in source or prose. Off by default for a specific reason: a repo's own sanitizer or unicode fixture matches these chars and would trip fleet-wide. Exemption is by **content marker** (`custodian:allow-invisible-chars`), not path — it does **not** read `exclude_paths.INJ1`. Reports codepoint + line only, never surrounding text (D-INJ-3: never re-launder attacker content through a trusted channel). Counts once per line. Outer layer only, never load-bearing (HARNESS_TRUST_HARDENING §2.2.6). See [usage/prompt_injection_signatures.md](../usage/prompt_injection_signatures.md). |
+
 ### Other class additions
 
 | Code | Description | Severity | Module | Destination | FP Risk | Notes |
