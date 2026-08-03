@@ -2,6 +2,36 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-08-03 — docs(adr): ask ContextLifecycle to split .console/log.md
+
+ADR 0001, status proposed. Custodian implements RC1/RC2 but does not own the
+console-reconciliation spec, so this is a request to the owner rather than a
+patch — diverging locally would be worse than the problem.
+
+The argument, measured rather than asserted: 13 of 19 entries in this file have
+a matching commit subject on main, so two-thirds of it is prose written twice.
+The pre-commit hook mandates growth and RC1 caps it at 400, and the
+intersection of those two rules is "every contributor prunes history to be
+allowed to commit" — #66, #67 and #69 each pruned to land, and main sat at
+399/400 before this entry. Writing the ADR needed one more prune, which is the
+cleanest evidence available that the tax is structural.
+
+Two failure modes worth recording separately from the tax. A single
+append-at-top file conflicts on every parallel branch by construction, and
+prose conflicts fail *quietly* — resolving #66's stranded the file tagline
+mid-document and dropped a header's blank line, and both reached main without
+tripping a test, a lint or a gate. Second, pruning deletes exactly what earns
+the file its keep: D12's "ships OPT-IN — was red-walling consumers" shaped
+C16's default in #69, and entries from that era are now gone from the working
+copy.
+
+Recommends splitting by responsibility — rationale to commit messages (already
+written there), durable decisions to ADRs (DC1/DC3/DC7 already police them),
+continuity staying here, reconciliation unchanged — with month-sharding as the
+fallback if the single-file shape is kept, which needs RC1's glob widened to
+`.console/**/*.md`. Third question in the ADR is the load-bearing one: whether
+RC1 should block commits at all, or be advisory input to a scheduled pass.
+
 ## 2026-08-03 — feat(C16): scan tests/ behind an opt-in, and clear our own backlog
 
 C16 flags `read_text`/`write_text` without `encoding=`, and it never looked at
@@ -353,40 +383,7 @@ handling code must not red the fleet-wide audit. Reports codepoint+position only
 custodian:allow-invisible-chars content marker; \u escapes so it never
 self-triggers. 7 tests; full suite 1126 passed.
 
-## 2026-06-18 — fix: pattern-collision masking + content-less B2 message
-
-`run_audit`/`_run_adapters` did `result.patterns[id] = entry`, so when two
-detector families ship the same ID (builtin readme R1/R2 vs reconcile R1/R2,
-plus a repo's custom plugin R1/R2), a later count-0 instance silently
-overwrote an earlier instance that *found something* — while `total_findings`
-(summed separately) still counted it. Net: a "phantom" finding invisible in the
-patterns map/`findings()`. It masked a real OC boundary-leak (R2 scrub-target).
-Added `AuditResult.add_pattern()` that merges on collision (sum count, dedupe
-samples, max severity, flag `collision`) and routed both registration sites
-through it. Zero pass/fail blast radius: `total_findings` is computed identically
-(pre-storage sum); only the visible patterns change — masked findings now show.
-Also: `detect_b2` now distinguishes a *content-less* artifact (provided + parsed,
-zero forbidden_names — a secret/data fix) from *not-provided* (a config fix).
-
-## 2026-06-18 — cleanup: delete orphan Phase-1/5 scaffold modules
-
-Ecosystem remediation. Removed never-wired scaffold: core/runner.py, policy/
-filter.py, policy/architecture.py — zero src importers (cross-repo verified),
-superseded by cli/runner.py + detectors/structure.py. Deleted their 4 coupled
-test files; rewrote test_adapter_base.py to cover the LIVE ToolAdapter base +
-find_tool directly (only test-referenced via orphan pipeline → would trip T1).
-Also removed the now-stale audit.exclude_paths.D12 entries for the deleted files
-(doctor flagged them as stale globs). 1119 tests green; doctor + audit clean.
-
-## 2026-06-18 — fix(gate): refuse unknown --only ids (close the silent-skip)
-
-`run_detectors` filtered `--only` ids with no validation: `--only D12,DC10`
-naming a detector the install lacks (version skew, typo, removed) filtered to an
-EMPTY set and passed green — indistinguishable from "ran clean". Exactly how a
-stale install silently disarmed OC's #313 gate. runner.py now validates `only`
-against built ids and raises on any unknown id; multi.py turns that into a
-non-zero exit. Self-verifying. 2 tests updated (old "unknown→empty" was the bug) + 1 added.
-
 <!-- Reconciled 2026-08-03 (RC1): `## Stop Points`, `## Recent Decisions`
      (2026-05 material) and entries through 2026-06-18 pruned to stay under
-     the 400-line budget. Full history is in git — `git log -p .console/log.md`. -->
+     the 400-line budget. Full history is in git — `git log -p .console/log.md`.
+     See docs/architecture/adr/0001-split-console-log-by-responsibility.md. -->
