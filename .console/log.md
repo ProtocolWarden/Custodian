@@ -387,3 +387,9 @@ self-triggers. 7 tests; full suite 1126 passed.
      (2026-05 material) and entries through 2026-06-18 pruned to stay under
      the 400-line budget. Full history is in git — `git log -p .console/log.md`.
      See docs/architecture/adr/0001-split-console-log-by-responsibility.md. -->
+
+## Archived
+
+_Archived completed history → `<private-manifest>/archive/console/Custodian/log-2026-08-03.md`_
+
+<!-- Path de-absolutised by hand; see the commit. Re-running prune leaves it. -->

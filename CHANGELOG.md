@@ -42,3 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 2026-06-16: reconciled `dc-class-doc-conventions` — DC1–DC8 — doc-convention detectors (promoted from OC plugin) (history archived).
 - 2026-06-16: reconciled `tool-first-enforcement` — Tool-first enforcement — deprecate natives covered by Ruff/Vulture/ty, skip_deprecated default (history archived).
 - 2026-06-16: reconciled `w-class-workspace` — W1–W6 — workspace/.console + hook-wiring + env-contract detectors (history archived).
+- 2026-08-03: reconciled `inj1-prompt-signature` — inj1 prompt injection signature (history archived).
+- 2026-08-03: reconciled `dc10-claims-integrated-while-deferring` — dc10 claims integrated while deferring (history archived).
+- 2026-08-03: reconciled `register-known-doctor-key` — register known doctor key (history archived).
+- 2026-08-03: reconciled `ratchet-acceptance` — ratchet acceptance threshold (history archived).
+- 2026-08-03: reconciled `ships-default-red-walling` — ships default red walling consumers was (history archived).
+- 2026-08-03: reconciled `precision-pytest-plugin-hooks` — precision pytest plugin hooks class (history archived).
