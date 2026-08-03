@@ -75,12 +75,28 @@ class TestTyAdapterRun:
         assert findings[0].severity == MEDIUM
 
     def test_non_matching_lines_skipped(self, tmp_path):
+        """Banner and blank lines are not diagnostics.
+
+        Uses a clean exit deliberately: the same output with a *failing* exit
+        code means ty had something to say that this parser could not read,
+        which TestTyFailsLoudly asserts is reported rather than swallowed.
+        """
         findings = self._run_with_stderr(tmp_path, [
-            "Found 2 diagnostics",
+            "Found 0 diagnostics",
             "",
             "Some other output",
-        ])
+        ], returncode=0)
         assert findings == []
+
+    def test_claimed_diagnostics_that_parsed_to_nothing_are_reported(self, tmp_path):
+        """ty said it found some; we read none. That is a parser gap, not a
+        clean tree, and it must not be silently swallowed."""
+        findings = self._run_with_stderr(tmp_path, [
+            "Found 2 diagnostics",
+            "some format this adapter does not understand",
+        ], returncode=1)
+        assert len(findings) == 1
+        assert findings[0].rule == "TOOL_ERROR"
 
     def test_multiple_diagnostics(self, tmp_path):
         p = str(tmp_path / "src" / "a.py")
@@ -186,6 +202,56 @@ class TestTyAdapterDockerMode:
         assert len(findings) == 1
         assert findings[0].path == "src/foo/bar.py"
         assert findings[0].line == 12
+
+
+class TestTyFailsLoudly:
+    """A tool that fails and says nothing must not read as a clean tree.
+
+    Exit codes measured against ty 0.0.65: 0 clean, 1 diagnostics found, 2
+    internal error; a docker entrypoint that does not exist exits 127. The
+    last two produce output the concise parser skips, so without this guard
+    they report zero findings — the silent-green failure that has already
+    cost this project three separate adapters.
+    """
+
+    def _run(self, tmp_path, returncode, stderr, adapter=None):
+        (tmp_path / "src").mkdir(exist_ok=True)
+        proc = MagicMock()
+        proc.stderr = stderr
+        proc.stdout = ""
+        proc.returncode = returncode
+        with patch("custodian.adapters.ty.find_tool", return_value="docker"), \
+             patch("subprocess.run", return_value=proc):
+            return (adapter or TyAdapter()).run(tmp_path, {})
+
+    def test_missing_docker_entrypoint_is_not_a_clean_tree(self, tmp_path):
+        findings = self._run(
+            tmp_path, 127,
+            'docker: Error response from daemon: ... exec: "/work/.venv/bin/ty": '
+            "stat /work/.venv/bin/ty: no such file or directory",
+            adapter=TyAdapter(docker=True, command="/work/.venv/bin/ty"),
+        )
+        assert len(findings) == 1
+        assert findings[0].rule == "TOOL_ERROR"
+        assert "exited 127" in findings[0].message
+
+    def test_internal_error_is_not_a_clean_tree(self, tmp_path):
+        findings = self._run(tmp_path, 2, "ty failed to read the configuration")
+        assert len(findings) == 1
+        assert findings[0].rule == "TOOL_ERROR"
+
+    def test_clean_run_stays_clean(self, tmp_path):
+        """rc=0 with nothing parsed is a genuinely clean tree, not an error."""
+        assert self._run(tmp_path, 0, "All checks passed!") == []
+
+    def test_diagnostics_found_is_not_an_error(self, tmp_path):
+        """ty exits 1 when it has something to say — that is the normal path."""
+        findings = self._run(
+            tmp_path, 1,
+            "src/a.py:1:1: error[invalid-assignment] Bad assignment",
+        )
+        assert len(findings) == 1
+        assert findings[0].rule == "invalid-assignment"
 
 
 class TestTyRegistryWiring:

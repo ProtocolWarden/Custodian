@@ -180,4 +180,32 @@ class TyAdapter(ToolAdapter):
                 message=m.group("message").strip(),
             ))
 
+        if proc.returncode != 0 and not findings:
+            # A tool that fails and says nothing must not read as a clean tree.
+            # ty exits 0 with no diagnostics and 1 with them, so a non-zero
+            # exit that parsed nothing is always anomalous — a bad entrypoint
+            # in docker mode exits 127, a ty internal error exits 2, and both
+            # produce output this parser skips. Reporting zero findings there
+            # is the silent-green failure that has cost this project three
+            # separate adapters.
+            # First non-empty line, not the last: docker puts the cause up
+            # front ("Error response from daemon: ...") and a usage hint at the
+            # end, so tailing the output reports "Run 'docker run --help'".
+            detail = next(
+                (ln.strip() for ln in (proc.stderr or proc.stdout or "").splitlines()
+                 if ln.strip()),
+                "no output",
+            )
+            return [Finding(
+                tool=self.name,
+                rule="TOOL_ERROR",
+                severity=LOW,
+                path=None,
+                line=None,
+                message=(
+                    f"ty exited {proc.returncode} with no parseable diagnostics: "
+                    f"{detail[:200]}"
+                ),
+            )]
+
         return findings

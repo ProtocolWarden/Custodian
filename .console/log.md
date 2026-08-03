@@ -30,6 +30,13 @@ Also: `{"enabled": False}` is a truthy dict and the v1 schema spells every
 tool that way, so the bare test enabled a disabled tool. Fixed for ty; the
 other adapters have the same hole.
 
+Docker mode introduced a fourth silent-green path, so it is guarded: a
+non-existent entrypoint exits 127 with output the concise parser skips, which
+would have reported a clean tree. ty exits 0 clean and 1 with diagnostics, so
+`returncode != 0 and no findings` is unambiguously anomalous and now yields
+TOOL_ERROR. This retired a test that asserted the old behaviour — output
+claiming "Found 2 diagnostics" that parsed to zero was being swallowed.
+
 ## 2026-08-02 — fix(u4): count methods inherited from non-Protocol bases
 
 U4 collected the implementing class's own body only, so the ordinary mixin
