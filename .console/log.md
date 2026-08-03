@@ -2,6 +2,39 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-08-03 — fix(tests): the seven failures that only ever appear off Linux CI
+
+CI runs ubuntu-only, so seven tests were red on Windows and invisible to every
+gate. They are two unrelated causes, and neither is really "a Windows bug".
+
+Three are locale encoding. `write_text()` without `encoding=` uses the platform
+default — cp1252 here — so `test_x_cross_repo` and `test_x1_cross_repo` raised
+UnicodeEncodeError writing a `→`. D11's was the interesting one: its `_ctx`
+helper wrote an em dash the same way, `build_ast_forest` read it back as utf-8,
+the decode failed, and the file was *silently skipped* — so the detector
+reported zero clones and the test failed on a count, giving no hint that an
+encoding was involved. Fixed at the three sites that carry non-ASCII.
+
+C16 already flags exactly this (`Path.read_text/write_text` without
+`encoding=`), but `_py_files` only walks `src_root`, so the 189 occurrences
+under `tests/` are invisible to it. Widening C16 to tests is a real change with
+its own noise budget, so it is left alone here and noted instead.
+
+The other four are not Windows at all: the repograph gate shells out to
+ripgrep, CI installs it explicitly, and this machine has no `rg`. A missing
+binary surfaced as a bare `FileNotFoundError` from Popen — WinError 2, no
+mention of ripgrep — so `_rg` now checks first and says what to install.
+Failing loudly stays right for a gate; returning `[]` would read as "no
+violations" and let the boundary go unchecked. The tests skip when `rg` is
+absent rather than reporting red for a missing tool.
+
+Found while reading that code: `hit.split(":", 1)[0]` takes the drive letter on
+Windows, so every gate finding reported `C` as its file and the `/report/` and
+self-exclusion filters silently stopped matching — suppressed hits would have
+been reported as violations. `_hit_path` handles the drive prefix, and its test
+uses literal strings so POSIX CI catches a regression too. That defect is not
+one of the seven; it never failed a test because the tests assert on `rule_id`.
+
 ## 2026-08-03 — revert(console): pruned history belongs in the private manifest
 
 #64 un-ignored `.console/archive/` and committed the 2026-05 log sections there.
