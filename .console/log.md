@@ -4,45 +4,23 @@ _Chronological continuity log. Decisions, stop points, what changed and why._
 
 ## 2026-08-03 — fix(adapters): find_tool must prefer the AUDITED repo's venv
 
-Found while triaging why OperationsCenter's Custodian pre-push gate failed. A
-globally-installed `custodian-multi` audited OC — which pins `ruff==0.15.13` —
-using a system-wide **ruff 0.16.1**, and reported **1222 findings** against a tree
-OC's own `ruff check` calls clean (BLE001 ×316, UP045 ×290, UP037 ×118, …). Same
-repo, same `.custodian/config.yaml`, ruff 0.15.13: **0 findings**. Vulture skewed
-the same way (621). Every one of those was phantom.
+`find_tool()` resolved tools from the venv **Custodian itself** runs in, then PATH.
+For a multi-repo auditor that is backwards: each repo pins the toolchain its config
+was written against. A globally-installed `custodian-multi` therefore audited
+OperationsCenter (pins `ruff==0.15.13`) with a system-wide ruff 0.16.1 and reported
+**1222 phantom findings** against a tree OC's own `ruff check` calls clean. Right by
+accident when Custodian is installed into the audited repo's venv, silently wrong
+otherwise — and silent is the problem, since the output is a plausible wall of real
+rule codes. Same three lines hid a second bug: that lookup can never match on
+Windows, where scripts are `ruff.exe` under `Scripts/`, so the branch was dead code
+there. Order is now audited repo's venv → Custodian's venv → PATH, with both
+script-dir spellings and Windows suffixes handled. Scoped by a ContextVar +
+`audited_repo()` rather than a parameter because `is_available()` takes no arguments
+and must agree with `run()`. 1238 passed, 5 skipped; 6 new tests, including that the
+ContextVar cannot leak across repos in a `--repos a b c` run. Details in PR #72.
 
-Root cause: `find_tool()` resolved `Path(sys.executable).parent / name` — i.e. the
-venv **Custodian itself** is installed in — then fell back to PATH. For a
-*multi-repo* auditor that is backwards. Each repo pins the toolchain its config was
-written against, so the audit is only meaningful when it runs those versions; the
-venv Custodian happens to live in has no authority over the repo in front of it. It
-was right by accident in the single-repo case (Custodian installed into the audited
-repo's venv) and silently wrong everywhere else.
-
-Second, smaller bug in the same three lines: `Path(sys.executable).parent / name`
-can never match on Windows, where console scripts are `ruff.exe` and live in
-`Scripts/` rather than `bin/`. So the venv branch was dead code on that platform and
-every lookup fell through to PATH.
-
-Fix: resolution order is now (1) the audited repo's own venv, (2) Custodian's venv,
-(3) PATH; `_executable()` tries `.exe`/`.bat`/`.cmd` on Windows and both `bin/` and
-`Scripts/` are accepted on either host (a venv built under WSL and audited from
-Windows over /mnt/c carries the other platform's layout). The audited repo is scoped
-by a `ContextVar` + `audited_repo()` context manager rather than a parameter, because
-`is_available()` takes no arguments and it and `run()` must agree on which binary
-they are discussing — `cli/runner._run_adapters` wraps its loop in it.
-
-Verified: 1238 passed, 5 skipped. Six new tests cover repo-venv preference, the
-no-venv fallback, both script-dir spellings, and that the ContextVar does not leak
-past the loop (a leak would make later repos in a `--repos a b c` run inherit the
-first repo's toolchain). Custodian's own audit is unchanged from baseline — the one
-remaining finding (W2, `core.hooksPath` unset) is environmental and pre-existing.
-Live proof on this machine: under `audited_repo(~/GitHub/OperationsCenter)`,
-`find_tool('ruff')` returns OC's pinned `.venv/bin/ruff` instead of Custodian's own.
-
-Noted, not fixed (pre-existing, reproduces at origin/main): `tests/test_reconcile.py`
-does not isolate `$REPOGRAPH_BOUNDARY_ARTIFACT_FILE`, so two tests fail whenever that
-variable is set in the caller's environment.
+Pre-existing, noted not fixed: `tests/test_reconcile.py` does not isolate
+`$REPOGRAPH_BOUNDARY_ARTIFACT_FILE`, so two tests fail when it is set.
 
 ## 2026-08-03 — docs(adr): ask ContextLifecycle to split .console/log.md
 
@@ -403,32 +381,13 @@ itself flagged as an unused variable.
 Verified: ruff clean, vulture clean, suite unchanged at 1153 passed / 16
 pre-existing Windows-only failures, audit 0 findings under CI conditions.
 
-## 2026-07-10 — fix(c32): reject punctuation-only values as credentials
-
-C32 (hardcoded credential) fired a HIGH false positive on a downstream repo's
-`_TOKEN_STRIP = ".,!?;:\"'()—-"` — the name contains "token" so `_is_credential_name`
-matched, and the punctuation value passed `_is_real_credential` (not a placeholder,
-not a URL, not ALL_CAPS). A real secret carries alphanumeric entropy; a value with
-zero alphanumeric characters can never be a credential. Added that guard to
-`_is_real_credential` + a regression test (`test_c32_skips_punctuation_only_value`).
-12 C32 tests pass.
-
-## 2026-06-20 — feat: INJ1 prompt-injection signature detector
-
-New audit_kit detector (HARNESS_TRUST_HARDENING §2.2.6, the outer INJ layer):
-detect_inj1 scans tracked text for invisible/bidi control characters (the
-unambiguous injection/homoglyph-smuggling signal). Mirrors the boundary-detector
-shape; wired into the runner as deprecated=True so it is SKIPPED by the default
-gate (opt-in via --only INJ1 --include-deprecated) — a repo's own injection-
-handling code must not red the fleet-wide audit. Reports codepoint+position only
-(never surrounding text, D-INJ-3); legitimate handlers opt out via a
-custodian:allow-invisible-chars content marker; \u escapes so it never
-self-triggers. 7 tests; full suite 1126 passed.
-
 <!-- Reconciled 2026-08-03 (RC1): `## Stop Points`, `## Recent Decisions`
      (2026-05 material) and entries through 2026-06-18 pruned to stay under
      the 400-line budget. Full history is in git — `git log -p .console/log.md`.
-     See docs/architecture/adr/0001-split-console-log-by-responsibility.md. -->
+     See docs/architecture/adr/0001-split-console-log-by-responsibility.md.
+     Second pass, same day: the 2026-06-20 (INJ1 detector) and 2026-07-10
+     (C32 punctuation-only values) entries pruned as well — the first pass
+     landed at 395/400, leaving no room for the next entry to be written. -->
 
 ## Archived
 
