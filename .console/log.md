@@ -2,6 +2,26 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-08-03 — fix(adapters): find_tool must prefer the AUDITED repo's venv
+
+`find_tool()` resolved tools from the venv **Custodian itself** runs in, then PATH.
+For a multi-repo auditor that is backwards: each repo pins the toolchain its config
+was written against. A globally-installed `custodian-multi` therefore audited
+OperationsCenter (pins `ruff==0.15.13`) with a system-wide ruff 0.16.1 and reported
+**1222 phantom findings** against a tree OC's own `ruff check` calls clean. Right by
+accident when Custodian is installed into the audited repo's venv, silently wrong
+otherwise — and silent is the problem, since the output is a plausible wall of real
+rule codes. Same three lines hid a second bug: that lookup can never match on
+Windows, where scripts are `ruff.exe` under `Scripts/`, so the branch was dead code
+there. Order is now audited repo's venv → Custodian's venv → PATH, with both
+script-dir spellings and Windows suffixes handled. Scoped by a ContextVar +
+`audited_repo()` rather than a parameter because `is_available()` takes no arguments
+and must agree with `run()`. 1238 passed, 5 skipped; 6 new tests, including that the
+ContextVar cannot leak across repos in a `--repos a b c` run. Details in PR #72.
+
+Pre-existing, noted not fixed: `tests/test_reconcile.py` does not isolate
+`$REPOGRAPH_BOUNDARY_ARTIFACT_FILE`, so two tests fail when it is set.
+
 ## 2026-08-03 — docs(adr): ask ContextLifecycle to split .console/log.md
 
 ADR 0001, status proposed. Custodian implements RC1/RC2 but does not own the
@@ -361,32 +381,13 @@ itself flagged as an unused variable.
 Verified: ruff clean, vulture clean, suite unchanged at 1153 passed / 16
 pre-existing Windows-only failures, audit 0 findings under CI conditions.
 
-## 2026-07-10 — fix(c32): reject punctuation-only values as credentials
-
-C32 (hardcoded credential) fired a HIGH false positive on a downstream repo's
-`_TOKEN_STRIP = ".,!?;:\"'()—-"` — the name contains "token" so `_is_credential_name`
-matched, and the punctuation value passed `_is_real_credential` (not a placeholder,
-not a URL, not ALL_CAPS). A real secret carries alphanumeric entropy; a value with
-zero alphanumeric characters can never be a credential. Added that guard to
-`_is_real_credential` + a regression test (`test_c32_skips_punctuation_only_value`).
-12 C32 tests pass.
-
-## 2026-06-20 — feat: INJ1 prompt-injection signature detector
-
-New audit_kit detector (HARNESS_TRUST_HARDENING §2.2.6, the outer INJ layer):
-detect_inj1 scans tracked text for invisible/bidi control characters (the
-unambiguous injection/homoglyph-smuggling signal). Mirrors the boundary-detector
-shape; wired into the runner as deprecated=True so it is SKIPPED by the default
-gate (opt-in via --only INJ1 --include-deprecated) — a repo's own injection-
-handling code must not red the fleet-wide audit. Reports codepoint+position only
-(never surrounding text, D-INJ-3); legitimate handlers opt out via a
-custodian:allow-invisible-chars content marker; \u escapes so it never
-self-triggers. 7 tests; full suite 1126 passed.
-
 <!-- Reconciled 2026-08-03 (RC1): `## Stop Points`, `## Recent Decisions`
      (2026-05 material) and entries through 2026-06-18 pruned to stay under
      the 400-line budget. Full history is in git — `git log -p .console/log.md`.
-     See docs/architecture/adr/0001-split-console-log-by-responsibility.md. -->
+     See docs/architecture/adr/0001-split-console-log-by-responsibility.md.
+     Second pass, same day: the 2026-06-20 (INJ1 detector) and 2026-07-10
+     (C32 punctuation-only values) entries pruned as well — the first pass
+     landed at 395/400, leaving no room for the next entry to be written. -->
 
 ## Archived
 
