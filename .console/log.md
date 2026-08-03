@@ -1,5 +1,41 @@
 # Log
 
+_Chronological continuity log. Decisions, stop points, what changed and why._
+
+## 2026-08-03 — feat(C16): scan tests/ behind an opt-in, and clear our own backlog
+
+C16 flags `read_text`/`write_text` without `encoding=`, and it never looked at
+`tests/` — `_py_files` walks `src_root` only. That is precisely where the
+defect hides: a fixture writing ASCII passes on every platform, and the day
+someone adds a non-ASCII character it fails only where the locale cannot
+encode it. #67 fixed three tests that broke on Windows exactly that way while
+C16 reported clean. The detector for the bug could not see the bug.
+
+Opt-in via `audit.c16_scan_tests`, default off, following D12's precedent:
+any repo with an existing suite would light up on first upgrade, and
+`--fail-on-findings` treats a LOW finding as a failure, so default-on would
+red-wall every consumer. Flip it once the backlog is clear.
+
+Custodian flips it, and the backlog is cleared rather than baselined — 149
+sites across 17 files. A `d12_baseline`-style ratchet was the alternative, but
+the fix here is mechanical and total (`encoding="utf-8"`), so a 149-entry
+baseline would have been permanent clutter recording work that took one pass.
+Applied by AST position, back-to-front per file so offsets stay valid, with
+the separator chosen by looking back past whitespace so trailing-comma and
+zero-arg call shapes stay syntactically valid; every file was re-parsed before
+being written. Suite unchanged at 1222 passing, so nothing depended on the
+platform default encoding.
+
+`include_tests` lives on `_py_files` rather than in `detect_c16` so the
+exclude-glob path stays shared — `exclude_paths.C16` applies to test files
+too. It deduplicates by resolved path rather than testing "is tests_root under
+src_root", which also covers symlinks and `./` spellings; the nested-layout
+test fails without it.
+
+Not made default and not extended to other C-class rules: most encode
+production concerns (no `print()`, no bare `assert`) that are deliberately
+fine in tests. Only rules whose defect is platform-portability should widen.
+
 ## 2026-08-03 — docs: write up the three opt-in detectors that had none
 
 INJ1, DC10 and D12 shipped with zero documentation — 0 hits for each across
@@ -22,8 +58,6 @@ reference in an excluded file still clears a symbol.
 Docs index updated, since an unindexed page under `docs/` trips its own
 detector; it also claimed DC1-DC8 while the page covered DC1-DC5. Unblocks the
 June reconciliation: those three items can now carry real `doc:` paths.
-
-_Chronological continuity log. Decisions, stop points, what changed and why._
 
 ## 2026-08-03 — fix(samples): detector sample paths, the half #62 deferred
 
@@ -64,6 +98,7 @@ was reverted in turn to confirm the suite catches it. The detector-side
 separator assertions stay Windows-only — closing that needs a static check over
 sample construction, and a half-covering one buys false confidence — so the
 module docstring names the limit rather than hiding it.
+
 ## 2026-08-03 — fix(tests): the seven failures that only ever appear off Linux CI
 
 CI runs ubuntu-only, so seven tests were red on Windows and invisible to every
@@ -352,48 +387,6 @@ stale install silently disarmed OC's #313 gate. runner.py now validates `only`
 against built ids and raises on any unknown id; multi.py turns that into a
 non-zero exit. Self-verifying. 2 tests updated (old "unknown→empty" was the bug) + 1 added.
 
-## 2026-06-18 — feat(DC10): claims-integrated-while-deferring detector (opt-in)
-
-The planner-level #313 catch: a doc claims a feature wired end-to-end / fully
-integrated while the SAME doc defers the integration ("not yet wired", "update X
-to call Y()", "integration deferred"). Narrow + low-FP (skips legit "stage N done,
-stage N+1 next"): OC=3, Custodian=0. Opt-in (deprecated=True) + audit.dc10_baseline
-ratchet; doctor knows dc10_baseline/dc10_scan_globs. 8 tests; suite 1162 green.
-
-## 2026-06-18 — fix(doctor): register d12_baseline as a known audit key
-
-Doctor --strict warned `unknown audit key 'd12_baseline'` (it was added in #44 but
-not registered). Added it to `_KNOWN_AUDIT_KEYS`. 22 doctor tests; ruff clean.
-
-## 2026-06-17 — feat(D12): baseline ratchet (audit.d12_baseline)
-
-D12 reads `audit.d12_baseline` (accepted names) and skips them — a repo enables
-D12 on a backlog with only NEW tested-but-unwired symbols firing. 10 D12 tests.
-
-## 2026-06-17 — D12 ships OPT-IN (default-off) — was red-walling consumers
-
-D12 (the new tested-but-never-wired detector) was default-ON. Consumers audit
-against Custodian@main (e.g. OperationsCenter's custodian-audit.yml installs
-`custodian @ ...@main`), so the moment D12 merged it ran on EVERY consumer and
-failed their `custodian-multi --fail-on-findings` gate on their existing backlog
-(OC: 161 tested-but-unwired public symbols — a mix of public API not in __all__
-and genuine gaps). A mature repo can't be hard-gated on a 161-deep day-one
-backlog. Flipped D12 to `deprecated=True` — reused purely as the "skipped by
-default, opt-in via --include-deprecated" lever (NOT tool-deprecated; there is no
-Vulture/ty equivalent). Consumers opt in (or this flips back to default-on) after
-they've baselined / burned down the backlog. Detector unchanged + validated;
-1153 tests green. Verified OC audit drops 161 → 0 (only the environmental B2
-remains, which CI satisfies with its boundary artifact).
-
-## 2026-06-17 — D12 precision: skip pytest_* plugin hooks (FP class)
-
-D12 was flagging `pytest_addoption`/`pytest_configure` and other `pytest_*`
-functions — pytest plugin hooks invoked by pytest's plugin system BY NAME, so
-there is no in-repo caller by design (not an integration gap). Added a
-`pytest_*` skip alongside the existing `test_*` skip. Found during the
-OperationsCenter D12 triage (176 → 171 findings after the fix). 9 D12 tests
-(added pytest-hook-skipped); ruff+ty clean.
-
 <!-- Reconciled 2026-08-03 (RC1): `## Stop Points`, `## Recent Decisions`
-     (2026-05 material) and entries through 2026-06-17 pruned to stay under the
-     400-line budget. Full history is in git — `git log -p .console/log.md`. -->
+     (2026-05 material) and entries through 2026-06-18 pruned to stay under
+     the 400-line budget. Full history is in git — `git log -p .console/log.md`. -->

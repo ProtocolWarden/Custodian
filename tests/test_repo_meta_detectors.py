@@ -32,7 +32,7 @@ class TestM1Changelog:
         assert detect_m1(_ctx(tmp_path)).count == 1
 
     def test_present_passes(self, tmp_path: Path):
-        (tmp_path / "CHANGELOG.md").write_text("# Changelog")
+        (tmp_path / "CHANGELOG.md").write_text("# Changelog", encoding="utf-8")
         assert detect_m1(_ctx(tmp_path)).count == 0
 
     def test_skip_via_config(self, tmp_path: Path):
@@ -45,7 +45,7 @@ class TestM2Contributing:
         assert detect_m2(_ctx(tmp_path)).count == 1
 
     def test_present_passes(self, tmp_path: Path):
-        (tmp_path / "CONTRIBUTING.md").write_text("# Contributing")
+        (tmp_path / "CONTRIBUTING.md").write_text("# Contributing", encoding="utf-8")
         assert detect_m2(_ctx(tmp_path)).count == 0
 
     def test_skip_via_config(self, tmp_path: Path):
@@ -58,7 +58,7 @@ class TestM3Security:
         assert detect_m3(_ctx(tmp_path)).count == 1
 
     def test_present_passes(self, tmp_path: Path):
-        (tmp_path / "SECURITY.md").write_text("# Security")
+        (tmp_path / "SECURITY.md").write_text("# Security", encoding="utf-8")
         assert detect_m3(_ctx(tmp_path)).count == 0
 
 
@@ -67,19 +67,19 @@ class TestM4License:
         assert detect_m4(_ctx(tmp_path)).count == 1
 
     def test_uppercase_LICENSE_passes(self, tmp_path: Path):
-        (tmp_path / "LICENSE").write_text("MIT")
+        (tmp_path / "LICENSE").write_text("MIT", encoding="utf-8")
         assert detect_m4(_ctx(tmp_path)).count == 0
 
     def test_LICENSE_md_passes(self, tmp_path: Path):
-        (tmp_path / "LICENSE.md").write_text("MIT")
+        (tmp_path / "LICENSE.md").write_text("MIT", encoding="utf-8")
         assert detect_m4(_ctx(tmp_path)).count == 0
 
     def test_LICENSE_txt_passes(self, tmp_path: Path):
-        (tmp_path / "LICENSE.txt").write_text("MIT")
+        (tmp_path / "LICENSE.txt").write_text("MIT", encoding="utf-8")
         assert detect_m4(_ctx(tmp_path)).count == 0
 
     def test_LICENCE_british_spelling_passes(self, tmp_path: Path):
-        (tmp_path / "LICENCE").write_text("MIT")
+        (tmp_path / "LICENCE").write_text("MIT", encoding="utf-8")
         assert detect_m4(_ctx(tmp_path)).count == 0
 
     def test_skip_via_config(self, tmp_path: Path):
@@ -109,14 +109,14 @@ class TestM5ChangelogFormat:
             "# Changelog\n\n"
             "## [Unreleased]\n- foo\n\n"
             "## [1.0.0] - 2026-05-08\n- initial\n",
-        )
+         encoding="utf-8")
         assert detect_m5(_ctx(tmp_path)).count == 0
 
     def test_missing_h1_flagged(self, tmp_path: Path):
         from custodian.audit_kit.detectors.repo_meta import detect_m5
         (tmp_path / "CHANGELOG.md").write_text(
             "## [1.0.0]\n- thing\n",
-        )
+         encoding="utf-8")
         result = detect_m5(_ctx(tmp_path))
         assert result.count == 1
         assert "missing `# Changelog` H1" in result.samples[0]
@@ -125,7 +125,7 @@ class TestM5ChangelogFormat:
         from custodian.audit_kit.detectors.repo_meta import detect_m5
         (tmp_path / "CHANGELOG.md").write_text(
             "# Changelog\n\nFreeform notes with no release headings.\n",
-        )
+         encoding="utf-8")
         result = detect_m5(_ctx(tmp_path))
         assert result.count == 1
         assert "no release sections" in result.samples[0]
@@ -134,12 +134,12 @@ class TestM5ChangelogFormat:
         from custodian.audit_kit.detectors.repo_meta import detect_m5
         (tmp_path / "CHANGELOG.md").write_text(
             "# Changelog\n\n## [Unreleased]\n- pending\n",
-        )
+         encoding="utf-8")
         assert detect_m5(_ctx(tmp_path)).count == 0
 
     def test_skip_via_config(self, tmp_path: Path):
         from custodian.audit_kit.detectors.repo_meta import detect_m5
-        (tmp_path / "CHANGELOG.md").write_text("garbage\n")
+        (tmp_path / "CHANGELOG.md").write_text("garbage\n", encoding="utf-8")
         ctx = _ctx(tmp_path, {"repo_meta": {"skip": ["M5"]}})
         assert detect_m5(ctx).count == 0
 

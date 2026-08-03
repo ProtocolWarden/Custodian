@@ -63,7 +63,7 @@ class TestTypesEquivalent:
 def _ctx(tmp_path: Path, src: str) -> AuditContext:
     src_dir = tmp_path / "src"
     src_dir.mkdir()
-    (src_dir / "module.py").write_text(textwrap.dedent(src))
+    (src_dir / "module.py").write_text(textwrap.dedent(src), encoding="utf-8")
     return AuditContext(
         repo_root=tmp_path,
         src_root=src_dir,

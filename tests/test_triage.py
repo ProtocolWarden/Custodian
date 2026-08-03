@@ -126,7 +126,7 @@ class TestCLI:
             }
         }
         p = tmp_path / "audit.json"
-        p.write_text(json.dumps(audit))
+        p.write_text(json.dumps(audit), encoding="utf-8")
         proc = subprocess.run(
             [sys.executable, "-m", "custodian.cli.triage", str(p)],
             capture_output=True, text=True, check=True,
@@ -137,7 +137,7 @@ class TestCLI:
     def test_json_output(self, tmp_path):
         audit = {"patterns": {"D6": {"count": 1, "samples": ["src/y.py:1: unwired"]}}}
         p = tmp_path / "audit.json"
-        p.write_text(json.dumps(audit))
+        p.write_text(json.dumps(audit), encoding="utf-8")
         proc = subprocess.run(
             [sys.executable, "-m", "custodian.cli.triage", "--json", str(p)],
             capture_output=True, text=True, check=True,
@@ -155,7 +155,7 @@ class TestCLI:
             }
         }
         p = tmp_path / "audit.json"
-        p.write_text(json.dumps(audit))
+        p.write_text(json.dumps(audit), encoding="utf-8")
         proc = subprocess.run(
             [sys.executable, "-m", "custodian.cli.triage", "--only", "WIRE", str(p)],
             capture_output=True, text=True, check=True,
@@ -175,12 +175,12 @@ class TestIntegratedPass:
         # A stub file flagged by U1; nothing else uses it (Vulture should flag).
         (repo / "src" / "dead.py").write_text(
             "def unused_fn():\n    raise NotImplementedError\n"
-        )
+        , encoding="utf-8")
         (repo / ".custodian" / "config.yaml").write_text(
             "repo_key: t\nsrc_root: src\ntests_root: tests\n"
             "audit:\n  triage: true\n"
             "tools:\n  ruff: false\n  vulture: false\n"
-        )
+        , encoding="utf-8")
         from custodian.cli.runner import run_repo_audit
         result = run_repo_audit(repo)
         triage_keys = [k for k in result.patterns if k.startswith("TRIAGE_")]

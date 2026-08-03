@@ -49,7 +49,7 @@ class TestRunCodemods:
     def test_applies_matching_codemod(self, tmp_path):
         f = tmp_path / "src" / "foo.py"
         f.parent.mkdir(parents=True)
-        f.write_text("x = 1\n")
+        f.write_text("x = 1\n", encoding="utf-8")
         findings = [_finding(rule="F401", path="src/foo.py")]
         results = run_codemods(tmp_path, findings, [_AddCommentCodemod()], dry_run=True)
         assert len(results) == 1
@@ -58,23 +58,23 @@ class TestRunCodemods:
     def test_dry_run_does_not_write(self, tmp_path):
         f = tmp_path / "src" / "foo.py"
         f.parent.mkdir(parents=True)
-        f.write_text("x = 1\n")
+        f.write_text("x = 1\n", encoding="utf-8")
         findings = [_finding(rule="F401", path="src/foo.py")]
         run_codemods(tmp_path, findings, [_AddCommentCodemod()], dry_run=True)
-        assert f.read_text() == "x = 1\n"
+        assert f.read_text(encoding="utf-8") == "x = 1\n"
 
     def test_apply_writes_file(self, tmp_path):
         f = tmp_path / "src" / "foo.py"
         f.parent.mkdir(parents=True)
-        f.write_text("x = 1\n")
+        f.write_text("x = 1\n", encoding="utf-8")
         findings = [_finding(rule="F401", path="src/foo.py")]
         run_codemods(tmp_path, findings, [_AddCommentCodemod()], dry_run=False)
-        assert "# fixed" in f.read_text()
+        assert "# fixed" in f.read_text(encoding="utf-8")
 
     def test_noop_codemod_no_result(self, tmp_path):
         f = tmp_path / "src" / "foo.py"
         f.parent.mkdir(parents=True)
-        f.write_text("x = 1\n")
+        f.write_text("x = 1\n", encoding="utf-8")
         findings = [_finding(rule="F401", path="src/foo.py")]
         results = run_codemods(tmp_path, findings, [_NoOpCodemod()])
         assert results == []
@@ -82,7 +82,7 @@ class TestRunCodemods:
     def test_unrelated_codemod_not_applied(self, tmp_path):
         f = tmp_path / "src" / "foo.py"
         f.parent.mkdir(parents=True)
-        f.write_text("x = 1\n")
+        f.write_text("x = 1\n", encoding="utf-8")
         findings = [_finding(rule="F401", path="src/foo.py")]
         results = run_codemods(tmp_path, findings, [_UnrelatedCodemod()], dry_run=True)
         assert results == []
@@ -104,7 +104,7 @@ class TestRunCodemods:
 
         f = tmp_path / "src" / "foo.py"
         f.parent.mkdir(parents=True)
-        f.write_text("x = 1\n")
+        f.write_text("x = 1\n", encoding="utf-8")
         findings = [_finding(rule="F401", path="src/foo.py")]
         results = run_codemods(tmp_path, findings, [SpecificCodemod()], dry_run=True)
         assert len(results) == 1

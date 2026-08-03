@@ -98,9 +98,35 @@ def _exclude_globs(context: AuditContext, detector_id: str) -> list[str]:
     return list(exclude.get(detector_id, []) or [])
 
 
-def _py_files(context: AuditContext, detector_id: str | None = None) -> list[Path]:
-    """All .py files under ``src_root``, minus any matched by exclude globs."""
+def _py_files(
+    context: AuditContext,
+    detector_id: str | None = None,
+    *,
+    include_tests: bool = False,
+) -> list[Path]:
+    """All .py files under ``src_root``, minus any matched by exclude globs.
+
+    ``include_tests`` additionally walks ``tests_root``. Off by default: most
+    C-class rules encode production concerns (no ``print()``, no bare
+    ``assert``) that are deliberately fine in tests, and a detector that
+    widened its own surface would re-report every consumer's test suite. Only
+    rules whose defect is platform-portability — where a test file is exactly
+    as broken as a src file — should ask for it.
+    """
     paths = [path for path in context.src_root.rglob("*.py") if path.is_file()]
+    if include_tests:
+        tests_root = context.tests_root
+        # A missing tests_root is not an error — plenty of repos add tests later.
+        if tests_root and tests_root.is_dir():
+            # Deduplicate by resolved path rather than guarding on "is tests_root
+            # under src_root": that covers the nested layout AND any other way
+            # the two walks can reach one file (symlink, junction, `.` prefix),
+            # each of which would otherwise report the same call twice.
+            seen = {p.resolve() for p in paths}
+            paths += [
+                p for p in tests_root.rglob("*.py")
+                if p.is_file() and p.resolve() not in seen
+            ]
     if detector_id is None:
         return paths
     globs = _exclude_globs(context, detector_id)
@@ -913,10 +939,24 @@ def detect_c16(context: AuditContext) -> DetectorResult:
     across platforms and locales.  Always pass ``encoding="utf-8"`` (or the
     relevant encoding) to ensure consistent behaviour.
     Exclude files via ``audit.exclude_paths.C16``.
+
+    Set ``audit.c16_scan_tests: true`` to scan ``tests_root`` as well. Test
+    code is where this defect hides best: a fixture that writes ASCII passes
+    everywhere, and the day someone adds a non-ASCII character it fails only
+    on the platform whose locale cannot encode it. Three of Custodian's own
+    tests failed on Windows for exactly that reason while C16 stayed green,
+    because it only ever walked ``src_root`` (#67).
+
+    Opt-in rather than default-on: any repo with an existing test suite would
+    otherwise light up on first upgrade, and ``--fail-on-findings`` treats a
+    LOW finding as a failure. Flip it once the backlog is cleared, the way
+    ``reconcile_enforce`` and D12 are flipped.
     """
+    audit_cfg = context.config.get("audit") or {}
+    scan_tests = audit_cfg.get("c16_scan_tests") is True
     samples: list[str] = []
     count = 0
-    for path in _py_files(context, "C16"):
+    for path in _py_files(context, "C16", include_tests=scan_tests):
         try:
             raw = path.read_text(encoding="utf-8")
             tree = ast.parse(raw)

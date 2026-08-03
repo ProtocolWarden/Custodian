@@ -108,7 +108,7 @@ class TestVultureAdapterRun:
     def test_whitelist_included_when_exists(self, tmp_path):
         (tmp_path / "src").mkdir(exist_ok=True)
         whitelist = tmp_path / ".vulture_whitelist.py"
-        whitelist.write_text("# whitelist\n")
+        whitelist.write_text("# whitelist\n", encoding="utf-8")
         proc = MagicMock()
         proc.stdout = ""
         proc.stderr = ""

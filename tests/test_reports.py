@@ -54,7 +54,7 @@ class TestJsonReport:
         from custodian.reports.json_report import write_json_report
         out = write_json_report([_f()], tmp_path / "reports")
         assert out.exists()
-        assert json.loads(out.read_text())["summary"]["total"] == 1
+        assert json.loads(out.read_text(encoding="utf-8"))["summary"]["total"] == 1
 
 
 class TestSarifReport:
@@ -152,4 +152,4 @@ class TestMarkdownReport:
         from custodian.reports.markdown_report import write_markdown_report
         out = write_markdown_report([_f()], tmp_path / "reports")
         assert out.exists()
-        assert "Findings" in out.read_text()
+        assert "Findings" in out.read_text(encoding="utf-8")
