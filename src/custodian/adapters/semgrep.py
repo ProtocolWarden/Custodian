@@ -195,7 +195,11 @@ class SemgrepAdapter(ToolAdapter):
                 # Matches the form `_rel` already produces for docker mode.
                 rel = Path(path_str).relative_to(repo_path).as_posix()
             except ValueError:
-                rel = path_str or None
+                # Not under repo_path — the tool reported a cwd-relative
+                # path. Already repo-relative, but still native-separated,
+                # and this branch is the one semgrep actually takes: it runs
+                # with cwd=repo_path, so relative_to() always raises.
+                rel = Path(path_str).as_posix() if path_str else None
             start = item.get("start", {})
             line = start.get("line")
 

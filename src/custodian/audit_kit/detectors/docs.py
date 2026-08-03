@@ -176,7 +176,7 @@ def detect_k1(context: AuditContext) -> DetectorResult:
                     seen[name] = (f, i)
 
     samples = [
-        f"{path.relative_to(context.repo_root)}:{ln}: `{name}` referenced but no def/class in src/"
+        f"{path.relative_to(context.repo_root).as_posix()}:{ln}: `{name}` referenced but no def/class in src/"
         for name, (path, ln) in sorted(seen.items())
     ]
     return DetectorResult(count=len(seen), samples=samples[:_MAX_SAMPLES])
@@ -235,7 +235,7 @@ def detect_k2(context: AuditContext) -> DetectorResult:
                 seen[name] = (f, i)
 
     samples = [
-        f"{path.relative_to(context.repo_root)}:{ln}: `{name}` cited as value but no string literal in src/"
+        f"{path.relative_to(context.repo_root).as_posix()}:{ln}: `{name}` cited as value but no string literal in src/"
         for name, (path, ln) in sorted(seen.items())
     ]
     return DetectorResult(count=len(seen), samples=samples[:_MAX_SAMPLES])
@@ -356,7 +356,7 @@ def detect_k3(context: AuditContext) -> DetectorResult:
             tree = _ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
 
         for node in _ast.walk(tree):
             if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
@@ -534,7 +534,7 @@ def detect_k4(context: AuditContext) -> DetectorResult:
             tree = _ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
 
         for node in _ast.walk(tree):
             if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):

@@ -215,7 +215,7 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                     count += 1
                     if len(samples) < _MAX_SAMPLES:
                         samples.append(
-                            f"{rel}:{actual} lines — exceeds {name!r} limit of {limit}"
+                            f"{rel_posix}:{actual} lines — exceeds {name!r} limit of {limit}"
                         )
 
             # max_classes
@@ -226,7 +226,7 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                     count += 1
                     if len(samples) < _MAX_SAMPLES:
                         samples.append(
-                            f"{rel}:{actual} classes — exceeds {name!r} limit of {limit}"
+                            f"{rel_posix}:{actual} classes — exceeds {name!r} limit of {limit}"
                         )
 
             # max_functions (module-level only)
@@ -240,7 +240,7 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                     count += 1
                     if len(samples) < _MAX_SAMPLES:
                         samples.append(
-                            f"{rel}:{actual} functions — exceeds {name!r} limit of {limit}"
+                            f"{rel_posix}:{actual} functions — exceeds {name!r} limit of {limit}"
                         )
 
             # forbidden_import — glob match against dotted module path (dots → slashes)
@@ -266,7 +266,7 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                         count += 1
                         if len(samples) < _MAX_SAMPLES:
                             samples.append(
-                                f"{rel}:{lineno}: imports {mod!r} — forbidden by {name!r}"
+                                f"{rel_posix}:{lineno}: imports {mod!r} — forbidden by {name!r}"
                             )
                         break  # one violation per rule per file is enough
 
@@ -296,7 +296,7 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                         count += 1
                         if len(samples) < _MAX_SAMPLES:
                             samples.append(
-                                f"{rel}:{lineno}: imports {mod!r} — forbidden prefix {prefix!r}"
+                                f"{rel_posix}:{lineno}: imports {mod!r} — forbidden prefix {prefix!r}"
                             )
                         break  # one violation per rule per file is enough
 
@@ -323,7 +323,7 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                             count += 1
                             if len(samples) < _MAX_SAMPLES:
                                 samples.append(
-                                    f"{rel}: {class_name} has {field_count} declared fields "
+                                    f"{rel_posix}: {class_name} has {field_count} declared fields "
                                     f"(threshold {max_fields}) — forbidden by {name!r}"
                                 )
                         break  # report once per class per file
@@ -359,7 +359,7 @@ def detect_a1(context: AuditContext) -> DetectorResult:
                             count += 1
                             if len(samples) < _MAX_SAMPLES:
                                 samples.append(
-                                    f"{rel}:{lineno}: deep import {mod!r} from {pkg!r} — "
+                                    f"{rel_posix}:{lineno}: deep import {mod!r} from {pkg!r} — "
                                     f"only public API allowed: {sorted(allowed)}"
                                 )
                             break
@@ -413,7 +413,7 @@ def detect_s1(context: AuditContext) -> DetectorResult:
                 count += 1
                 if len(samples) < _MAX_SAMPLES:
                     src_layer_name = src_layer.get("name", "?")
-                    imp_str = f"{rel_path} → {imported_path}"
+                    imp_str = f"{rel_path.as_posix()} → {imported_path.as_posix()}"
                     samples.append(
                         f"[{src_layer_name}] {imp_str}"
                     )
@@ -484,7 +484,7 @@ def detect_s2(context: AuditContext) -> DetectorResult:
                 if len(samples) < _MAX_SAMPLES:
                     path_a = graph.module_to_path.get(mod_a, Path(mod_a))
                     path_b = graph.module_to_path.get(mod_b, Path(mod_b))
-                    samples.append(f"{path_a} ↔ {path_b}")
+                    samples.append(f"{path_a.as_posix()} ↔ {path_b.as_posix()}")
 
     return DetectorResult(count=count, samples=samples)
 
@@ -510,7 +510,7 @@ def detect_s3(context: AuditContext) -> DetectorResult:
     count = 0
 
     for path, tree, _src in context.graph.ast_forest.items():
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             module_name: str | None = None
             lineno: int = 0
@@ -565,10 +565,10 @@ def detect_s4(context: AuditContext) -> DetectorResult:
     if not conftest.exists():
         root_conftest = context.repo_root / "conftest.py"
         if not root_conftest.exists():
-            rel = str(conftest.relative_to(context.repo_root))
+            rel = conftest.relative_to(context.repo_root).as_posix()
             return DetectorResult(count=1, samples=[f"{rel}: file missing — add conftest.py with venv guard"])
 
-    rel = str(conftest.relative_to(context.repo_root)) if conftest.exists() else "conftest.py"
+    rel = conftest.relative_to(context.repo_root).as_posix() if conftest.exists() else "conftest.py"
     return DetectorResult(
         count=1,
         samples=[f"{rel}: no venv guard — add sys.prefix / _EXPECTED_VENV check"],
@@ -634,7 +634,7 @@ def detect_h1(context: AuditContext) -> DetectorResult:
                     src_name = hex_layers[src_idx].get("name", str(src_idx))
                     imp_name = hex_layers[imp_idx].get("name", str(imp_idx))
                     samples.append(
-                        f"[{src_name}→{imp_name}] {rel_path} imports {imported_path}"
+                        f"[{src_name}→{imp_name}] {rel_path.as_posix()} imports {imported_path.as_posix()}"
                     )
 
     return DetectorResult(count=count, samples=samples)

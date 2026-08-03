@@ -97,7 +97,7 @@ def detect_n1(context: AuditContext) -> DetectorResult:
                 continue
             count += 1
             if len(samples) < _MAX_SAMPLES:
-                rel = path.relative_to(context.repo_root)
+                rel = path.relative_to(context.repo_root).as_posix()
                 samples.append(f"{rel}:{node.lineno}: class {name} (inherits from exception, should end in Error/Exception)")
 
     return DetectorResult(count=count, samples=samples)
@@ -159,7 +159,7 @@ def detect_n2(context: AuditContext) -> DetectorResult:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (OSError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
 
         def _is_fixture(func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
             for dec in func_node.decorator_list:

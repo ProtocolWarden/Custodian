@@ -131,6 +131,7 @@ def _count_pattern(
     paths: list[Path],
     pattern: re.Pattern[str],
     *,
+    repo_root: Path,
     skip_comment_lines: bool = False,
 ) -> DetectorResult:
     samples: list[str] = []
@@ -140,11 +141,12 @@ def _count_pattern(
             raw = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
+        rel = path.relative_to(repo_root).as_posix()
         text = _strip_comment_lines(raw) if skip_comment_lines else raw
         for match in pattern.finditer(text):
             count += 1
             if len(samples) < _MAX_SAMPLES:
-                samples.append(f"{path}:{match.group(0)[:60]}")
+                samples.append(f"{rel}:{match.group(0)[:60]}")
     return DetectorResult(count=count, samples=samples)
 
 
@@ -218,6 +220,7 @@ def detect_c1(context: AuditContext) -> DetectorResult:
             raw = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
+        rel = path.relative_to(context.repo_root).as_posix()
         for lineno, line in enumerate(raw.splitlines(), 1):
             if not _TODO_RE.search(line):
                 continue
@@ -225,7 +228,7 @@ def detect_c1(context: AuditContext) -> DetectorResult:
                 continue
             count += 1
             if len(samples) < _MAX_SAMPLES:
-                samples.append(f"{path}:{lineno}: {line.strip()[:60]}")
+                samples.append(f"{rel}:{lineno}: {line.strip()[:60]}")
     return DetectorResult(count=count, samples=samples)
 
 
@@ -250,7 +253,7 @@ def detect_c2(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -289,13 +292,15 @@ def detect_c10(context: AuditContext) -> DetectorResult:
             if _NAIVE_DT_RE.search(line):
                 count += 1
                 if len(samples) < _MAX_SAMPLES:
-                    rel = path.relative_to(context.repo_root)
+                    rel = path.relative_to(context.repo_root).as_posix()
                     samples.append(f"{rel}:{lineno}: {line.strip()[:70]}")
     return DetectorResult(count=count, samples=samples)
 
 
 def detect_c6(context: AuditContext) -> DetectorResult:
-    return _count_pattern(_py_files(context, "C6"), re.compile(r"FIXME"))
+    return _count_pattern(
+        _py_files(context, "C6"), re.compile(r"FIXME"), repo_root=context.repo_root,
+    )
 
 
 def detect_c8(context: AuditContext) -> DetectorResult:
@@ -305,11 +310,12 @@ def detect_c8(context: AuditContext) -> DetectorResult:
     count = 0
     for path in _py_files(context, "C8"):
         text = path.read_text(encoding="utf-8")
+        rel = path.relative_to(context.repo_root).as_posix()
         for handler in stale_handlers:
             if handler in text and handler not in common_words:
                 count += 1
                 if len(samples) < _MAX_SAMPLES:
-                    samples.append(f"{path}:{handler}")
+                    samples.append(f"{rel}:{handler}")
     return DetectorResult(count=count, samples=samples)
 
 
@@ -368,7 +374,7 @@ def detect_c11(context: AuditContext) -> DetectorResult:
                 continue
             count += 1
             if len(samples) < _MAX_SAMPLES:
-                rel = path.relative_to(context.repo_root)
+                rel = path.relative_to(context.repo_root).as_posix()
                 samples.append(f"{rel}:{lineno}: {lines[lineno - 1].strip()[:60]}")
     return DetectorResult(count=count, samples=samples)
 
@@ -406,7 +412,7 @@ def detect_c4(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.ExceptHandler):
                 continue
@@ -472,7 +478,7 @@ def detect_c9(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.ExceptHandler):
                 continue
@@ -514,7 +520,7 @@ def detect_c23(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -562,13 +568,14 @@ def detect_c28(context: AuditContext) -> DetectorResult:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
+        rel = path.relative_to(context.repo_root).as_posix()
         for m in _IP_IN_STRING.finditer(text):
             ip = m.group(1)
             if ip in _EXCLUDED:
                 continue
             count += 1
             if len(samples) < _MAX_SAMPLES:
-                samples.append(f"{path}:{m.group(0)[:40]}")
+                samples.append(f"{rel}:{m.group(0)[:40]}")
     return DetectorResult(count=count, samples=samples)
 
 
@@ -596,7 +603,7 @@ def detect_c29(context: AuditContext) -> DetectorResult:
         if n > limit:
             count += 1
             if len(samples) < _MAX_SAMPLES:
-                rel = path.relative_to(context.repo_root)
+                rel = path.relative_to(context.repo_root).as_posix()
                 samples.append(f"{rel}: {n} lines (limit {limit})")
     return DetectorResult(count=count, samples=samples)
 
@@ -637,7 +644,7 @@ def detect_c31(context: AuditContext) -> DetectorResult:
                 continue
             count += 1
             if len(samples) < _MAX_SAMPLES:
-                rel = path.relative_to(context.repo_root)
+                rel = path.relative_to(context.repo_root).as_posix()
                 algo = m.group(1).lower()
                 samples.append(
                     f"{rel}:{lineno}: .{algo}() — add usedforsecurity=False if non-security use"
@@ -729,7 +736,7 @@ def detect_c32(context: AuditContext) -> DetectorResult:
             tree = ast.parse(text, filename=str(path))
         except (OSError, SyntaxError, UnicodeDecodeError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             # Variable assignments: password = "..."
             if isinstance(node, (ast.Assign, ast.AnnAssign)):
@@ -794,7 +801,7 @@ def detect_c33(context: AuditContext) -> DetectorResult:
         if len(markers) >= threshold:
             count += 1
             if len(samples) < _MAX_SAMPLES:
-                rel = path.relative_to(context.repo_root)
+                rel = path.relative_to(context.repo_root).as_posix()
                 samples.append(
                     f"{rel} — {len(markers)} ghost markers (TODO/FIXME/HACK/XXX)"
                 )
@@ -825,7 +832,7 @@ def detect_c13(context: AuditContext) -> DetectorResult:
     audit_cfg = context.config.get("audit") or {}
     extra_globs: list[str] = list(audit_cfg.get("c13_allowed_paths") or [])
     tests_rel = (
-        str(context.tests_root.relative_to(context.repo_root))
+        context.tests_root.relative_to(context.repo_root).as_posix()
         if context.tests_root.is_dir()
         else "tests"
     )
@@ -845,7 +852,7 @@ def detect_c13(context: AuditContext) -> DetectorResult:
             if _ENV_ACCESS_RE.search(line):
                 count += 1
                 if len(samples) < _MAX_SAMPLES:
-                    samples.append(f"{path}:{lineno}: {line.strip()[:60]}")
+                    samples.append(f"{rel}:{lineno}: {line.strip()[:60]}")
     return DetectorResult(count=count, samples=samples)
 
 
@@ -876,7 +883,7 @@ def detect_c15(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -915,7 +922,7 @@ def detect_c16(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -960,7 +967,7 @@ def detect_c17(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Compare):
                 continue
@@ -999,7 +1006,7 @@ def detect_c18(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         # format_spec of a FormattedValue is itself a JoinedStr but is not redundant
         format_spec_ids: set[int] = set()
         for node in ast.walk(tree):
@@ -1041,7 +1048,7 @@ def detect_c20(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Raise):
                 continue
@@ -1092,7 +1099,7 @@ def detect_c34(context: AuditContext) -> DetectorResult:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for match in _COMMENTED_DEF_RE.finditer(text):
             line_text = match.group(0).strip()
             # Skip lines that are part of a docstring (heuristic: if the match
@@ -1139,7 +1146,7 @@ def detect_c35(context: AuditContext) -> DetectorResult:
             raw = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         lines = raw.splitlines()
         try:
             tokens = list(_tokenize.generate_tokens(io.StringIO(raw).readline))
@@ -1200,7 +1207,7 @@ def detect_c36(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -1350,9 +1357,8 @@ def detect_c38(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw, filename=str(path))
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
-        rel_posix = rel.as_posix()
-        if excludes and any(glob_match(rel_posix, excl) for excl in excludes):
+        rel = path.relative_to(context.repo_root).as_posix()
+        if excludes and any(glob_match(rel, excl) for excl in excludes):
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1432,7 +1438,7 @@ def detect_c39(context: AuditContext) -> DetectorResult:
             continue
         visitor = _ExceptionContextVisitor()
         visitor.visit(tree)
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for lineno, name in visitor.findings:
             count += 1
             if len(samples) < _MAX_SAMPLES:
@@ -1507,7 +1513,7 @@ def detect_c40(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw, filename=str(path))
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         src_lines = raw.splitlines()
         for lineno in _collect_assert_linenos(tree):
             line = src_lines[lineno - 1] if 0 < lineno <= len(src_lines) else ""
@@ -1592,7 +1598,7 @@ def detect_c42(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw, filename=str(path))
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         src_lines = raw.splitlines()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
@@ -1637,7 +1643,7 @@ def detect_c43(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw, filename=str(path))
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         src_lines = raw.splitlines()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
@@ -1685,7 +1691,7 @@ def detect_c41(context: AuditContext) -> DetectorResult:
             tree = ast.parse(raw, filename=str(path))
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         src_lines = raw.splitlines()
         visitor = _JsonDumpsVisitor()
         visitor.visit(tree)

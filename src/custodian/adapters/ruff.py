@@ -63,7 +63,11 @@ def _make_relative(filename: str, repo_path: Path) -> str | None:
     try:
         return Path(filename).relative_to(repo_path).as_posix()
     except ValueError:
-        return filename or None
+        # Not under repo_path — the tool reported a cwd-relative path. Already
+        # repo-relative, but still in native separators, so normalise here too:
+        # this branch decides the spelling for every tool that reports relative
+        # paths, which is most of them (they run with cwd=repo_path).
+        return Path(filename).as_posix() if filename else None
 
 
 class RuffAdapter(ToolAdapter):

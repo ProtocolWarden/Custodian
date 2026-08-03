@@ -163,7 +163,9 @@ class CoverageAdapter(ToolAdapter):
         try:
             return Path(file_path).resolve().relative_to(repo_path.resolve()).as_posix()
         except ValueError:
-            return file_path
+            # Outside the repo, or already relative — normalise separators
+            # anyway, because _is_excluded glob-matches this very string.
+            return Path(file_path).as_posix() if file_path else file_path
 
     def _is_excluded(self, rel_path: str) -> bool:
         return any(glob_match(rel_path, p) for p in self._exclude_paths)

@@ -170,16 +170,17 @@ def _check_front_matter(
     the operator's first action is to add the block, not to enumerate the
     fields it should carry.
     """
+    rel_posix = rel.as_posix()
     try:
         text = md.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return []
     if not text.startswith("---"):
-        return [f"{rel}:1: missing YAML front matter (`---` block at top)"]
+        return [f"{rel_posix}:1: missing YAML front matter (`---` block at top)"]
     try:
         end = text.index("---", 3)
     except ValueError:
-        return [f"{rel}:1: front matter has no closing `---`"]
+        return [f"{rel_posix}:1: front matter has no closing `---`"]
     front = text[3:end]
     missing: list[str] = []
     for field in required_fields:
@@ -187,7 +188,7 @@ def _check_front_matter(
         # whitespace (operators sometimes indent for readability).
         rx = re.compile(rf"^\s*{re.escape(field)}\s*:", re.MULTILINE)
         if not rx.search(front):
-            missing.append(f"{rel}:1: front matter missing `{field}:` field")
+            missing.append(f"{rel_posix}:1: front matter missing `{field}:` field")
     return missing
 
 
@@ -267,7 +268,7 @@ def detect_dc2(ctx: AuditContext) -> DetectorResult:
                 for m in _DOC_REF_RE.finditer(line):
                     target = ctx.repo_root / m.group(1)
                     if not target.exists():
-                        samples.append(f"{rel}:{i}: dead reference `{m.group(1)}`")
+                        samples.append(f"{rel.as_posix()}:{i}: dead reference `{m.group(1)}`")
                         if len(samples) >= _MAX_SAMPLES * 2:
                             return DetectorResult(
                                 count=len(samples), samples=samples[:_MAX_SAMPLES],
@@ -290,7 +291,7 @@ def detect_dc3(ctx: AuditContext) -> DetectorResult:
             continue
         if not _ADR_NAME_RE.match(md.name):
             samples.append(
-                f"{md.relative_to(ctx.repo_root)}: doesn't match NNNN-kebab-case.md"
+                f"{md.relative_to(ctx.repo_root).as_posix()}: doesn't match NNNN-kebab-case.md"
             )
     return DetectorResult(count=len(samples), samples=samples[:_MAX_SAMPLES])
 
@@ -364,7 +365,7 @@ def detect_dc5(ctx: AuditContext) -> DetectorResult:
                 if re.search(r"`[^`]*[./:][^`]*`", line):
                     continue
                 if _BARE_SYMBOL_RE.search(line):
-                    samples.append(f"{rel}:{i}: bare symbol citation in Files: line")
+                    samples.append(f"{rel.as_posix()}:{i}: bare symbol citation in Files: line")
                     if len(samples) >= _MAX_SAMPLES * 2:
                         return DetectorResult(
                             count=len(samples), samples=samples[:_MAX_SAMPLES],

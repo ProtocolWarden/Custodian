@@ -96,12 +96,12 @@ def detect_arch2(context: AuditContext) -> DetectorResult:
         if path.name == "README.md":
             continue
         if path.suffix == ".json" and path.name.endswith(".schema.json"):
-            samples.append(f"{rel}: private topology repository should not define manifest schemas")
+            samples.append(f"{rel.as_posix()}: private topology repository should not define manifest schemas")
             continue
         if path.suffix == ".py":
             text = _read(path)
             if "Enum" in text or "RelationshipKind" in text or "ProjectionBehavior" in text:
-                samples.append(f"{rel}: private topology repository appears to define manifest vocabulary")
+                samples.append(f"{rel.as_posix()}: private topology repository appears to define manifest vocabulary")
     return DetectorResult(count=len(samples), samples=samples[:8])
 
 

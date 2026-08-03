@@ -269,7 +269,7 @@ def detect_d5(context: AuditContext) -> DetectorResult:
                 continue
             count += 1
             if len(samples) < _MAX_SAMPLES:
-                rel = path.relative_to(context.repo_root)
+                rel = path.relative_to(context.repo_root).as_posix()
                 samples.append(f"{rel}:{stmt.lineno}: class {name} — never referenced")
 
     return DetectorResult(count=count, samples=samples)
@@ -340,7 +340,7 @@ def detect_d6(context: AuditContext) -> DetectorResult:
                 continue
             count += 1
             if len(samples) < _MAX_SAMPLES:
-                rel = path.relative_to(context.repo_root)
+                rel = path.relative_to(context.repo_root).as_posix()
                 samples.append(
                     f"{rel}:{stmt.lineno}: class {name} — never constructed (referenced in annotations/imports only)"
                 )
@@ -831,7 +831,7 @@ def detect_d3(context: AuditContext) -> DetectorResult:
                 count += 1
                 if len(samples) < _MAX_SAMPLES:
                     samples.append(
-                        f"{rel}:{node.lineno}: {node.name}() — never returns, missing -> NoReturn"
+                        f"{rel_posix}:{node.lineno}: {node.name}() — never returns, missing -> NoReturn"
                     )
 
     return DetectorResult(count=count, samples=samples)
@@ -860,7 +860,7 @@ def detect_d4(context: AuditContext) -> DetectorResult:
     count = 0
 
     for path, tree, _src in context.graph.ast_forest.items():
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
@@ -942,7 +942,7 @@ def detect_f2(context: AuditContext) -> DetectorResult:
                 count += 1
                 if len(samples) < _MAX_SAMPLES:
                     lineno = getattr(checkable[name], "lineno", 0)
-                    rel = path.relative_to(context.repo_root)
+                    rel = path.relative_to(context.repo_root).as_posix()
                     samples.append(f"{rel}:{lineno}: {name} — defined but never used")
 
     return DetectorResult(count=count, samples=samples)
@@ -1040,7 +1040,6 @@ def detect_d8(context: AuditContext) -> DetectorResult:
             continue
 
         protocol_names = _protocol_class_names(tree)
-        rel = path.relative_to(context.repo_root)
 
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1065,7 +1064,7 @@ def detect_d8(context: AuditContext) -> DetectorResult:
             count += 1
             if len(samples) < _MAX_SAMPLES:
                 samples.append(
-                    f"{rel}:{node.lineno}: {node.name}() — returns value on some paths, falls through on others"
+                    f"{rel_str}:{node.lineno}: {node.name}() — returns value on some paths, falls through on others"
                 )
 
     return DetectorResult(count=count, samples=samples)
@@ -1096,7 +1095,6 @@ def detect_d9(context: AuditContext) -> DetectorResult:
         rel_str = path.relative_to(context.repo_root).as_posix()
         if exclude_globs and any(_glob_to_regex(g).match(rel_str) for g in exclude_globs):
             continue
-        rel = path.relative_to(context.repo_root)
 
         for node in ast.walk(tree):
             if not isinstance(node, ast.Try):
@@ -1111,7 +1109,7 @@ def detect_d9(context: AuditContext) -> DetectorResult:
                 count += 1
                 if len(samples) < _MAX_SAMPLES:
                     samples.append(
-                        f"{rel}:{handler.lineno}: except handler immediately re-raises — no-op, remove the try/except"
+                        f"{rel_str}:{handler.lineno}: except handler immediately re-raises — no-op, remove the try/except"
                     )
 
     return DetectorResult(count=count, samples=samples)
@@ -1237,7 +1235,7 @@ def detect_d10(context: AuditContext) -> DetectorResult:
             count += 1
             if len(samples) < _MAX_SAMPLES:
                 samples.append(
-                    f"{rel}:{node.lineno}: async def {node.name}() — no await expression"
+                    f"{rel_posix}:{node.lineno}: async def {node.name}() — no await expression"
                 )
 
     return DetectorResult(count=count, samples=samples)
@@ -1356,8 +1354,7 @@ def detect_d11(context: AuditContext) -> DetectorResult:
     groups: dict[str, list[tuple[str, int, str]]] = {}
 
     for path, tree, _src in context.graph.ast_forest.items():
-        rel = path.relative_to(context.repo_root)
-        rel_posix = rel.as_posix()
+        rel_posix = path.relative_to(context.repo_root).as_posix()
         if excludes and any(glob_match(rel_posix, g) for g in excludes):
             continue
         for node in ast.walk(tree):
@@ -1374,7 +1371,7 @@ def detect_d11(context: AuditContext) -> DetectorResult:
             # Cheap proxy for "non-trivial body": count tokens in signature.
             if len(sig.split("|")) < min_stmts:
                 continue
-            groups.setdefault(sig, []).append((str(rel), node.lineno, node.name))
+            groups.setdefault(sig, []).append((rel_posix, node.lineno, node.name))
 
     samples: list[str] = []
     count = 0
@@ -1455,8 +1452,8 @@ def detect_d12(context: AuditContext) -> DetectorResult:
         prod_refs |= _referenced_names_in_tree(tree)
         all_exports |= _module_all_exports(tree)
 
-        rel = path.relative_to(context.repo_root)
-        if excludes and any(glob_match(rel.as_posix(), g) for g in excludes):
+        rel = path.relative_to(context.repo_root).as_posix()
+        if excludes and any(glob_match(rel, g) for g in excludes):
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1474,7 +1471,7 @@ def detect_d12(context: AuditContext) -> DetectorResult:
                 continue
             if node.decorator_list:  # framework/runtime-invoked — never an in-repo caller
                 continue
-            defs.setdefault(name, (str(rel), node.lineno))
+            defs.setdefault(name, (rel, node.lineno))
 
     test_refs: set[str] = set()
     for _path, tree, _src in context.graph.tests_forest.items():

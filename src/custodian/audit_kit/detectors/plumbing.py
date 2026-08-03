@@ -257,7 +257,7 @@ def detect_p2(context: AuditContext) -> DetectorResult:
             if key not in written_keys:
                 count += 1
                 if len(samples) < _MAX_SAMPLES:
-                    rel = reader_path.relative_to(context.repo_root) if reader_path.is_relative_to(context.repo_root) else reader_path
+                    rel = (reader_path.relative_to(context.repo_root) if reader_path.is_relative_to(context.repo_root) else reader_path).as_posix()
                     samples.append(
                         f"[{artifact_id}] reader '{rel}' accesses key '{key}' "
                         f"not in written_keys (fragment: '{path_fragment}')"
@@ -339,7 +339,7 @@ def detect_p3(context: AuditContext) -> DetectorResult:
                 if not _has_string_literal(text, path_fragment):
                     count += 1
                     if len(samples) < _MAX_SAMPLES:
-                        rel = reader_path.relative_to(context.repo_root) if reader_path.is_relative_to(context.repo_root) else reader_path
+                        rel = (reader_path.relative_to(context.repo_root) if reader_path.is_relative_to(context.repo_root) else reader_path).as_posix()
                         samples.append(
                             f"[{artifact_id}] path_fragment '{path_fragment}' absent "
                             f"from reader '{rel}'"

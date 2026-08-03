@@ -73,7 +73,7 @@ def detect_g1(context: AuditContext) -> DetectorResult:
             lines = path.read_text(encoding="utf-8").splitlines()
         except (OSError, UnicodeDecodeError):
             continue
-        rel = path.relative_to(context.repo_root)
+        rel = path.relative_to(context.repo_root).as_posix()
         for lineno, line in enumerate(lines, 1):
             m = _TODO_LINE_RE.search(line)
             if not m:
