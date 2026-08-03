@@ -24,9 +24,9 @@ def _ctx(
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir(exist_ok=True)
     for name, body in src_files.items():
-        (src_dir / name).write_text(textwrap.dedent(body))
+        (src_dir / name).write_text(textwrap.dedent(body), encoding="utf-8")
     for name, body in test_files.items():
-        (tests_dir / name).write_text(textwrap.dedent(body))
+        (tests_dir / name).write_text(textwrap.dedent(body), encoding="utf-8")
 
     class _Graph:
         def __init__(self, af, tf):

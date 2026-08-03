@@ -22,7 +22,7 @@ def _make_ast_context(tmp_path: Path, src_files: dict[str, str], config: dict) -
         p = tmp_path / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         text = textwrap.dedent(content)
-        p.write_text(text)
+        p.write_text(text, encoding="utf-8")
         forest.trees[p] = _ast.parse(text)
         forest.sources[p] = text
     graph = AnalysisGraph(ast_forest=forest)
@@ -214,7 +214,7 @@ class TestA2DirectoryStructure:
     def test_missing_file_flagged(self, tmp_path):
         cap = tmp_path / "src" / "capabilities" / "feature"
         cap.mkdir(parents=True, exist_ok=True)
-        (cap / "domain.py").write_text("")
+        (cap / "domain.py").write_text("", encoding="utf-8")
         ctx = _make_dir_context(tmp_path, self._config(required_files=["domain.py", "ports.py"]))
         result = detect_d1(ctx)
         assert result.count == 1

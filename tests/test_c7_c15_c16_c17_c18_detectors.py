@@ -135,6 +135,93 @@ class TestC16:
         assert result.count == 0
 
 
+# ── C16: audit.c16_scan_tests ────────────────────────────────────────────────
+
+def _write_test_file(tmp_path: Path, body: str) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir(parents=True, exist_ok=True)
+    (tests_root / "test_fixture.py").write_text(textwrap.dedent(body), encoding="utf-8")
+
+
+class TestC16ScanTests:
+    """The blind spot: C16 only ever walked src_root.
+
+    A fixture writing ASCII without ``encoding=`` passes on every platform,
+    so the defect stays invisible until someone adds a non-ASCII character —
+    then it fails only where the locale cannot encode it. Three of this repo's
+    own tests broke on Windows that way while C16 reported clean (#67).
+    """
+
+    def test_tests_not_scanned_by_default(self, tmp_path):
+        """Default-off, so upgrading does not red-wall a repo with a backlog."""
+        ctx = _make_context(tmp_path, {"m.py": "x = 1\n"})
+        _write_test_file(tmp_path, "path.write_text(content)\n")
+        assert detect_c16(ctx).count == 0
+
+    def test_tests_scanned_when_enabled(self, tmp_path):
+        ctx = _make_context(
+            tmp_path, {"m.py": "x = 1\n"}, config={"audit": {"c16_scan_tests": True}},
+        )
+        _write_test_file(tmp_path, "path.write_text(content)\n")
+        result = detect_c16(ctx)
+        assert result.count == 1
+        assert result.samples[0].startswith("tests/test_fixture.py:")
+
+    def test_only_true_enables_it(self, tmp_path):
+        """`is True`, not truthiness — the v1 schema spells tools as dicts.
+
+        A bare truthiness test is what let `{"enabled": False}` switch a
+        disabled tool on; the same trap applies to any new opt-in flag.
+        """
+        _write_test_file(tmp_path, "path.write_text(content)\n")
+        for value in ("false", 0, None, {"enabled": False}):
+            ctx = _make_context(
+                tmp_path, {"m.py": "x = 1\n"},
+                config={"audit": {"c16_scan_tests": value}},
+            )
+            assert detect_c16(ctx).count == 0, f"{value!r} should not enable scanning"
+
+    def test_src_findings_still_reported_when_enabled(self, tmp_path):
+        ctx = _make_context(
+            tmp_path, {"m.py": "path.read_text()\n"},
+            config={"audit": {"c16_scan_tests": True}},
+        )
+        _write_test_file(tmp_path, "path.write_text(content)\n")
+        assert detect_c16(ctx).count == 2
+
+    def test_exclude_paths_apply_to_tests_too(self, tmp_path):
+        ctx = _make_context(
+            tmp_path, {"m.py": "x = 1\n"},
+            config={"audit": {
+                "c16_scan_tests": True,
+                "exclude_paths": {"C16": ["tests/**"]},
+            }},
+        )
+        _write_test_file(tmp_path, "path.write_text(content)\n")
+        assert detect_c16(ctx).count == 0
+
+    def test_missing_tests_root_is_not_an_error(self, tmp_path):
+        """A repo with no tests/ yet must not blow up when the flag is on."""
+        ctx = _make_context(
+            tmp_path, {"m.py": "path.read_text()\n"},
+            config={"audit": {"c16_scan_tests": True}},
+        )
+        assert not (tmp_path / "tests").exists()
+        assert detect_c16(ctx).count == 1
+
+    def test_tests_root_inside_src_root_is_not_double_counted(self, tmp_path):
+        """src/tests/ would otherwise be walked twice and report 2 for 1 call."""
+        src_root = tmp_path / "src"
+        nested = src_root / "tests"
+        nested.mkdir(parents=True, exist_ok=True)
+        (nested / "test_nested.py").write_text("path.write_text(x)\n", encoding="utf-8")
+        ctx = _make_context(tmp_path, {"m.py": "y = 1\n"}, config={
+            "audit": {"c16_scan_tests": True},
+        })
+        ctx.tests_root = nested
+        assert detect_c16(ctx).count == 1
+
+
 # ── C17: len(x) comparison ────────────────────────────────────────────────────
 
 class TestC17:

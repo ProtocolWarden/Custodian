@@ -49,7 +49,7 @@ def _write_pm(tmp_path: Path) -> Path:
     pm_dir = tmp_path / "PlatformManifest" / "src" / "platform_manifest" / "data"
     pm_dir.mkdir(parents=True)
     pm_path = pm_dir / "platform_manifest.yaml"
-    pm_path.write_text(_PM_YAML)
+    pm_path.write_text(_PM_YAML, encoding="utf-8")
     return pm_path
 
 
@@ -66,12 +66,12 @@ def _ctx(
     for relpath, body in src_files.items():
         p = src_dir / relpath
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(body)
+        p.write_text(body, encoding="utf-8")
     if md_files:
         for relpath, body in md_files.items():
             p = tmp_path / relpath
             p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(body)
+            p.write_text(body, encoding="utf-8")
     cfg = config or {}
     if repo_key:
         cfg = {**cfg, "repo_key": repo_key}
@@ -114,7 +114,7 @@ class TestX1:
 
     def test_public_label_in_markdown_caught(self, tmp_path):
         _write_pm(tmp_path)
-        (tmp_path / "README.md").write_text("OperatorConsolePublic launches the watcher.\n")
+        (tmp_path / "README.md").write_text("OperatorConsolePublic launches the watcher.\n", encoding="utf-8")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x1(ctx)
         assert result.count == 1
@@ -123,7 +123,7 @@ class TestX1:
 
     def test_public_label_in_yaml_caught(self, tmp_path):
         _write_pm(tmp_path)
-        (tmp_path / "config.yaml").write_text("target: OperationsCenterPublic\n")
+        (tmp_path / "config.yaml").write_text("target: OperationsCenterPublic\n", encoding="utf-8")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x1(ctx)
         assert result.count == 1
@@ -131,7 +131,7 @@ class TestX1:
 
     def test_public_label_in_yml_caught(self, tmp_path):
         _write_pm(tmp_path)
-        (tmp_path / "deploy.yml").write_text("service: OperatorConsolePublic\n")
+        (tmp_path / "deploy.yml").write_text("service: OperatorConsolePublic\n", encoding="utf-8")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x1(ctx)
         assert result.count == 1
@@ -141,7 +141,7 @@ class TestX1:
         _write_pm(tmp_path)
         venv_dir = tmp_path / ".venv" / "lib"
         venv_dir.mkdir(parents=True)
-        (venv_dir / "pkg.yaml").write_text("name: ControlPlane\n")
+        (venv_dir / "pkg.yaml").write_text("name: ControlPlane\n", encoding="utf-8")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         assert detect_x1(ctx).count == 0
 
@@ -294,7 +294,7 @@ class TestX2:
 
 class TestX3:
     def test_silent_when_no_manifest(self, tmp_path):
-        (tmp_path / "README.md").write_text("See https://github.com/ProtocolWarden/ControlPlane\n")
+        (tmp_path / "README.md").write_text("See https://github.com/ProtocolWarden/ControlPlane\n", encoding="utf-8")
         ctx = _ctx(tmp_path, {})
         assert detect_x3(ctx).count == 0
 
@@ -302,7 +302,7 @@ class TestX3:
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
             "See https://github.com/ProtocolWarden/OperationsCenterPublic for details.\n"
-        )
+        , encoding="utf-8")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x3(ctx)
         assert result.count == 1
@@ -313,7 +313,7 @@ class TestX3:
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
             "See https://github.com/ProtocolWarden/OperationsCenter\n"
-        )
+        , encoding="utf-8")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         assert detect_x3(ctx).count == 0
 
@@ -322,7 +322,7 @@ class TestX3:
         (tmp_path / "README.md").write_text(
             "- https://github.com/ProtocolWarden/OperationsCenterPublic\n"
             "- https://github.com/ProtocolWarden/OperatorConsolePublic\n"
-        )
+        , encoding="utf-8")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x3(ctx)
         assert result.count == 2
@@ -331,7 +331,7 @@ class TestX3:
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
             "See github.com/ProtocolWarden/OperationsCenterPublic\n"
-        )
+        , encoding="utf-8")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         result = detect_x3(ctx)
         assert result.count == 1
@@ -342,7 +342,7 @@ class TestX3:
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
             "See https://github.com/ProtocolWarden/SwitchBoard\n"
-        )
+        , encoding="utf-8")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         assert detect_x3(ctx).count == 0
 
@@ -362,7 +362,7 @@ class TestX3:
         history_dir.mkdir(parents=True)
         (history_dir / "notes.md").write_text(
             "Formerly github.com/ProtocolWarden/ControlPlane\n"
-        )
+        , encoding="utf-8")
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         assert detect_x3(ctx).count == 0
 
@@ -370,7 +370,7 @@ class TestX3:
         _write_pm(tmp_path)
         (tmp_path / "README.md").write_text(
             "See https://github.com/ProtocolWarden/ControlPlane\n"
-        )
+        , encoding="utf-8")
         ctx = _ctx(tmp_path, {}, config={
             "audit": {
                 "cross_repo": {"platform_manifest_repo": "PlatformManifest"},

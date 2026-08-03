@@ -30,13 +30,13 @@ def _ctx(
         for relpath, body in writer_files.items():
             p = tmp_path / relpath
             p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(body)
+            p.write_text(body, encoding="utf-8")
 
     if reader_files:
         for relpath, body in reader_files.items():
             p = tmp_path / relpath
             p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(body)
+            p.write_text(body, encoding="utf-8")
 
     config: dict = {"repo_key": "MyService", "src_root": "src", "tests_root": "tests"}
     if plumbing_cfg is not None:

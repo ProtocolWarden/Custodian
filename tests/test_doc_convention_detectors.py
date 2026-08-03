@@ -38,7 +38,7 @@ class TestDC1DesignFrontMatter:
     def test_missing_front_matter(self, tmp_path: Path):
         d = tmp_path / "docs" / "design"
         d.mkdir(parents=True)
-        (d / "spec.md").write_text("# Spec\n\nNo front matter here.\n")
+        (d / "spec.md").write_text("# Spec\n\nNo front matter here.\n", encoding="utf-8")
         result = detect_dc1(_ctx(tmp_path))
         assert result.count == 1
         assert "missing YAML front matter" in result.samples[0]
@@ -46,7 +46,7 @@ class TestDC1DesignFrontMatter:
     def test_front_matter_without_status(self, tmp_path: Path):
         d = tmp_path / "docs" / "design"
         d.mkdir(parents=True)
-        (d / "spec.md").write_text("---\ntitle: spec\n---\n\nbody\n")
+        (d / "spec.md").write_text("---\ntitle: spec\n---\n\nbody\n", encoding="utf-8")
         result = detect_dc1(_ctx(tmp_path))
         assert result.count == 1
         assert "missing `status:` field" in result.samples[0]
@@ -54,13 +54,13 @@ class TestDC1DesignFrontMatter:
     def test_compliant_spec_passes(self, tmp_path: Path):
         d = tmp_path / "docs" / "design"
         d.mkdir(parents=True)
-        (d / "spec.md").write_text("---\nstatus: draft\n---\n\nbody\n")
+        (d / "spec.md").write_text("---\nstatus: draft\n---\n\nbody\n", encoding="utf-8")
         assert detect_dc1(_ctx(tmp_path)).count == 0
 
     def test_custom_design_dir_via_config(self, tmp_path: Path):
         d = tmp_path / "specs"
         d.mkdir()
-        (d / "spec.md").write_text("no front matter\n")
+        (d / "spec.md").write_text("no front matter\n", encoding="utf-8")
         ctx = _ctx(tmp_path, {"doc_conventions": {"design_dir": "specs"}})
         assert detect_dc1(ctx).count == 1
 
@@ -71,12 +71,12 @@ class TestDC1DesignFrontMatter:
 class TestDC2DeadDocReferences:
     def test_resolved_reference_passes(self, tmp_path: Path):
         (tmp_path / "docs").mkdir()
-        (tmp_path / "docs" / "real.md").write_text("real content")
-        (tmp_path / "README.md").write_text("see `docs/real.md`")
+        (tmp_path / "docs" / "real.md").write_text("real content", encoding="utf-8")
+        (tmp_path / "README.md").write_text("see `docs/real.md`", encoding="utf-8")
         assert detect_dc2(_ctx(tmp_path)).count == 0
 
     def test_dead_reference_in_readme(self, tmp_path: Path):
-        (tmp_path / "README.md").write_text("see `docs/missing.md`")
+        (tmp_path / "README.md").write_text("see `docs/missing.md`", encoding="utf-8")
         result = detect_dc2(_ctx(tmp_path))
         assert result.count == 1
         assert "dead reference" in result.samples[0]
@@ -84,13 +84,13 @@ class TestDC2DeadDocReferences:
 
     def test_dead_reference_in_docs_tree(self, tmp_path: Path):
         (tmp_path / "docs").mkdir()
-        (tmp_path / "docs" / "guide.md").write_text("see `docs/missing.md` for details")
+        (tmp_path / "docs" / "guide.md").write_text("see `docs/missing.md` for details", encoding="utf-8")
         result = detect_dc2(_ctx(tmp_path))
         assert result.count == 1
 
     def test_history_dir_excluded_by_default(self, tmp_path: Path):
         (tmp_path / "docs" / "history").mkdir(parents=True)
-        (tmp_path / "docs" / "history" / "old.md").write_text("see `docs/dead.md`")
+        (tmp_path / "docs" / "history" / "old.md").write_text("see `docs/dead.md`", encoding="utf-8")
         assert detect_dc2(_ctx(tmp_path)).count == 0
 
 
@@ -104,13 +104,13 @@ class TestDC3ADRNaming:
     def test_compliant_adr_passes(self, tmp_path: Path):
         adr = tmp_path / "docs" / "architecture" / "adr"
         adr.mkdir(parents=True)
-        (adr / "0001-use-pydantic.md").write_text("ADR")
+        (adr / "0001-use-pydantic.md").write_text("ADR", encoding="utf-8")
         assert detect_dc3(_ctx(tmp_path)).count == 0
 
     def test_non_padded_ordinal_flagged(self, tmp_path: Path):
         adr = tmp_path / "docs" / "architecture" / "adr"
         adr.mkdir(parents=True)
-        (adr / "1-use-pydantic.md").write_text("ADR")
+        (adr / "1-use-pydantic.md").write_text("ADR", encoding="utf-8")
         result = detect_dc3(_ctx(tmp_path))
         assert result.count == 1
         assert "NNNN-kebab-case" in result.samples[0]
@@ -118,15 +118,15 @@ class TestDC3ADRNaming:
     def test_capital_kebab_flagged(self, tmp_path: Path):
         adr = tmp_path / "docs" / "architecture" / "adr"
         adr.mkdir(parents=True)
-        (adr / "0001-Use-Pydantic.md").write_text("ADR")
+        (adr / "0001-Use-Pydantic.md").write_text("ADR", encoding="utf-8")
         assert detect_dc3(_ctx(tmp_path)).count == 1
 
     def test_readme_template_index_exempt(self, tmp_path: Path):
         adr = tmp_path / "docs" / "architecture" / "adr"
         adr.mkdir(parents=True)
-        (adr / "README.md").write_text("ADR index")
-        (adr / "template.md").write_text("template")
-        (adr / "index.md").write_text("index")
+        (adr / "README.md").write_text("ADR index", encoding="utf-8")
+        (adr / "template.md").write_text("template", encoding="utf-8")
+        (adr / "index.md").write_text("index", encoding="utf-8")
         assert detect_dc3(_ctx(tmp_path)).count == 0
 
 
@@ -141,23 +141,23 @@ class TestDC4ReadmeRequiredSections:
     def test_both_sections_present(self, tmp_path: Path):
         (tmp_path / "README.md").write_text(
             "# Repo\n\n## Quick start\nfoo\n\n## Architecture\nbar\n",
-        )
+         encoding="utf-8")
         assert detect_dc4(_ctx(tmp_path)).count == 0
 
     def test_alt_phrasing_accepted(self, tmp_path: Path):
         (tmp_path / "README.md").write_text(
             "# Repo\n\n## Getting started\nfoo\n\n## How it works\nbar\n",
-        )
+         encoding="utf-8")
         assert detect_dc4(_ctx(tmp_path)).count == 0
 
     def test_missing_quick_start(self, tmp_path: Path):
-        (tmp_path / "README.md").write_text("# Repo\n\n## Architecture\nbar\n")
+        (tmp_path / "README.md").write_text("# Repo\n\n## Architecture\nbar\n", encoding="utf-8")
         result = detect_dc4(_ctx(tmp_path))
         assert result.count == 1
         assert "Quick start" in result.samples[0]
 
     def test_missing_both_sections(self, tmp_path: Path):
-        (tmp_path / "README.md").write_text("# Repo\n\nJust intro.\n")
+        (tmp_path / "README.md").write_text("# Repo\n\nJust intro.\n", encoding="utf-8")
         result = detect_dc4(_ctx(tmp_path))
         assert result.count == 2
 
@@ -171,13 +171,13 @@ class TestDC5BareSymbolCitations:
         d.mkdir(parents=True)
         (d / "spec.md").write_text(
             "**Files:** `module.foo_bar`, `path/file.py`\n",
-        )
+         encoding="utf-8")
         assert detect_dc5(_ctx(tmp_path)).count == 0
 
     def test_bare_symbol_flagged(self, tmp_path: Path):
         d = tmp_path / "docs" / "design"
         d.mkdir(parents=True)
-        (d / "spec.md").write_text("**Files:** `foo_bar`, `baz_qux`\n")
+        (d / "spec.md").write_text("**Files:** `foo_bar`, `baz_qux`\n", encoding="utf-8")
         result = detect_dc5(_ctx(tmp_path))
         assert result.count == 1
         assert "bare symbol citation" in result.samples[0]
@@ -185,13 +185,13 @@ class TestDC5BareSymbolCitations:
     def test_outside_impl_context_ignored(self, tmp_path: Path):
         d = tmp_path / "docs" / "design"
         d.mkdir(parents=True)
-        (d / "spec.md").write_text("Some prose mentioning `foo_bar` casually.\n")
+        (d / "spec.md").write_text("Some prose mentioning `foo_bar` casually.\n", encoding="utf-8")
         assert detect_dc5(_ctx(tmp_path)).count == 0
 
     def test_implementation_label_also_counts(self, tmp_path: Path):
         d = tmp_path / "docs" / "design"
         d.mkdir(parents=True)
-        (d / "spec.md").write_text("Implementation: `foo_bar`\n")
+        (d / "spec.md").write_text("Implementation: `foo_bar`\n", encoding="utf-8")
         assert detect_dc5(_ctx(tmp_path)).count == 1
 
 
@@ -255,7 +255,7 @@ class TestDC6DocsTaxonomy:
     def test_files_in_docs_root_not_flagged(self, tmp_path: Path):
         from custodian.audit_kit.detectors.doc_conventions import detect_dc6
         (tmp_path / "docs").mkdir()
-        (tmp_path / "docs" / "README.md").write_text("index")
+        (tmp_path / "docs" / "README.md").write_text("index", encoding="utf-8")
         ctx = _ctx(tmp_path, {"doc_conventions": {
             "allowed_doc_subdirs": ["architecture"],
         }})
@@ -273,23 +273,23 @@ class TestDC7OrphanDocs:
     def test_doc_linked_from_readme_passes(self, tmp_path: Path):
         from custodian.audit_kit.detectors.doc_conventions import detect_dc7
         (tmp_path / "docs").mkdir()
-        (tmp_path / "docs" / "guide.md").write_text("body")
-        (tmp_path / "README.md").write_text("see [guide](docs/guide.md)")
+        (tmp_path / "docs" / "guide.md").write_text("body", encoding="utf-8")
+        (tmp_path / "README.md").write_text("see [guide](docs/guide.md)", encoding="utf-8")
         assert detect_dc7(_ctx(tmp_path)).count == 0
 
     def test_doc_linked_via_backticked_path_passes(self, tmp_path: Path):
         from custodian.audit_kit.detectors.doc_conventions import detect_dc7
         (tmp_path / "docs").mkdir()
-        (tmp_path / "docs" / "guide.md").write_text("body")
-        (tmp_path / "docs" / "README.md").write_text("see `docs/guide.md`")
+        (tmp_path / "docs" / "guide.md").write_text("body", encoding="utf-8")
+        (tmp_path / "docs" / "README.md").write_text("see `docs/guide.md`", encoding="utf-8")
         assert detect_dc7(_ctx(tmp_path)).count == 0
 
     def test_orphan_doc_flagged(self, tmp_path: Path):
         from custodian.audit_kit.detectors.doc_conventions import detect_dc7
         (tmp_path / "docs").mkdir()
-        (tmp_path / "docs" / "orphan.md").write_text("body")
-        (tmp_path / "docs" / "linked.md").write_text("body")
-        (tmp_path / "README.md").write_text("see [linked](docs/linked.md)")
+        (tmp_path / "docs" / "orphan.md").write_text("body", encoding="utf-8")
+        (tmp_path / "docs" / "linked.md").write_text("body", encoding="utf-8")
+        (tmp_path / "README.md").write_text("see [linked](docs/linked.md)", encoding="utf-8")
         result = detect_dc7(_ctx(tmp_path))
         assert result.count == 1
         assert "docs/orphan.md" in result.samples[0]
@@ -297,7 +297,7 @@ class TestDC7OrphanDocs:
     def test_history_dir_excluded_by_default(self, tmp_path: Path):
         from custodian.audit_kit.detectors.doc_conventions import detect_dc7
         (tmp_path / "docs" / "history").mkdir(parents=True)
-        (tmp_path / "docs" / "history" / "old.md").write_text("body")
+        (tmp_path / "docs" / "history" / "old.md").write_text("body", encoding="utf-8")
         # No tracked doc references it; default excludes history/
         # so it doesn't get flagged.
         assert detect_dc7(_ctx(tmp_path)).count == 0
@@ -307,8 +307,8 @@ class TestDC7OrphanDocs:
         # Section indices (docs/**/README.md) are exempt — they're the
         # navigation surface, not consumable content.
         (tmp_path / "docs" / "ops").mkdir(parents=True)
-        (tmp_path / "docs" / "ops" / "README.md").write_text("ops index")
-        (tmp_path / "docs" / "README.md").write_text("docs index")
+        (tmp_path / "docs" / "ops" / "README.md").write_text("ops index", encoding="utf-8")
+        (tmp_path / "docs" / "README.md").write_text("docs index", encoding="utf-8")
         assert detect_dc7(_ctx(tmp_path)).count == 0
 
     def test_relative_link_from_sibling_doc_resolves(self, tmp_path: Path):
@@ -316,14 +316,14 @@ class TestDC7OrphanDocs:
         (tmp_path / "docs" / "ops").mkdir(parents=True)
         (tmp_path / "docs" / "ops" / "page.md").write_text(
             "[other](other.md)\n",
-        )
-        (tmp_path / "docs" / "ops" / "other.md").write_text("body")
+         encoding="utf-8")
+        (tmp_path / "docs" / "ops" / "other.md").write_text("body", encoding="utf-8")
         # ops/page.md links other.md as a sibling — resolves to docs/ops/other.md.
         # docs/ops/page.md itself needs a citation though, so we add one
         # in a top-level doc.
         (tmp_path / "docs" / "README.md").write_text(
             "[ops page](ops/page.md)",
-        )
+         encoding="utf-8")
         assert detect_dc7(_ctx(tmp_path)).count == 0
 
 
@@ -336,14 +336,14 @@ class TestDC1FrontMatterSchemas:
         (tmp_path / "docs" / "architecture" / "adr").mkdir(parents=True)
         (tmp_path / "docs" / "architecture" / "adr" / "0001-foo.md").write_text(
             "# ADR\n\nNo front matter.\n",
-        )
+         encoding="utf-8")
         assert detect_dc1(_ctx(tmp_path)).count == 0
 
     def test_schema_requires_listed_fields(self, tmp_path: Path):
         (tmp_path / "docs" / "architecture" / "adr").mkdir(parents=True)
         (tmp_path / "docs" / "architecture" / "adr" / "0001-foo.md").write_text(
             "---\nstatus: accepted\n---\n\nADR body\n",
-        )
+         encoding="utf-8")
         ctx = _ctx(tmp_path, {"doc_conventions": {
             "front_matter_schemas": {
                 "docs/architecture/adr/*.md": ["date", "status", "deciders"],
@@ -359,7 +359,7 @@ class TestDC1FrontMatterSchemas:
         (tmp_path / "docs" / "architecture" / "adr").mkdir(parents=True)
         (tmp_path / "docs" / "architecture" / "adr" / "0001-foo.md").write_text(
             "---\ndate: 2026-01-01\nstatus: accepted\ndeciders: [a, b]\n---\nbody\n",
-        )
+         encoding="utf-8")
         ctx = _ctx(tmp_path, {"doc_conventions": {
             "front_matter_schemas": {
                 "docs/architecture/adr/*.md": ["date", "status", "deciders"],
@@ -370,9 +370,9 @@ class TestDC1FrontMatterSchemas:
     def test_schema_skips_template_and_readme(self, tmp_path: Path):
         adr = tmp_path / "docs" / "architecture" / "adr"
         adr.mkdir(parents=True)
-        (adr / "template.md").write_text("# template\n")
-        (adr / "README.md").write_text("# index\n")
-        (adr / "index.md").write_text("# also index\n")
+        (adr / "template.md").write_text("# template\n", encoding="utf-8")
+        (adr / "README.md").write_text("# index\n", encoding="utf-8")
+        (adr / "index.md").write_text("# also index\n", encoding="utf-8")
         ctx = _ctx(tmp_path, {"doc_conventions": {
             "front_matter_schemas": {
                 "docs/architecture/adr/*.md": ["status"],
@@ -384,7 +384,7 @@ class TestDC1FrontMatterSchemas:
         (tmp_path / "docs" / "ops").mkdir(parents=True)
         (tmp_path / "docs" / "ops" / "runbook.md").write_text(
             "# Runbook\n\nNo front matter at all.\n",
-        )
+         encoding="utf-8")
         ctx = _ctx(tmp_path, {"doc_conventions": {
             "front_matter_schemas": {
                 "docs/ops/*.md": ["status", "owner", "last_reviewed"],
@@ -399,11 +399,11 @@ class TestDC1FrontMatterSchemas:
         (tmp_path / "docs" / "design").mkdir(parents=True)
         (tmp_path / "docs" / "design" / "spec.md").write_text(
             "# spec without front matter\n",
-        )
+         encoding="utf-8")
         (tmp_path / "docs" / "ops").mkdir(parents=True)
         (tmp_path / "docs" / "ops" / "runbook.md").write_text(
             "---\nstatus: ready\n---\nbody\n",
-        )
+         encoding="utf-8")
         ctx = _ctx(tmp_path, {"doc_conventions": {
             "front_matter_schemas": {
                 "docs/ops/*.md": ["status", "owner"],
@@ -431,7 +431,7 @@ class TestDC8SectionOrdering:
             "## Quick start\n```\npip install\n```\n\n"
             "## Architecture\nLayered.\n\n"
             "## License\nMIT\n",
-        )
+         encoding="utf-8")
         assert detect_dc8(_ctx(tmp_path)).count == 0
 
     def test_quick_start_after_architecture_flagged(self, tmp_path: Path):
@@ -441,7 +441,7 @@ class TestDC8SectionOrdering:
             "## Architecture\nfirst\n\n"
             "## Quick start\nsecond\n\n"
             "## License\n\n",
-        )
+         encoding="utf-8")
         result = detect_dc8(_ctx(tmp_path))
         assert result.count >= 1
         assert any("Architecture" in s and "Quick start" in s for s in result.samples)
@@ -453,7 +453,7 @@ class TestDC8SectionOrdering:
             "## License\nMIT\n\n"
             "## Quick start\n```\npip install\n```\n\n"
             "## Architecture\nLayered\n\n",
-        )
+         encoding="utf-8")
         result = detect_dc8(_ctx(tmp_path))
         assert result.count >= 1
 
@@ -466,7 +466,7 @@ class TestDC8SectionOrdering:
             "## My Custom Section\nrandom\n\n"
             "## Another Custom Section\nrandom\n\n"
             "## License\n\n",
-        )
+         encoding="utf-8")
         # Custom sections are in the middle but aren't in the order
         # list — they should be silently ignored.
         assert detect_dc8(_ctx(tmp_path)).count == 0
@@ -477,14 +477,14 @@ class TestDC8SectionOrdering:
         # ones; DC8 only enforces ordering of present sections.
         (tmp_path / "README.md").write_text(
             "# Repo\n\n## Quick start\nfoo\n\n## License\n\n",
-        )
+         encoding="utf-8")
         assert detect_dc8(_ctx(tmp_path)).count == 0
 
     def test_custom_order_via_config(self, tmp_path: Path):
         from custodian.audit_kit.detectors.doc_conventions import detect_dc8
         (tmp_path / "README.md").write_text(
             "# Repo\n\n## Public API\nfirst\n\n## Examples\nsecond\n\n",
-        )
+         encoding="utf-8")
         # Custom order: Examples should come before Public API
         ctx = _ctx(tmp_path, {"doc_conventions": {
             "required_section_order": [
@@ -504,15 +504,15 @@ class TestDC9IndexCoverage:
     def _repo(self, tmp_path: Path, *, index_text: str) -> Path:
         arch = tmp_path / "docs" / "architecture"
         arch.mkdir(parents=True)
-        (tmp_path / "docs" / "README.md").write_text(index_text)
-        (arch / "indexed.md").write_text("# Indexed")
-        (arch / "sibling-only.md").write_text("# Cited only by a sibling")
+        (tmp_path / "docs" / "README.md").write_text(index_text, encoding="utf-8")
+        (arch / "indexed.md").write_text("# Indexed", encoding="utf-8")
+        (arch / "sibling-only.md").write_text("# Cited only by a sibling", encoding="utf-8")
         # The DC7 escape hatch this detector exists to close: a sibling link
         # keeps sibling-only.md from being an orphan, but not from being
         # missing from the index.
         (arch / "indexed.md").write_text(
             "# Indexed\n\nSee [sibling](sibling-only.md).\n"
-        )
+        , encoding="utf-8")
         return tmp_path
 
     def test_silent_when_config_unset(self, tmp_path: Path):
@@ -523,7 +523,7 @@ class TestDC9IndexCoverage:
     def test_silent_when_no_index_file(self, tmp_path: Path):
         from custodian.audit_kit.detectors.doc_conventions import detect_dc9
         (tmp_path / "docs" / "architecture").mkdir(parents=True)
-        (tmp_path / "docs" / "architecture" / "a.md").write_text("# A")
+        (tmp_path / "docs" / "architecture" / "a.md").write_text("# A", encoding="utf-8")
         ctx = _ctx(tmp_path, {"doc_conventions": {"dc9_index_dirs": ["docs/architecture"]}})
         assert detect_dc9(ctx).count == 0
 
@@ -571,16 +571,16 @@ class TestDC9IndexCoverage:
             ),
         )
         arch = repo / "docs" / "architecture"
-        (arch / "README.md").write_text("# section index")        # exempt
+        (arch / "README.md").write_text("# section index", encoding="utf-8")        # exempt
         (arch / "archive").mkdir()
-        (arch / "archive" / "old.md").write_text("# archived")    # excluded
+        (arch / "archive" / "old.md").write_text("# archived", encoding="utf-8")    # excluded
         ctx = _ctx(tmp_path, {"doc_conventions": {"dc9_index_dirs": ["docs/architecture"]}})
         assert detect_dc9(ctx).count == 0
 
     def test_missing_configured_dir_is_silent(self, tmp_path: Path):
         from custodian.audit_kit.detectors.doc_conventions import detect_dc9
         (tmp_path / "docs").mkdir()
-        (tmp_path / "docs" / "README.md").write_text("index")
+        (tmp_path / "docs" / "README.md").write_text("index", encoding="utf-8")
         ctx = _ctx(tmp_path, {"doc_conventions": {"dc9_index_dirs": ["docs/nope"]}})
         assert detect_dc9(ctx).count == 0
 

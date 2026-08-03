@@ -12,6 +12,12 @@ audit:
   # enforcement: R1 (oversized log) + R2 (private-name leak) now fail-closed here.
   reconcile_enforce: true
 
+  # C16 scans tests/ here too. Same dogfooding stance as reconcile_enforce:
+  # the backlog is cleared, so the gate stays on. This is the blind spot that
+  # let three tests write cp1252 and fail only on Windows (#67) while C16
+  # reported clean — it only ever walked src_root.
+  c16_scan_tests: true
+
   # CAP1 — enforce that the capabilities this repo owns (repo_health_audit) point
   # at invocation.ref code that resolves here (custodian-multi in [project.scripts]).
   # registry_repo locates the capability registry + manifest without enabling the

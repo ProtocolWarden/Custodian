@@ -31,7 +31,7 @@ def _ctx(tmp_path: Path, src_files: dict[str, str], *, config: dict | None = Non
     for relpath, body in src_files.items():
         p = src_dir / relpath
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(body)
+        p.write_text(body, encoding="utf-8")
     return AuditContext(
         repo_root=tmp_path,
         src_root=src_dir,
@@ -46,7 +46,7 @@ def _write_pm(tmp_path: Path) -> Path:
     pm_dir = tmp_path / "PlatformManifest" / "src" / "platform_manifest" / "data"
     pm_dir.mkdir(parents=True)
     pm_path = pm_dir / "platform_manifest.yaml"
-    pm_path.write_text(_PM_YAML)
+    pm_path.write_text(_PM_YAML, encoding="utf-8")
     return pm_path
 
 
@@ -79,7 +79,7 @@ class TestX1:
 
     def test_public_label_in_markdown_caught(self, tmp_path):
         _write_pm(tmp_path)
-        (tmp_path / "README.md").write_text("OperatorConsolePublic launches the watcher.\n")
+        (tmp_path / "README.md").write_text("OperatorConsolePublic launches the watcher.\n", encoding="utf-8")
         ctx = _ctx(
             tmp_path,
             {},

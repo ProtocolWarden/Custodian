@@ -60,6 +60,8 @@ _KNOWN_AUDIT_KEYS = frozenset({
     "k1_extra_doc_dirs", "known_values",
     # F1/F3 dead-code keys
     "f1_exempt", "f3_validate_functions", "f3_exempt",
+    # C16 (missing encoding=) opt-in to scan tests_root as well as src_root.
+    "c16_scan_tests",
     # D11 (duplicate-function) tuning
     "d11_min_statements", "d11_min_lines",
     # D12 (tested-but-never-wired) baseline ratchet: accepted symbol names.

@@ -502,21 +502,21 @@ class TestDetectS4:
         (tests / "conftest.py").write_text(
             "import sys\n_ACTIVE_PREFIX = sys.prefix\n_EXPECTED_VENV = '.venv'\n"
             "if _ACTIVE_PREFIX != _EXPECTED_VENV: raise SystemExit('wrong env')\n"
-        )
+        , encoding="utf-8")
         ctx = self._ctx(tmp_path)
         assert detect_s4(ctx).count == 0
 
     def test_conftest_with_expected_venv_marker_passes(self, tmp_path):
         tests = tmp_path / "tests"
         tests.mkdir()
-        (tests / "conftest.py").write_text("_EXPECTED_VENV = '.venv'\n")
+        (tests / "conftest.py").write_text("_EXPECTED_VENV = '.venv'\n", encoding="utf-8")
         ctx = self._ctx(tmp_path)
         assert detect_s4(ctx).count == 0
 
     def test_conftest_without_guard_returns_one(self, tmp_path):
         tests = tmp_path / "tests"
         tests.mkdir()
-        (tests / "conftest.py").write_text("import pytest\n# just fixtures\n")
+        (tests / "conftest.py").write_text("import pytest\n# just fixtures\n", encoding="utf-8")
         ctx = self._ctx(tmp_path)
         result = detect_s4(ctx)
         assert result.count == 1

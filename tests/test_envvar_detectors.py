@@ -29,11 +29,11 @@ def _e1(tmp_path, config=None):
 def _write_src(tmp_path: Path, code: str, name: str = "app.py") -> None:
     src = tmp_path / "src"
     src.mkdir(exist_ok=True)
-    (src / name).write_text(code)
+    (src / name).write_text(code, encoding="utf-8")
 
 
 def _write_example(tmp_path: Path, content: str) -> None:
-    (tmp_path / ".env.example").write_text(content)
+    (tmp_path / ".env.example").write_text(content, encoding="utf-8")
 
 
 # ── E1: env-var drift ─────────────────────────────────────────────────────────

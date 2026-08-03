@@ -43,8 +43,8 @@ _CAP_YAML = textwrap.dedent("""\
 def _write_registry(tmp_path: Path, *, cap_yaml: str = _CAP_YAML) -> None:
     data = tmp_path / "PlatformManifest" / "src" / "platform_manifest" / "data"
     data.mkdir(parents=True, exist_ok=True)
-    (data / "platform_manifest.yaml").write_text(_PM_YAML)
-    (data / "capabilities.yaml").write_text(cap_yaml)
+    (data / "platform_manifest.yaml").write_text(_PM_YAML, encoding="utf-8")
+    (data / "capabilities.yaml").write_text(cap_yaml, encoding="utf-8")
 
 
 def _ctx(
@@ -60,9 +60,9 @@ def _ctx(
     for relpath, body in src_files.items():
         p = src_dir / relpath
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(body)
+        p.write_text(body, encoding="utf-8")
     if pyproject is not None:
-        (tmp_path / "pyproject.toml").write_text(pyproject)
+        (tmp_path / "pyproject.toml").write_text(pyproject, encoding="utf-8")
     audit: dict = {"cross_repo": {"platform_manifest_repo": "PlatformManifest"}}
     if enforce:
         audit["capabilities"] = {"enforce": True}
@@ -163,7 +163,7 @@ def test_silent_when_registry_absent(tmp_path: Path) -> None:
     # manifest present, capabilities.yaml absent
     data = tmp_path / "PlatformManifest" / "src" / "platform_manifest" / "data"
     data.mkdir(parents=True)
-    (data / "platform_manifest.yaml").write_text(_PM_YAML)
+    (data / "platform_manifest.yaml").write_text(_PM_YAML, encoding="utf-8")
     ctx = _ctx(tmp_path, {})
     assert detect_cap1(ctx).count == 0
 
@@ -176,7 +176,7 @@ def _ctx_registry_repo(tmp_path: Path, src_files: dict[str, str]) -> AuditContex
     for relpath, body in src_files.items():
         p = src_dir / relpath
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(body)
+        p.write_text(body, encoding="utf-8")
     return AuditContext(
         repo_root=tmp_path,
         src_root=src_dir,

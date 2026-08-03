@@ -59,7 +59,7 @@ class TestW1ConsoleStructure:
         console = tmp_path / ".console"
         console.mkdir()
         for f in _REQUIRED_CONSOLE_FILES:
-            (console / f).write_text("")
+            (console / f).write_text("", encoding="utf-8")
         result = _w1(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 0
 
@@ -67,7 +67,7 @@ class TestW1ConsoleStructure:
         console = tmp_path / ".console"
         console.mkdir()
         for f in _REQUIRED_CONSOLE_FILES:
-            (console / f).write_text("")
+            (console / f).write_text("", encoding="utf-8")
         (console / "log.md").unlink()
         result = _w1(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 1
@@ -76,7 +76,7 @@ class TestW1ConsoleStructure:
     def test_missing_multiple_files_flagged(self, tmp_path):
         console = tmp_path / ".console"
         console.mkdir()
-        (console / "task.md").write_text("")
+        (console / "task.md").write_text("", encoding="utf-8")
         result = _w1(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 3  # guidelines, backlog, log missing
 
@@ -89,9 +89,9 @@ class TestW1ConsoleStructure:
         console = tmp_path / ".console"
         console.mkdir()
         for f in _REQUIRED_CONSOLE_FILES:
-            (console / f).write_text("")
-        (console / ".context").write_text("generated")
-        (console / "extra.md").write_text("")
+            (console / f).write_text("", encoding="utf-8")
+        (console / ".context").write_text("generated", encoding="utf-8")
+        (console / "extra.md").write_text("", encoding="utf-8")
         result = _w1(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 0
 
@@ -104,7 +104,7 @@ class TestW1ConsoleStructure:
 class TestW2HooksWiring:
     def _write_git_config(self, tmp_path: Path, content: str) -> None:
         (tmp_path / ".git").mkdir(exist_ok=True)
-        (tmp_path / ".git" / "config").write_text(content)
+        (tmp_path / ".git" / "config").write_text(content, encoding="utf-8")
 
     def test_no_pre_commit_hook_passes(self, tmp_path):
         result = _w2(tmp_path).detect(_ctx(tmp_path))
@@ -112,14 +112,14 @@ class TestW2HooksWiring:
 
     def test_hook_wired_passes(self, tmp_path):
         (tmp_path / ".hooks").mkdir()
-        (tmp_path / ".hooks" / "pre-commit").write_text("#!/bin/bash\n")
+        (tmp_path / ".hooks" / "pre-commit").write_text("#!/bin/bash\n", encoding="utf-8")
         self._write_git_config(tmp_path, "[core]\n\thooksPath = .hooks\n")
         result = _w2(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 0
 
     def test_hook_not_wired_flagged(self, tmp_path):
         (tmp_path / ".hooks").mkdir()
-        (tmp_path / ".hooks" / "pre-commit").write_text("#!/bin/bash\n")
+        (tmp_path / ".hooks" / "pre-commit").write_text("#!/bin/bash\n", encoding="utf-8")
         self._write_git_config(tmp_path, "[core]\n\tfileMode = true\n")
         result = _w2(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 1
@@ -128,14 +128,14 @@ class TestW2HooksWiring:
 
     def test_hook_no_git_config_passes(self, tmp_path):
         (tmp_path / ".hooks").mkdir()
-        (tmp_path / ".hooks" / "pre-commit").write_text("#!/bin/bash\n")
+        (tmp_path / ".hooks" / "pre-commit").write_text("#!/bin/bash\n", encoding="utf-8")
         # .git dir exists (created by _ctx) but no config file
         result = _w2(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 0
 
     def test_case_insensitive_hookspath(self, tmp_path):
         (tmp_path / ".hooks").mkdir()
-        (tmp_path / ".hooks" / "pre-commit").write_text("#!/bin/bash\n")
+        (tmp_path / ".hooks" / "pre-commit").write_text("#!/bin/bash\n", encoding="utf-8")
         self._write_git_config(tmp_path, "[core]\n\thookspath = .hooks\n")
         result = _w2(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 0
@@ -150,7 +150,7 @@ class TestW3HookContent:
     def _write_hook(self, tmp_path: Path, content: str) -> None:
         hooks = tmp_path / ".hooks"
         hooks.mkdir(exist_ok=True)
-        (hooks / "pre-commit").write_text(content)
+        (hooks / "pre-commit").write_text(content, encoding="utf-8")
 
     def test_no_hook_passes(self, tmp_path):
         result = _w3(tmp_path).detect(_ctx(tmp_path))
@@ -209,18 +209,18 @@ class TestW4GitmodulesBranch:
         assert result.count == 0
 
     def test_submodule_with_branch_passes(self, tmp_path):
-        (tmp_path / ".gitmodules").write_text(_GITMODULES_WITH_BRANCH)
+        (tmp_path / ".gitmodules").write_text(_GITMODULES_WITH_BRANCH, encoding="utf-8")
         result = _w4(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 0
 
     def test_submodule_missing_branch_flagged(self, tmp_path):
-        (tmp_path / ".gitmodules").write_text(_GITMODULES_MISSING_BRANCH)
+        (tmp_path / ".gitmodules").write_text(_GITMODULES_MISSING_BRANCH, encoding="utf-8")
         result = _w4(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 1
         assert "zonos" in result.samples[0]
 
     def test_multi_submodule_one_missing_flagged(self, tmp_path):
-        (tmp_path / ".gitmodules").write_text(_GITMODULES_MULTI_ONE_MISSING)
+        (tmp_path / ".gitmodules").write_text(_GITMODULES_MULTI_ONE_MISSING, encoding="utf-8")
         result = _w4(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 1
         assert "external/b" in result.samples[0]
@@ -237,24 +237,24 @@ class TestW5EnvExample:
         assert result.count == 0
 
     def test_gitignore_no_env_passes(self, tmp_path):
-        (tmp_path / ".gitignore").write_text("*.pyc\n__pycache__/\n")
+        (tmp_path / ".gitignore").write_text("*.pyc\n__pycache__/\n", encoding="utf-8")
         result = _w5(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 0
 
     def test_env_ignored_with_example_passes(self, tmp_path):
-        (tmp_path / ".gitignore").write_text(".env\n.env.local\n")
-        (tmp_path / ".env.example").write_text("# env vars\n")
+        (tmp_path / ".gitignore").write_text(".env\n.env.local\n", encoding="utf-8")
+        (tmp_path / ".env.example").write_text("# env vars\n", encoding="utf-8")
         result = _w5(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 0
 
     def test_env_ignored_no_example_flagged(self, tmp_path):
-        (tmp_path / ".gitignore").write_text(".env\n.env.local\n")
+        (tmp_path / ".gitignore").write_text(".env\n.env.local\n", encoding="utf-8")
         result = _w5(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 1
         assert ".env.example is missing" in result.samples[0]
 
     def test_env_local_only_does_not_trigger(self, tmp_path):
-        (tmp_path / ".gitignore").write_text(".env.local\n.env.*.local\n")
+        (tmp_path / ".gitignore").write_text(".env.local\n.env.*.local\n", encoding="utf-8")
         result = _w5(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 0
 
@@ -272,7 +272,7 @@ class TestW6HookRequired:
     def test_console_with_hook_passes(self, tmp_path):
         (tmp_path / ".console").mkdir()
         (tmp_path / ".hooks").mkdir()
-        (tmp_path / ".hooks" / "pre-commit").write_text("#!/bin/bash\n")
+        (tmp_path / ".hooks" / "pre-commit").write_text("#!/bin/bash\n", encoding="utf-8")
         result = _w6(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 0
 
@@ -285,7 +285,7 @@ class TestW6HookRequired:
     def test_console_with_hooks_dir_but_no_pre_commit_flagged(self, tmp_path):
         (tmp_path / ".console").mkdir()
         (tmp_path / ".hooks").mkdir()
-        (tmp_path / ".hooks" / "pre-push").write_text("#!/bin/bash\n")
+        (tmp_path / ".hooks" / "pre-push").write_text("#!/bin/bash\n", encoding="utf-8")
         result = _w6(tmp_path).detect(_ctx(tmp_path))
         assert result.count == 1
 
