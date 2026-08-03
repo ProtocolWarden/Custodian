@@ -83,6 +83,31 @@ class TestLiterals:
         assert not glob_match("aab", "a+b")
 
 
+class TestSeparatorNormalisation:
+    """Backslash paths must match forward-slash globs.
+
+    Globs are posix by contract, but callers stringify ``Path`` objects that
+    are backslash-separated on Windows. Matching one against the other used to
+    return False and void the exclusion silently. Written against literal
+    backslash strings so these fail on POSIX too if the normalisation is
+    removed — a platform-conditional test would not have caught the original.
+    """
+
+    def test_backslash_path_matches_posix_glob(self):
+        assert glob_match(r"src\config\api_toggles.py", "src/config/**")
+
+    def test_backslash_path_matches_recursive_glob(self):
+        assert glob_match(r"src\a\b\c.py", "src/**/*.py")
+
+    def test_forward_slash_path_still_matches(self):
+        assert glob_match("src/config/api_toggles.py", "src/config/**")
+
+    def test_normalisation_does_not_make_everything_match(self):
+        """Guard against 'fixing' this by loosening the matcher."""
+        assert not glob_match(r"src\workflow\stage.py", "src/config/**")
+        assert not glob_match(r"src\foo\bar.py", "src/*.py")
+
+
 class TestRealWorldPatterns:
     @pytest.mark.parametrize("path,pattern,expected", [
         # The bug we hit twice: `**/*.py` should recurse.

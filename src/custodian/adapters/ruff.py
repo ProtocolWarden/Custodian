@@ -57,8 +57,11 @@ def _severity_for(code: str) -> str:
 
 
 def _make_relative(filename: str, repo_path: Path) -> str | None:
+    # `.as_posix()`, not `str()`: on Windows the latter yields `src\foo\bar.py`,
+    # which no forward-slash config glob can match. Finding paths are compared
+    # against posix-authored globs, so they must be posix on every platform.
     try:
-        return str(Path(filename).relative_to(repo_path))
+        return Path(filename).relative_to(repo_path).as_posix()
     except ValueError:
         return filename or None
 

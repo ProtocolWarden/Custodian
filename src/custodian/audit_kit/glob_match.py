@@ -41,8 +41,18 @@ from functools import lru_cache
 
 
 def glob_match(path: str, pattern: str) -> bool:
-    """Match a posix-style path against a recursive glob pattern."""
-    return _compile(pattern).match(path) is not None
+    """Match a path against a recursive glob pattern.
+
+    ``path`` is normalised to posix form first. Config globs are always
+    authored with forward slashes (``src/config/**``), but a caller that
+    stringifies a ``Path`` on Windows hands us ``src\\config\\api.py``.
+    Matching one against the other silently returns False, which turns every
+    exclusion into a no-op and re-reports adjudicated exemptions as findings
+    (see PR #55). Normalising here keeps the invariant — **globs always match
+    against posix paths** — in one place, rather than depending on all ~27
+    call sites remembering ``.as_posix()``.
+    """
+    return _compile(pattern).match(path.replace("\\", "/")) is not None
 
 
 @lru_cache(maxsize=512)

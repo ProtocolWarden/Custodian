@@ -123,7 +123,9 @@ class VultureAdapter(ToolAdapter):
                 continue
             path_str = m.group("path")
             try:
-                rel = str(Path(path_str).relative_to(repo_path))
+                # `.as_posix()`, not `str()`: on Windows the latter yields
+                # `src\foo\bar.py`, which no forward-slash config glob matches.
+                rel = Path(path_str).relative_to(repo_path).as_posix()
             except ValueError:
                 rel = path_str
             message = m.group("message")
