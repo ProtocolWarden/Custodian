@@ -21,14 +21,15 @@ __pycache__/
 # Machine-local injection telemetry (engine writes sessions/.telemetry/ on
 # route fires; this repo's .context is otherwise session-less and tracked)
 /.context/sessions/
-# Log archive IS tracked (was untracked until 2026-08-03). RC1's line budget globs
-# `.console/*.md` — top level only, since `*` does not cross `/` — so history split
-# out of log.md lives in a subdir: exempt from the budget, but still inside RC2's
-# `.console/**` leak scan. Untracked here would mean neither committed nor scanned.
-# Negates `.console/*` above; the directory itself must be re-included, because git
-# does not descend into an excluded directory to find re-included files.
-!/.console/archive/
-!/.console/archive/*.md
+# Pruned .console/ history does NOT belong in this (public) repo. Per
+# console-reconciliation spec §3.3 / Layer C, `cl reconcile` writes it to
+# <private-manifest>/archive/console/<repo>/<file>-<cutoff>.md — see
+# context_lifecycle/reconcile/privacy.py, which resolves that root at runtime and
+# raises PrivateArchiveUnavailable rather than falling back to anywhere local.
+# Nothing writes here; the path stays ignored so a local scratch archive can never
+# be committed by accident. #64 un-ignored it and was reverted by #65 — if you are
+# about to do the same, run `cl reconcile` instead.
+/.console/archive/
 CLAUDE.md
 # .claude is tracked (hooks + settings.json — warm-injection rollout); local-only state stays ignored
 .claude/settings.local.json

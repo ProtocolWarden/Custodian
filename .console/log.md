@@ -2,6 +2,38 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-08-03 — revert(console): pruned history belongs in the private manifest
+
+#64 un-ignored `.console/archive/` and committed the 2026-05 log sections there.
+Wrong destination. Per console-reconciliation spec §3.3 / Layer C, `cl reconcile`
+writes pruned `.console/` history to
+`<private-manifest>/archive/console/<repo>/<file>-<cutoff>.md` — see
+`context_lifecycle/reconcile/privacy.py`, which resolves that root via
+`$PRIVATE_MANIFEST_DIR` or RepoGraph discovery (never a hardcoded repo name, per
+boundary rule I2) and raises `PrivateArchiveUnavailable` rather than degrading to
+any local path. This repo already has archives there from two prior passes:
+`archive/console/Custodian/log-2026-06-04.md` and `log-2026-06-16.md`.
+
+So `.console/archive/` was not untracked scaffolding that happened to be
+convenient to reclaim — it is ignored *because* the destination is a private repo,
+and nothing writes to it locally. #64 created a second archive location that
+`cl reconcile` does not know about and will never maintain, and kept in a public
+repo a class of content the design routes to a private one.
+
+Nothing leaked: the content was already tracked and public in `log.md`, and RC2
+reads it at 0 findings. The defect is process, not exposure — but an orphan archive
+that diverges from the tool's destination is worth removing while it is one commit
+old rather than after `cl reconcile` next runs and the two disagree.
+
+Reverted to the prune-with-pointer form #62 and the 2026-08-02 pass both used;
+history stays reachable via `git log -p`. The ignore line now carries the §3.3
+citation and a pointer to `cl reconcile`, since the bare path with no rationale is
+what made it look reclaimable. Note the misleading adjacency that started this: the
+§3.1 comment at the top of that block governs `reconcile.yaml`, not `archive/`.
+
+log.md 326 -> 357 lines, still inside the 400 budget but close enough that the next
+entry likely needs a real `cl reconcile` pass.
+
 ## 2026-08-03 — fix(config): retire audit.ignore_paths rather than implement it
 
 `audit.ignore_paths` was parsed into `policy` by both config-shape branches and
@@ -320,7 +352,6 @@ Part of the PM context-management completeness-audit train (PM #74).
      under the 400-line budget. Full history is in git — `git log -p .console/log.md`. -->
 
 <!-- Reconciled 2026-08-03 (RC1): `## Stop Points` and `## Recent Decisions`
-     (2026-05 material) moved to `.console/archive/log-2026-05.md`. Archived, not
-     pruned — `.console/archive/**` is outside RC1's `.console/*.md` budget glob but
-     still inside RC2's `.console/**` leak scan. The archive is the pre-#62 copy, so
-     it also retains the table rows #62 pruned. -->
+     (2026-05 material) pruned to stay under the 400-line budget. Full history is in
+     git — `git log -p .console/log.md`, or blob `db7e3d7:.console/archive/log-2026-05.md`
+     for the collected copy that #64 briefly tracked. -->
