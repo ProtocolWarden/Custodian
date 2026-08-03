@@ -3,7 +3,16 @@
 set -e
 
 repo_root="$(git rev-parse --show-toplevel)"
-workspace_root="$(cd "$repo_root/.." && pwd)"
+
+# Sibling repos hang off the MAIN checkout, but `--show-toplevel` in a linked
+# worktree points at <repo>/.claude/worktrees/<name>, so `..` lands in the
+# worktrees directory. Every lookup below then finds nothing and the hook fails
+# closed on a machine that has the artifact — indistinguishable from one that
+# does not. `--git-common-dir` resolves to the main checkout's .git from any
+# worktree, linked or not. `repo_root` stays the tree being pushed: that is
+# what the audit must inspect.
+main_root="$(dirname "$(cd "$repo_root" && cd "$(git rev-parse --git-common-dir)" && pwd)")"
+workspace_root="$(cd "$main_root/.." && pwd)"
 
 if [ -z "${REPOGRAPH_BOUNDARY_ARTIFACT_FILE:-}" ]; then
     shopt -s nullglob
@@ -30,10 +39,15 @@ custodian_multi=""
 if command -v custodian-multi >/dev/null 2>&1; then
     custodian_multi="$(command -v custodian-multi)"
 fi
+# A linked worktree has no venv of its own, so the main checkout's is the one
+# that resolves. Keep the worktree-local candidates first anyway: a worktree
+# that does have one should win.
 for candidate in \
     "$custodian_multi" \
     "$repo_root/.venv/bin/custodian-multi" \
     "$repo_root/.warehouse-venv/bin/custodian-multi" \
+    "$main_root/.venv/bin/custodian-multi" \
+    "$main_root/.warehouse-venv/bin/custodian-multi" \
     "$workspace_root/Custodian/.venv/bin/custodian-multi"
 do
     if [ -x "$candidate" ]; then
@@ -44,7 +58,7 @@ done
 
 if [ -z "$custodian_multi" ]; then
     echo "[custodian-pre-push] custodian-multi not found"
-    echo "  install with: python -m pip install -e /home/dev/Documents/GitHub/Custodian"
+    echo "  install with: python -m pip install -e \"$main_root\""
     exit 1
 fi
 
