@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -50,14 +51,46 @@ class Finding:
     recommended_fix: str
 
 
+# An absolute Windows path opens with a drive letter (``C:\repo\...``), so the
+# first colon in an ``rg`` hit belongs to the drive, not to the line number.
+_WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+
+def _hit_path(hit: str) -> str:
+    """Return the file path from an ``rg -n`` hit line (``path:lineno:text``).
+
+    Splitting on the first colon is correct everywhere except Windows, where
+    ``C:\\repo\\docs\\x.md:3:text`` yields ``C`` — so every gate finding on
+    Windows reported the drive letter as its file, and the ``/report/`` and
+    ``repograph_governance_gate.py`` exclusions below silently stopped
+    matching, turning suppressed hits into reported violations.
+    """
+    if _WINDOWS_DRIVE_RE.match(hit):
+        return hit[:2] + hit[2:].split(":", 1)[0]
+    return hit.split(":", 1)[0]
+
+
 def _rg(repo: Path, pattern: str) -> list[str]:
+    # The gate shells out to ripgrep (CI installs it explicitly). A missing
+    # binary surfaced as a bare FileNotFoundError from Popen — WinError 2 with
+    # no mention of ripgrep — so say what is missing and how to get it. Failing
+    # loudly is right for a gate: returning [] here would read as "no
+    # violations" and let the boundary it guards go unchecked.
+    rg = shutil.which("rg")
+    if rg is None:
+        raise RuntimeError(
+            "ripgrep (rg) is not on PATH, and the repograph governance gate "
+            "needs it to inspect repos. Install it with `apt-get install "
+            "ripgrep`, `brew install ripgrep`, or `winget install "
+            "BurntSushi.ripgrep.MSVC`."
+        )
     proc = subprocess.run(
-        ["rg", "-n", pattern, "-S", str(repo)],
+        [rg, "-n", pattern, "-S", str(repo)],
         capture_output=True,
         text=True,
         timeout=30,
-        # Parse the output regardless of exit status; a non-zero
-        # code is handled per-adapter, not by raising.
+        # Parse the output regardless of exit status; rg exits 1 for "no
+        # matches", which is a normal result here rather than a failure.
         check=False,
     )
     if proc.returncode not in (0, 1):
@@ -301,7 +334,7 @@ def _check_public_private_repo_names(
                 findings.append(
                     Finding(
                         repo=repo.name,
-                        file=hit.split(":", 1)[0],
+                        file=_hit_path(hit),
                         rule_id="public_private_repo_names_forbidden",
                         severity="high",
                         expected_boundary="public docs do not name private-truth repos as public surfaces",
@@ -316,7 +349,7 @@ def _check_public_private_repo_names(
             findings.append(
                 Finding(
                     repo=repo.name,
-                    file=hit.split(":", 1)[0],
+                    file=_hit_path(hit),
                     rule_id="public_private_repo_names_forbidden",
                     severity="high",
                     expected_boundary="public docs do not expose private-truth repo page slugs",
@@ -335,7 +368,7 @@ def _check_legacy_inputs(repo: Path, findings: list[Finding]) -> None:
         r"private_" r"repo_names\.ya?ml"
     )
     for hit in _rg(repo, legacy_pattern):
-        file_path = hit.split(":", 1)[0]
+        file_path = _hit_path(hit)
         if file_path.endswith("repograph_governance_gate.py"):
             continue
         if "/report/" in file_path.replace("\\", "/"):
@@ -399,7 +432,7 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
             findings.append(
                 Finding(
                     repo=repo.name,
-                    file=hit.split(":", 1)[0],
+                    file=_hit_path(hit),
                     rule_id="warehouse_not_graph_authority",
                     severity="medium",
                     expected_boundary="Warehouse is context packaging utility only",
@@ -413,7 +446,7 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
             findings.append(
                 Finding(
                     repo=repo.name,
-                    file=hit.split(":", 1)[0],
+                    file=_hit_path(hit),
                     rule_id="operations_center_not_graph_semantics_owner",
                     severity="medium",
                     expected_boundary="OperationsCenter consumes, not defines, graph semantics",
@@ -427,7 +460,7 @@ def _check_repo(repo: Path, boundary_artifact: Path, findings: list[Finding]) ->
             findings.append(
                 Finding(
                     repo=repo.name,
-                    file=hit.split(":", 1)[0],
+                    file=_hit_path(hit),
                     rule_id="platform_deployment_topography_only",
                     severity="medium",
                     expected_boundary="PlatformDeployment owns deployment/topography overlay only",

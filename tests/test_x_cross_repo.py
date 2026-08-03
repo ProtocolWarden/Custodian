@@ -158,7 +158,11 @@ class TestX1:
         _write_pm(tmp_path)
         history_dir = tmp_path / "docs" / "history"
         history_dir.mkdir(parents=True)
-        (history_dir / "rename.md").write_text("FOB → OperatorConsole rename\n")
+        # Explicit encoding: the arrow is not cp1252-encodable, so the default
+        # locale encoding raises UnicodeEncodeError on Windows.
+        (history_dir / "rename.md").write_text(
+            "FOB → OperatorConsole rename\n", encoding="utf-8",
+        )
         ctx = _ctx(tmp_path, {}, config=_CROSS_REPO_CFG)
         assert detect_x1(ctx).count == 0
 

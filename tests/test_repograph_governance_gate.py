@@ -3,14 +3,31 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
-from custodian.cli.repograph_governance_gate import Finding, _check_public_repo_catalog, _check_repo
+import pytest
+
+from custodian.cli.repograph_governance_gate import (
+    Finding,
+    _check_public_repo_catalog,
+    _check_repo,
+    _hit_path,
+)
 from custodian.policy.public_surface_catalog import (
     PUBLIC_REPO_CATALOG,
     PUBLIC_REPO_PAGE_SLUGS,
     allowed_repo_page,
     parse_canonical_repo_catalog,
+)
+
+# `_check_repo` shells out to ripgrep, which CI installs explicitly. Without it
+# the gate now raises a clear RuntimeError rather than a bare WinError 2 — but
+# these tests still cannot run, so skip instead of reporting a red suite for a
+# missing binary. The catalog tests below need no subprocess and always run.
+needs_ripgrep = pytest.mark.skipif(
+    shutil.which("rg") is None,
+    reason="the repograph governance gate shells out to ripgrep (rg); install it to run this",
 )
 
 
@@ -56,6 +73,7 @@ def _write_repo_graph_docs(root: Path, *, include_policy: bool, include_explorer
         )
 
 
+@needs_ripgrep
 def test_repo_graph_gate_requires_policy_and_explorer_docs(tmp_path: Path) -> None:
     _write_repo_graph_docs(tmp_path, include_policy=False, include_explorer=False)
     boundary = tmp_path / "boundary.json"
@@ -69,6 +87,7 @@ def test_repo_graph_gate_requires_policy_and_explorer_docs(tmp_path: Path) -> No
     assert "explorer_projection_only" in rule_ids
 
 
+@needs_ripgrep
 def test_repo_graph_gate_accepts_policy_and_explorer_docs(tmp_path: Path) -> None:
     _write_repo_graph_docs(tmp_path, include_policy=True, include_explorer=True)
     boundary = tmp_path / "boundary.json"
@@ -82,6 +101,7 @@ def test_repo_graph_gate_accepts_policy_and_explorer_docs(tmp_path: Path) -> Non
     assert "explorer_projection_only" not in rule_ids
 
 
+@needs_ripgrep
 def test_custodian_gate_requires_semantic_federation_workflow(tmp_path: Path) -> None:
     (tmp_path / "Custodian" / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
     boundary = tmp_path / "boundary.json"
@@ -211,6 +231,7 @@ def test_public_repo_catalog_rejects_archive_pages(tmp_path: Path) -> None:
     assert "public_repo_catalog_only" in rule_ids
 
 
+@needs_ripgrep
 def test_public_surface_rejects_private_repo_names(tmp_path: Path) -> None:
     repo = tmp_path / "ProtocolWarden.github.io"
     (repo / "docs" / "overview").mkdir(parents=True, exist_ok=True)
@@ -248,6 +269,28 @@ def test_public_surface_rejects_private_repo_names(tmp_path: Path) -> None:
 
     rule_ids = {finding.rule_id for finding in findings}
     assert "public_private_repo_names_forbidden" in rule_ids
+
+
+@pytest.mark.parametrize(
+    "hit, expected",
+    [
+        # The regression: splitting on the first colon returns the drive letter.
+        (r"C:\repo\docs\x.md:3:text", r"C:\repo\docs\x.md"),
+        (r"d:/repo/docs/x.md:12:text", "d:/repo/docs/x.md"),
+        # POSIX and relative forms must be untouched.
+        ("/home/r/docs/x.md:3:text", "/home/r/docs/x.md"),
+        ("docs/x.md:3:text", "docs/x.md"),
+        ("README.md:1:text", "README.md"),
+    ],
+)
+def test_hit_path_survives_a_drive_letter(hit: str, expected: str) -> None:
+    """Literal strings, not real paths, so POSIX CI catches this too.
+
+    ``rg`` is handed an absolute path and echoes it back, so on Windows every
+    gate finding reported ``C`` as its file and the path-based suppressions
+    stopped matching.
+    """
+    assert _hit_path(hit) == expected
 
 
 def test_public_repo_catalog_policy_is_explicit() -> None:

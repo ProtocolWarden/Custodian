@@ -14,7 +14,11 @@ from custodian.audit_kit.passes.ast_forest import build_ast_forest
 def _ctx(tmp_path: Path, src: str, *, config: dict | None = None) -> AuditContext:
     src_dir = tmp_path / "src"
     src_dir.mkdir(exist_ok=True)
-    (src_dir / "module.py").write_text(textwrap.dedent(src))
+    # encoding= is not optional: the fixtures carry non-ASCII (em dashes in
+    # docstrings), and without it Windows writes cp1252 while build_ast_forest
+    # reads utf-8 — the file then fails to decode, is skipped, and the detector
+    # reports zero findings instead of failing loudly.
+    (src_dir / "module.py").write_text(textwrap.dedent(src), encoding="utf-8")
 
     class _Graph:
         def __init__(self, forest):
