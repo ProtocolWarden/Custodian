@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 
 from custodian.cli import colors
-from custodian.config.loader import _read_yaml, config_summary, migrate_v0_to_v1
+from custodian.config.loader import _read_yaml, config_summary, has_ignore_paths, migrate_v0_to_v1
 
 
 def main():
@@ -51,6 +51,16 @@ def main():
 
         new_config = migrate_v0_to_v1(raw)
         new_yaml = yaml.dump(new_config, default_flow_style=False, sort_keys=False)
+
+        # migrate REWRITES the file, so a dropped key would vanish with no
+        # trace. Say it out loud — the key never filtered anything, but the
+        # operator should learn that from us, not from a diff.
+        if has_ignore_paths(raw):
+            print(
+                "NOTE: audit.ignore_paths was dropped — it never filtered any "
+                "finding. Use per-detector audit.exclude_paths instead.",
+                file=sys.stderr,
+            )
 
         if args.apply:
             backup = config_path.with_suffix(".yaml.bak")

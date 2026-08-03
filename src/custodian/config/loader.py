@@ -11,7 +11,7 @@ Supports two schemas:
     audit:
       min_severity: "medium"
       ignore_rules: [...]
-      ignore_paths: [...]
+      exclude_paths: {C2: [...]}
     architecture:
       layers: [...]
       invariants: [...]
@@ -30,12 +30,32 @@ Supports two schemas:
     policy:
       min_severity: "medium"
       ignore_rules: [...]
-      ignore_paths: [...]
       architecture:
         rules: [...]
     reports:
       formats: [json, sarif]
       output_dir: ".custodian/reports"
+
+Path scoping
+────────────
+There is no repo-wide "ignore these paths" key. Path exemptions are
+PER-DETECTOR, via ``audit.exclude_paths`` — a mapping of detector id to
+globs, applied by ``audit_kit.code_health._exclude_globs`` and validated
+by ``custodian doctor``::
+
+    audit:
+      exclude_paths:
+        C2: ["src/cli/**"]
+        T6: ["src/legacy/**"]
+
+An ``audit.ignore_paths`` key was parsed into ``policy`` and echoed by
+``config_summary`` until 2026-08-03, but nothing ever read it to filter a
+finding — a repo that set it saw its exemptions confirmed in the summary
+while every finding under those paths kept reporting. It was REMOVED
+rather than implemented: detector findings carry no structured path
+(``DetectorResult`` is a count plus free-form sample strings, capped at
+8), so a path filter could suppress samples but never correct the count.
+See ``tests/test_config_loader.py::TestIgnorePathsRemoved``.
 """
 from __future__ import annotations
 
@@ -150,7 +170,6 @@ def _normalize_v0(raw: dict) -> dict:
         "policy": {
             "min_severity": audit.get("min_severity"),
             "ignore_rules": audit.get("ignore_rules", []),
-            "ignore_paths": audit.get("ignore_paths", []),
             "architecture": {"rules": arch.get("layers", []) or arch.get("rules", [])},
         },
         "reports": {
@@ -192,7 +211,6 @@ def migrate_v0_to_v1(raw: dict) -> dict:
         "policy": {
             "min_severity": audit.get("min_severity", "low"),
             "ignore_rules": audit.get("ignore_rules", []),
-            "ignore_paths": audit.get("ignore_paths", []),
         },
         "reports": {
             "formats": ["json"],
@@ -213,6 +231,22 @@ def migrate_v0_to_v1(raw: dict) -> dict:
     return new
 
 
+def has_ignore_paths(config: dict) -> bool:
+    """True if the config still carries the retired ``ignore_paths`` key.
+
+    Both spellings are checked because ``config_summary`` is handed the RAW
+    file dict by ``custodian-config show`` (v0 puts the key under ``audit``)
+    as well as dicts that went through ``_normalize_v0`` (v1 spelling, under
+    ``policy``). Callers use this to WARN — the key filters nothing, and
+    saying so is the point of removing it. See the module docstring.
+    """
+    for section in ("audit", "policy"):
+        block = config.get(section)
+        if isinstance(block, dict) and block.get("ignore_paths"):
+            return True
+    return False
+
+
 def config_summary(config: dict) -> list[str]:
     """Return a human-readable summary of effective config values."""
     lines = []
@@ -229,9 +263,14 @@ def config_summary(config: dict) -> list[str]:
     ignored_rules = policy.get("ignore_rules", [])
     if ignored_rules:
         lines.append(f"ignore_rules: {', '.join(ignored_rules)}")
-    ignored_paths = policy.get("ignore_paths", [])
-    if ignored_paths:
-        lines.append(f"ignore_paths: {', '.join(ignored_paths)}")
+    if has_ignore_paths(config):
+        # Deliberately NOT an echo of the configured globs. Listing them back
+        # reads as confirmation the exemption took effect, which is exactly the
+        # false signal this key gave for its whole life.
+        lines.append(
+            "WARNING: audit.ignore_paths is not a supported key — it filters "
+            "nothing. Use per-detector audit.exclude_paths instead."
+        )
 
     tools = config.get("tools") or {}
     enabled = [t for t, cfg in tools.items() if cfg.get("enabled", True)]
