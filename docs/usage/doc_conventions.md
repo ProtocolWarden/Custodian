@@ -19,6 +19,92 @@ offenders.
 | **DC3** | ADRs follow `NNNN-kebab-case.md` (zero-padded ordinal + kebab-case title) | `docs/architecture/adr/` | Silent (skipped) |
 | **DC4** | README has `## Quick start` (or alternates) AND `## Architecture` (or alternates) at H2 level | repo root `README.md` | Silent when README absent — R1 covers that |
 | **DC5** | Backtick-quoted symbols inside `**Files:**` / `Implementation:` lines use a module-qualified path (containing `.`, `:`, or `/`) | `docs/design/`, `docs/architecture/` | Silent when neither dir exists |
+| **DC10** | A doc claims a feature is integrated **and** the same doc still lists that integration as deferred | `.console/*.md`, `docs/**/*.md` | Always runs — but **opt-in**, see below |
+
+DC6–DC9 are registered but not yet documented here.
+
+## DC10 — claims-integrated-while-deferring
+
+DC10 is different enough from DC1–DC5 to be worth its own section: it is
+**off by default**, it is configured under `audit:` rather than
+`doc_conventions:`, and it fires on a *contradiction* rather than a missing
+convention.
+
+### What it catches
+
+The planner-level half of OperationsCenter#313. The backlog asserted
+"✅ IMPLEMENTATION COMPLETE & VERIFIED / end-to-end" while, further down the
+same file, a "Next Steps — Stage 5 (Ready to Start)" section listed the
+integration as still to do. Both statements were written in good faith; only
+the first one got read.
+
+D12 catches this in code (a symbol tested but never called). DC10 catches it in
+prose — the same failure, one layer earlier.
+
+### Why it rarely false-positives
+
+A finding requires **both** halves to appear in the same file:
+
+- a *strong* completion claim — `end-to-end integration` / `fully integrated` /
+  `fully wired` / `integration complete` / `wired end-to-end`. A bare "done" or
+  "complete" is not enough, by design.
+- a deferral marker — `integration deferred` / `integration to follow` /
+  `integration pending` / `tracked separately` / `not yet wired` /
+  `not yet integrated` / `defer the integration` / `wire it up` /
+  `update X to call Y` / `stage N … wire|integrat`.
+
+Matching is case-insensitive. "Stage 1 complete, Stage 2 next" does **not**
+fire — staged work is legitimate, and DC10 deliberately avoids the broad
+"complete + next steps" pattern that would flag every honest roadmap.
+
+### Enabling it
+
+DC10 ships `deprecated=True`. As with D12 and INJ1, that flag is being reused as
+the off-by-default lever rather than signalling tool replacement — a new
+heuristic detector must not red-wall consumers that audit against
+`Custodian@main`.
+
+```bash
+custodian audit --only DC10 --include-deprecated
+```
+
+### Configuring it
+
+DC10's keys live under `audit:`, **not** under the `doc_conventions:` block that
+DC1–DC5 use. This is an inconsistency in the current schema; write it as shown:
+
+```yaml
+# .custodian/config.yaml
+audit:
+  # Where DC10 looks. Defaults to the .console truth files plus docs/.
+  dc10_scan_globs:
+    - ".console/*.md"
+    - "docs/**/*.md"
+    - "planning/**/*.md"
+
+  # Accepted pre-existing contradictions, by repo-relative path. A ratchet —
+  # it should only shrink.
+  dc10_baseline:
+    - "docs/design/legacy-rollout.md"
+
+  exclude_paths:
+    DC10:
+      - "docs/archive/**"
+```
+
+Unlike `d12_baseline`, which lists symbol names, `dc10_baseline` lists
+**repo-relative file paths** and matches them exactly.
+
+### Acting on a finding
+
+```
+.console/backlog.md:12: claims integrated ('end-to-end integration') but defers the integration ('Stage 5 — wire the caller')
+```
+
+The fix is almost never to soften the wording. Either the integration is done —
+in which case delete the stale deferred section — or it is not, in which case
+the completion claim is wrong and should say what actually shipped. DC10 is
+pointing at a document that will mislead the next reader either way.
 
 ## Configuration
 

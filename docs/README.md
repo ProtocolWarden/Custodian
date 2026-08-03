@@ -22,8 +22,17 @@ design notes and usage guides.
   verdicts (DELETE / IMPLEMENT / WIRE / REDESIGN / CLEANUP). Read this if
   you're configuring `audit.triage` or consuming `custodian-triage` output.
 - [usage/doc_conventions.md](usage/doc_conventions.md) —
-  Repo-wide markdown conventions enforced by DC1–DC8 (front matter,
-  cross-doc references, ADR naming, README sections, section ordering).
+  Repo-wide markdown conventions enforced by the DC class (front matter,
+  cross-doc references, ADR naming, README sections). Covers DC1–DC5 and
+  DC10; DC6–DC9 are registered but not yet written up.
+- [usage/incomplete_integration.md](usage/incomplete_integration.md) —
+  How D12 flags a public symbol that tests exercise but production never
+  calls — the "built it, tested it, never wired it" gap — and how to adopt
+  it on a repo with an existing backlog via `audit.d12_baseline`.
+- [usage/prompt_injection_signatures.md](usage/prompt_injection_signatures.md) —
+  How INJ1 scans tracked text for invisible and bidirectional control
+  characters, why it is opt-in, and why findings report a codepoint but
+  never the surrounding text.
 - [usage/private_repo_names.md](usage/private_repo_names.md) —
   How the B1 boundary detector enforces the public/private repo
   boundary by flagging private-repo names that leak into tracked files.
