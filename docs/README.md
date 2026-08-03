@@ -4,6 +4,14 @@ Index for the `docs/` tree. The README at the repo root covers detector classes,
 quick start, and the consumer config shape; this directory holds longer-form
 design notes and usage guides.
 
+## Architecture decisions
+
+- [architecture/adr/0001-split-console-log-by-responsibility.md](architecture/adr/0001-split-console-log-by-responsibility.md) —
+  Proposal to ContextLifecycle, as owner of the console-reconciliation spec, to
+  split `.console/log.md` by responsibility. Records why the per-commit mandate
+  and the RC1 line budget conflict, with the measurements behind the argument.
+  Status: proposed — Custodian implements RC1/RC2 but does not own the spec.
+
 ## Design
 
 - [design/detector_disposition_matrix.md](design/detector_disposition_matrix.md) —
