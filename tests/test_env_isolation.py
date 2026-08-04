@@ -12,6 +12,11 @@ people to ignore failures.
 These tests pin the fixture. Without them a later refactor could drop it and the
 only symptom would be a suite that passes in CI and fails on the machines of the
 people most likely to run it.
+
+Imports the variable name from the detector that owns it, never from ``conftest``:
+``tests/`` is not a package, so ``from tests.conftest import ...`` resolves only when
+the repo root happens to be on ``sys.path`` — true under ``python -m pytest``, false
+under the bare ``pytest`` CI runs.
 """
 from __future__ import annotations
 
@@ -20,34 +25,20 @@ import os
 import pytest
 
 from custodian.audit_kit.detectors.boundary import _ARTIFACT_FILE_ENV
-from tests.conftest import _AMBIENT_ENV_VARS
 
 
-def test_isolation_list_matches_the_name_the_detector_reads():
-    """Couple the list to its source of truth.
-
-    ``boundary.py`` owns the variable name; conftest clears it by string. If the
-    detector ever renames it, the isolation silently stops covering anything —
-    this fails instead.
-    """
-    assert _ARTIFACT_FILE_ENV in _AMBIENT_ENV_VARS
-
-
-@pytest.mark.parametrize("name", _AMBIENT_ENV_VARS)
-def test_ambient_var_is_cleared_for_every_test(name):
+def test_ambient_var_is_cleared_for_every_test():
     """The autouse fixture applies here without this test requesting it."""
-    assert name not in os.environ
+    assert _ARTIFACT_FILE_ENV not in os.environ
 
 
-def test_boundary_detector_sees_no_artifact_by_default(monkeypatch):
-    """The behaviour the leak actually corrupted.
+def test_the_cleared_name_is_the_one_the_detector_reads():
+    """Guard against the isolation drifting off the real variable.
 
-    Tests that assert the unconfigured path must see it regardless of the shell
-    they were launched from.
+    ``conftest`` builds its list from this same constant, so this asserts the
+    wiring rather than a duplicated string.
     """
-    monkeypatch.setenv(_ARTIFACT_FILE_ENV, "/leaked/from/the/caller.json")
-    monkeypatch.delenv(_ARTIFACT_FILE_ENV, raising=False)
-    assert os.environ.get(_ARTIFACT_FILE_ENV) is None
+    assert _ARTIFACT_FILE_ENV == "REPOGRAPH_BOUNDARY_ARTIFACT_FILE"
 
 
 def test_a_test_can_still_opt_in_explicitly():

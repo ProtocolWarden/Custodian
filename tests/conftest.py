@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from custodian.audit_kit.detectors.boundary import _ARTIFACT_FILE_ENV
+
 _REPO_ROOT = Path(__file__).parent.parent.resolve()
 _EXPECTED_VENV = (_REPO_ROOT / ".venv").resolve()
 _ACTIVE_PREFIX = Path(sys.prefix).resolve()
@@ -40,7 +42,10 @@ if _EXPECTED_VENV.is_dir() and not _IN_CI and _ACTIVE_PREFIX != _EXPECTED_VENV:
 # artifact-sensitive test to rediscover it. Tests that WANT the variable set it
 # explicitly with monkeypatch.setenv (see test_boundary_detectors.py), which still
 # works — this only removes what leaked in from the caller's shell.
-_AMBIENT_ENV_VARS = ("REPOGRAPH_BOUNDARY_ARTIFACT_FILE",)
+#
+# Taken from the detector rather than spelled as a literal: boundary.py owns the
+# name, so renaming it there cannot leave this isolation silently covering nothing.
+_AMBIENT_ENV_VARS = (_ARTIFACT_FILE_ENV,)
 
 
 @pytest.fixture(autouse=True)

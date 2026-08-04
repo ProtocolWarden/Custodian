@@ -27,16 +27,30 @@ explicitly with `monkeypatch.setenv`, which is unaffected.
 
 New `tests/test_env_isolation.py` pins the fixture, because without it a later
 refactor could drop the fixture and the only symptom would be a suite that passes in
-CI and fails on the machines of the people most likely to run it. It asserts the
-isolation list against `boundary._ARTIFACT_FILE_ENV` rather than a string literal, so
-renaming the variable in the detector fails the test instead of silently emptying the
-isolation. (First draft asserted only on `os.environ` and tripped our own T8 — a test
-file importing nothing from any src package. Fair catch: it was testing Python, not
-Custodian.)
+CI and fails on the machines of the people most likely to run it. `conftest` builds
+its list from `boundary._ARTIFACT_FILE_ENV` rather than a literal, so renaming the
+variable in the detector cannot leave the isolation silently covering nothing.
 
-Verified both directions — 1242 passed, 5 skipped with the variable set and with it
-unset, identical. Pre-existing at origin/main; not caused by #72, which observed it
-and deliberately left it alone to stay focused.
+Two self-inflicted detours worth recording, both caught by tooling rather than by
+me:
+
+- The first draft asserted only on `os.environ` and tripped our own **T8** — a test
+  file importing nothing from any src package. Fair catch; it was testing Python, not
+  Custodian.
+- The second imported the list via `from tests.conftest import ...` and passed
+  locally but **failed collection in CI**: `No module named 'tests'`. `tests/` has no
+  `__init__.py`, so that name resolves only when the repo root is on `sys.path` —
+  true under `python -m pytest`, which is what I verified with, and false under the
+  bare `pytest` CI runs. The lesson is the same one this entry is about: verifying
+  through a different entry point than CI uses hides exactly the class of bug being
+  fixed. Resolved by inverting the dependency — conftest derives the name from the
+  detector, and the test imports only from `custodian`, so no test→conftest import
+  exists to be fragile.
+
+Verified through the CI invocation this time — bare `pytest -q`, with the variable
+set and unset, plus `python -m pytest`: 1241 passed, 5 skipped, identical across all
+three. Pre-existing at origin/main; not caused by #72, which observed it and
+deliberately left it alone to stay focused.
 
 ## 2026-08-04 — chore(config): raise our own r1_line_budget to 1000, and say why
 
