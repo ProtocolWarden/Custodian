@@ -2,6 +2,52 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-08-04 — chore(config): raise our own r1_line_budget to 1000, and say why
+
+`.console/log.md` sat at 396 against a 400 budget, so the next entry anyone wrote
+red-failed our own audit. That is not hypothetical: it happened to #72 on
+2026-08-03 (437 lines), and was cleared only by pruning the two oldest surviving
+entries and condensing the new one — buying four lines. Three PRs before it (#66,
+#67, #69) each pruned to land. The tax is structural, not a discipline problem: the
+pre-commit hook requires log.md to grow on every source commit and RC1 caps it, so
+their intersection is "delete history as a precondition for committing."
+
+Considered and rejected two of the three obvious routes.
+
+**Implement ADR 0001.** Not ours to do. The ADR says so in its own Status section:
+`.console/` is defined by the console-reconciliation spec, ContextLifecycle owns it,
+and RC1/RC2 are our implementation of the spec's gates — so adopting Option D here
+changes what those gates enforce fleet-wide. The ADR is the ask; the decision is the
+spec owner's. It is still `proposed`. Patching around an open question we ourselves
+raised would be the worst of both.
+
+**Add an archive file RC1 does not count.** #65 already reverted exactly this.
+Pruned `.console/` history goes to
+`<private-manifest>/archive/console/<repo>/<file>-<cutoff>.md` via `cl reconcile`
+(spec §3.3 / Layer C); a second local archive is an orphan the tool never maintains.
+Worse, RC1's glob is `.console/*.md` — top level only — so sharding into
+`.console/log/2026-08.md` would not reduce the count, it would remove the file from
+the gate's view entirely. Silently relocating content out of a control's reach is
+not archiving; it is disabling the control and leaving it looking green. We removed
+`|| true` from a consumer's audit install last week for being that same shape.
+
+**Raise our own budget.** `audit.r1_line_budget` is a documented per-repo knob, read
+by `detect_r1` and defaulted, not hardcoded — so this touches no detector, no spec,
+and no other repo. It is also what the detector intends: its docstring calls R1
+"LOW/advisory — a reconciliation due signal, no judgement about *what* to prune."
+400 is right for an operator workspace whose log is session-continuity notes. Ours
+is a different artifact — it documents detector semantics consumers depend on, which
+is why entries run ~30 lines and why pruning has already cost us something real (the
+D12 entry that shaped C16's default-off design is now only in git). 1000 gives about
+20 entries of runway, which puts reconciliation back on a scheduled cadence instead
+of every other commit. Still bounded, still gated, still archived by `cl reconcile`
+when it fires.
+
+Explicitly interim. The fix is ADR 0001 landing one way or the other; this stops the
+bleeding without pre-empting it, and preserves the history that decision is about.
+Sized so that writing this entry does not itself trip the gate — the failure mode
+that prompted it.
+
 ## 2026-08-03 — fix(adapters): find_tool must prefer the AUDITED repo's venv
 
 `find_tool()` resolved tools from the venv **Custodian itself** runs in, then PATH.

@@ -12,6 +12,29 @@ audit:
   # enforcement: R1 (oversized log) + R2 (private-name leak) now fail-closed here.
   reconcile_enforce: true
 
+  # RC1's default 400 is sized for an operator workspace, where the log is
+  # session-continuity notes. This repo's log is a different artifact: it records
+  # detector SEMANTICS that consumers depend on, so entries run long (~30 lines
+  # each, measured over the 13 currently in the file) and are load-bearing rather
+  # than narrative. At 400 the two rules governing the file contradict each other —
+  # the pre-commit hook requires log.md to grow on every source commit, RC1 caps
+  # it — so their intersection is "prune history as a precondition for committing."
+  # That is not a discipline failure; it is what the two rules jointly specify.
+  # ADR 0001 measured it: #66, #67 and #69 each pruned to land, and the pruned D12
+  # entry was the one that shaped C16's default-off design.
+  #
+  # 1000 gives ~20 entries of runway, which puts reconciliation back on the
+  # SCHEDULED cadence the detector intends — its own docstring calls R1
+  # "LOW/advisory — a reconciliation due signal, no judgement about what to prune."
+  # The gate still fires, and `cl reconcile` still archives to the private manifest
+  # per spec §3.3; only the trigger point moves off "every other commit".
+  #
+  # This is an interim local measure, NOT the fix. The fix is ADR 0001, which is
+  # open with ContextLifecycle as spec owner. Custodian cannot change what RC1
+  # means fleet-wide on its own, so it changes only its own threshold and keeps
+  # the history the ADR argues is worth keeping while that decision is pending.
+  r1_line_budget: 1000
+
   # C16 scans tests/ here too. Same dogfooding stance as reconcile_enforce:
   # the backlog is cleared, so the gate stays on. This is the blind spot that
   # let three tests write cp1252 and fail only on Windows (#67) while C16
