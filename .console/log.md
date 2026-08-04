@@ -2,6 +2,42 @@
 
 _Chronological continuity log. Decisions, stop points, what changed and why._
 
+## 2026-08-04 — fix(tests): stop the suite reading ambient env config
+
+`REPOGRAPH_BOUNDARY_ARTIFACT_FILE` leaked from the caller's shell into every test.
+Two that assert the "no artifact configured" path were directly contradicted by it:
+
+    test_reconcile.py::TestAC1SingleSourceOfTruth::test_no_artifact_no_scrub_targets
+    test_boundary_detectors.py::TestB2Required::test_b2_flags_missing_required_boundary_source
+
+The exposure was two modules, not the one reported — worth checking for, because
+the second was in a file that already knows about the variable (it calls
+`monkeypatch.setenv` at line 71) and still had a test that inherited it.
+
+Backwards in the way that matters: the variable is legitimately exported by anyone
+who runs the audit locally or pushes through `.hooks/pre-push`, and absent in CI. So
+a developer with a *working* setup saw red while CI stayed green. That is the
+failure mode that teaches people to ignore their own test results.
+
+Fixed with an autouse fixture in `tests/conftest.py` that clears the variable for
+every test, rather than a `delenv` at the two call sites. The defect is that the
+suite reads ambient config at all; patching the two known victims leaves the next
+artifact-sensitive test to rediscover it. Tests that *want* the variable still set it
+explicitly with `monkeypatch.setenv`, which is unaffected.
+
+New `tests/test_env_isolation.py` pins the fixture, because without it a later
+refactor could drop the fixture and the only symptom would be a suite that passes in
+CI and fails on the machines of the people most likely to run it. It asserts the
+isolation list against `boundary._ARTIFACT_FILE_ENV` rather than a string literal, so
+renaming the variable in the detector fails the test instead of silently emptying the
+isolation. (First draft asserted only on `os.environ` and tripped our own T8 — a test
+file importing nothing from any src package. Fair catch: it was testing Python, not
+Custodian.)
+
+Verified both directions — 1242 passed, 5 skipped with the variable set and with it
+unset, identical. Pre-existing at origin/main; not caused by #72, which observed it
+and deliberately left it alone to stay focused.
+
 ## 2026-08-04 — chore(config): raise our own r1_line_budget to 1000, and say why
 
 `.console/log.md` sat at 396 against a 400 budget, so the next entry anyone wrote
