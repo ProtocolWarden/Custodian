@@ -51,6 +51,7 @@ U4  Protocol implementation gap — a concrete class inherits from a Protocol
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 from pathlib import Path
 
 from custodian.audit_kit.detector import (
@@ -63,6 +64,20 @@ from custodian.audit_kit.detector import (
 
 _MAX_SAMPLES = 8
 _NEEDS = frozenset({"ast_forest"})
+_STUB_SCAN_CACHE: dict[int, "_StubFileInfo"] = {}
+
+
+@dataclass(frozen=True)
+class _StubFunctionInfo:
+    node: ast.FunctionDef | ast.AsyncFunctionDef
+    container: ast.ClassDef | None
+
+
+@dataclass(frozen=True)
+class _StubFileInfo:
+    protocol_names: set[str]
+    except_fn_ids: set[int]
+    functions: list[_StubFunctionInfo]
 
 
 def build_stub_detectors() -> list[Detector]:
@@ -154,49 +169,49 @@ def _import_aliases(tree: ast.Module) -> dict[str, str]:
 
 
 def _protocol_classes(tree: ast.Module) -> set[str]:
-    """Return names of Protocol-subclassing classes in this module."""
-    names: set[str] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ClassDef):
-            continue
-        for base in node.bases:
-            base_name = None
-            if isinstance(base, ast.Name):
-                base_name = base.id
-            elif isinstance(base, ast.Attribute):
-                base_name = base.attr
-            if base_name == "Protocol":
-                names.add(node.name)
-    return names
+    return _stub_file_info(tree).protocol_names
 
 
-def _except_handler_functions(tree: ast.Module) -> set[int]:
-    """Return ids of FunctionDef nodes that live inside except-handler bodies.
+def _stub_file_info(tree: ast.Module) -> _StubFileInfo:
+    cached = _STUB_SCAN_CACHE.get(id(tree))
+    if cached is not None:
+        return cached
 
-    try/except fallback stubs (e.g. ``except ImportError: class Foo: def add():...``)
-    are intentional no-ops, not unfinished implementations.
-    """
-    ids: set[int] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ExceptHandler):
-            continue
-        for child in ast.walk(ast.Module(body=node.body, type_ignores=[])):
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                ids.add(id(child))
-    return ids
+    protocol_names: set[str] = set()
+    except_fn_ids: set[int] = set()
+    functions: list[_StubFunctionInfo] = []
+    class_by_child_id: dict[int, ast.ClassDef] = {}
 
-
-def _containing_class(
-    func: ast.FunctionDef | ast.AsyncFunctionDef,
-    tree: ast.Module,
-) -> ast.ClassDef | None:
-    """Return the ClassDef that directly contains func, or None."""
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
+            for base in node.bases:
+                base_name = None
+                if isinstance(base, ast.Name):
+                    base_name = base.id
+                elif isinstance(base, ast.Attribute):
+                    base_name = base.attr
+                if base_name == "Protocol":
+                    protocol_names.add(node.name)
             for item in node.body:
-                if item is func:
-                    return node
-    return None
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    class_by_child_id[id(item)] = node
+        elif isinstance(node, ast.ExceptHandler):
+            for child in ast.walk(ast.Module(body=node.body, type_ignores=[])):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    except_fn_ids.add(id(child))
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            functions.append(_StubFunctionInfo(node=node, container=None))
+
+    info = _StubFileInfo(
+        protocol_names=protocol_names,
+        except_fn_ids=except_fn_ids,
+        functions=[
+            _StubFunctionInfo(node=fn.node, container=class_by_child_id.get(id(fn.node)))
+            for fn in functions
+        ],
+    )
+    _STUB_SCAN_CACHE[id(tree)] = info
+    return info
 
 
 def _sample(
@@ -236,18 +251,16 @@ def _scan_functions(
     for path, tree, _src in context.graph.ast_forest.items():
         if str(path) in excluded_paths:
             continue
-        protocol_names = _protocol_classes(tree)
-        except_fn_ids = _except_handler_functions(tree)
+        file_info = _stub_file_info(tree)
 
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
+        for function_info in file_info.functions:
+            node = function_info.node
             if _has_decorator(node, "abstractmethod", "overload"):
                 continue
-            if id(node) in except_fn_ids:
+            if id(node) in file_info.except_fn_ids:
                 continue
-            container = _containing_class(node, tree)
-            if container and container.name in protocol_names:
+            container = function_info.container
+            if container and container.name in file_info.protocol_names:
                 continue
             if predicate(node, container):
                 count += 1
