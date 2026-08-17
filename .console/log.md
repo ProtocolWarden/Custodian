@@ -1,3 +1,18 @@
+## 2026-08-17 — docs(links): console-reconciliation reference pointed at a local path
+
+Found by an ecosystem-wide documentation link sweep.
+
+`docs/design/detector_disposition_matrix.md` linked
+`../architecture/console-reconciliation.md` as though the document were local.
+It never existed in this repo's history — it lives in PlatformManifest. Repointed
+at the sibling checkout (`../../../PlatformManifest/docs/architecture/...`),
+matching the cross-repo relative convention used elsewhere in the ecosystem, and
+verified to resolve.
+
+Committed on `main`, deliberately: the working checkout was on
+`fix/isolate-ambient-env-in-tests` (open PR #74), and an unrelated docs fix must
+not ride that branch.
+
 # Log
 
 _Chronological continuity log. Decisions, stop points, what changed and why._

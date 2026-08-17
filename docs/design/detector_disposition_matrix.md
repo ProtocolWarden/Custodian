@@ -209,7 +209,7 @@ but non-blocking rather than silently producing nothing.
 ## R-class — `.console/` Reconciliation Gate (2 detectors)
 
 Layer A of the `.console/` reconciliation design
-([../architecture/console-reconciliation.md](../architecture/console-reconciliation.md),
+([PlatformManifest/docs/architecture/console-reconciliation.md](../../../PlatformManifest/docs/architecture/console-reconciliation.md),
 spec §2). Always-on, cheap detectors that stop operator `.console/`
 workspaces from re-accumulating two problems silently: unbounded growth
 (RC1) and private-name leakage into public tracked files (RC2). Module:
