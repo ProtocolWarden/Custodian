@@ -1,3 +1,43 @@
+## 2026-08-17 — feat(detectors): K5 — broken relative documentation links
+
+Added to the K-class (documentation consistency) in `audit_kit/detectors/docs.py`.
+`build_docs_detectors()` is already wired into `cli/runner.py` and `cli/doctor.py`,
+so no registry change was needed.
+
+**Why here rather than a script.** The ecosystem documentation sweep on 2026-08-17
+used a one-off bash link checker run from OperationsCenter. Copying that script into
+16 repos would be 16 copies to maintain; Custodian already runs against every repo,
+so the check belongs here.
+
+**Checks every relative target, not just `.md`.** This is the load-bearing design
+decision and it is empirical: the hand-rolled checker was markdown-only, and it
+missed that six cross-repo references in one PlatformManifest file were broken by
+an off-by-one in relative depth — only the single `.md` one surfaced, while the
+`.py` and test paths stayed silently wrong. Running K5 across the ecosystem
+immediately turned up 3 further findings the manual sweep had missed, all `.yaml`
+targets in ContextLifecycle's `docs/adopting.md`.
+
+**Deliberately not flagged**, each for a reason learned from a real false positive:
+  * external links (http/https/mailto/ftp) and pure `#anchors`;
+  * targets containing `<` — `<repo_id>_contract.md` style template placeholders,
+    which produced 2 false positives in the manual OperationsCenter sweep;
+  * targets resolving OUTSIDE the repo root. A link into a sibling checkout cannot
+    be verified in CI, where siblings are absent, and PlatformManifest has nine
+    that intentionally point at a private repo. Flagging them would make the
+    detector fire differently on every machine. This does mean the PlatformManifest
+    depth bug would not have been caught by K5 — accepted: a detector that is wrong
+    in CI is worse than one with a known blind spot.
+  * `history/`, `audits/`, `archive/`, `plans/`, `changelog` — inherited from the
+    existing `_doc_files()` helper. History is a graveyard by design; its links rot
+    intentionally.
+
+Severity LOW, matching K1–K4. Config: `audit.exclude_paths.K5`.
+
+Validation: 27 new tests; full suite 1259 passed / 5 skipped; `ruff check src`
+(the gate CI runs) clean. Run against 8 ecosystem repos, K5 reproduced the manual
+sweep exactly — OperationsCenter 7, PlatformDeployment 1, and 0 for the two repos
+whose links were fixed earlier today — plus the 3 new ContextLifecycle findings.
+
 ## 2026-08-17 — docs(links): console-reconciliation reference pointed at a local path
 
 Found by an ecosystem-wide documentation link sweep.

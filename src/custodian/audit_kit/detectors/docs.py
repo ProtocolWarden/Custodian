@@ -35,6 +35,30 @@ K4  Docstring parameter type drift — a Google-style ``Args:`` entry
     ``X | None``, ``List[X]`` ↔ ``list[X]``, etc.
 
     Configure ``audit.exclude_paths.K4`` to skip files.
+
+K5  Broken relative documentation link — a markdown link whose target is a
+    repo-relative path that does not exist as a file or directory. Catches
+    both halves of link rot: a document that moved without its inbound links
+    being updated, and a link written to a document that was planned but
+    never authored.
+
+    Checks EVERY relative target, not only ``.md`` ones. A markdown-only
+    check is a trap: in a real sweep of this ecosystem, six cross-repo
+    references in one file were broken by an off-by-one in the relative
+    depth, and only the single ``.md`` one surfaced — the ``.py`` and test
+    paths stayed silently wrong.
+
+    Deliberately NOT flagged:
+      * external links (``http``, ``https``, ``mailto:``) — not our business;
+      * pure anchors (``#section``);
+      * targets containing ``<`` — template placeholders such as
+        ``<repo_id>_contract.md``, which are illustrative, not links;
+      * targets that resolve OUTSIDE the repo root. A link into a sibling
+        checkout cannot be verified in CI, where siblings are not present,
+        and some intentionally point at private repos. Flagging them would
+        make the detector fire on every machine with a different layout.
+
+    Configure ``audit.exclude_paths.K5`` to skip files.
 """
 from __future__ import annotations
 
@@ -63,6 +87,8 @@ def build_docs_detectors() -> list[Detector]:
                  detect_k3, LOW),
         Detector("K4", "docstring Args type does not match signature annotation (type drift)", "open",
                  detect_k4, LOW),
+        Detector("K5", "doc link points at a repo-relative path that does not exist (broken link)", "open",
+                 detect_k5, LOW),
     ]
 
 
@@ -560,5 +586,97 @@ def detect_k4(context: AuditContext) -> DetectorResult:
                             f"docstring `{pname}` typed `{doc_type}` "
                             f"but signature says `{sig_type}`"
                         )
+
+    return DetectorResult(count=count, samples=samples)
+
+
+# ── K5: broken relative documentation links ──────────────────────────────────
+
+# Inline markdown link: ](target) or ](target "title"). Reference-style
+# definitions ([label]: target) are matched separately below.
+_MD_LINK_RE = re.compile(r"\]\(\s*([^)\s]+)(?:\s+[\"'][^\"']*[\"'])?\s*\)")
+_MD_REFDEF_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(\S+)")
+
+_EXTERNAL_PREFIXES = ("http://", "https://", "mailto:", "ftp://", "//", "tel:")
+
+
+def _link_targets(text: str) -> list[tuple[int, str]]:
+    """Return ``(line_number, raw_target)`` for every markdown link in ``text``."""
+    out: list[tuple[int, str]] = []
+    for i, line in enumerate(text.splitlines(), 1):
+        for m in _MD_LINK_RE.finditer(line):
+            out.append((i, m.group(1)))
+        rm = _MD_REFDEF_RE.match(line)
+        if rm:
+            out.append((i, rm.group(1)))
+    return out
+
+
+def _is_checkable(target: str) -> bool:
+    """True when ``target`` is a relative path we can verify on disk."""
+    if not target:
+        return False
+    low = target.lower()
+    if low.startswith(_EXTERNAL_PREFIXES):
+        return False
+    if target.startswith("#"):
+        return False          # pure anchor — nothing on disk to check
+    # Template placeholder (`<repo_id>_contract.md`) — illustrative, not a link.
+    return "<" not in target
+
+
+def detect_k5(context: AuditContext) -> DetectorResult:
+    """Flag markdown links whose repo-relative target does not exist.
+
+    Resolves each link against the directory of the file containing it and
+    reports the ones that match neither a file nor a directory. Targets that
+    escape the repository root are skipped — a link into a sibling checkout
+    is unverifiable in CI and would otherwise fire on every machine whose
+    workspace layout differs.
+
+    Exclude files via ``audit.exclude_paths.K5``.
+    """
+    audit_cfg = context.config.get("audit") or {}
+    globs: list[str] = list((audit_cfg.get("exclude_paths") or {}).get("K5") or [])
+
+    try:
+        repo_root = context.repo_root.resolve()
+    except OSError:
+        repo_root = context.repo_root
+
+    samples: list[str] = []
+    count = 0
+
+    for path in _doc_files(context.repo_root, audit_cfg):
+        rel = path.relative_to(context.repo_root).as_posix()
+        if globs:
+            from custodian.audit_kit.code_health import _glob_to_regex
+            if any(_glob_to_regex(g).match(rel) for g in globs):
+                continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+
+        for lineno, raw in _link_targets(text):
+            if not _is_checkable(raw):
+                continue
+            target = raw.split("#", 1)[0].strip()
+            if not target:
+                continue                       # was "file.md#anchor" -> anchor only
+            target = target.replace("%20", " ")
+            candidate = path.parent / target
+            try:
+                resolved = candidate.resolve()
+            except OSError:
+                continue
+            # Outside the repo (sibling checkout / private repo) — unverifiable.
+            if not resolved.is_relative_to(repo_root):
+                continue
+            if candidate.exists():
+                continue
+            count += 1
+            if len(samples) < _MAX_SAMPLES:
+                samples.append(f"{rel}:{lineno}: link target does not exist — `{raw}`")
 
     return DetectorResult(count=count, samples=samples)
