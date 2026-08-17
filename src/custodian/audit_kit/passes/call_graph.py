@@ -96,7 +96,6 @@ def _collect_usages_only(tree: ast.Module, cg: CallGraph) -> None:
                     cg.constructed_names.add(base.id)
                 elif isinstance(base, ast.Attribute):
                     cg.constructed_names.add(base.attr)
-    for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             func = node.func
             if isinstance(func, ast.Name):
@@ -121,6 +120,12 @@ def _collect_usages_only(tree: ast.Module, cg: CallGraph) -> None:
                     cg.constructed_names.add(kw.value.id)
                 if kw.arg:  # keyword arg name — Model(field=value) records "field"
                     cg.kw_arg_names.add(kw.arg)
+            if (
+                isinstance(func, ast.Attribute)
+                and func.attr.startswith("model_validate")
+                and isinstance(func.value, ast.Name)
+            ):
+                cg.model_validate_classes.add(func.value.id)
         if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load):
             cg.accessed_attrs.add(node.attr)
             # ClassName.method(...) or EnumClass.MEMBER — treat as "class is in active use"
@@ -128,16 +133,6 @@ def _collect_usages_only(tree: ast.Module, cg: CallGraph) -> None:
                 cg.constructed_names.add(node.value.id)
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             cg.called_names.add(node.id)
-    # ClassName.model_validate*(...) — deserialized from external data; all fields are schema fields
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            func = node.func
-            if (
-                isinstance(func, ast.Attribute)
-                and func.attr.startswith("model_validate")
-                and isinstance(func.value, ast.Name)
-            ):
-                cg.model_validate_classes.add(func.value.id)
 
 
 def _collect_from_module(tree: ast.Module, cg: CallGraph) -> None:
